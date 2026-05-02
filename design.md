@@ -1,79 +1,80 @@
-# Scatter Design
+# Scatter 设计文档
 
-Last updated: 2026-05-02
+更新时间：2026-05-02
 
-This document captures the current project shape as a baseline. It should be treated as a living design note and updated as the product changes.
+这份文档记录当前项目的产品形态、技术结构和已知边界，先作为后续迭代的基线。以后功能变化时直接在这里继续改。
 
-## Product Intent
+## 产品定位
 
-Scatter is a local-first multimodal task canvas for composing structured Codex work. A user selects a local project folder, creates task nodes on a canvas, attaches images or files, connects nodes into flows, previews the generated Markdown, and sends either one node or a downstream flow into Codex Desktop.
+Scatter 是一个本地优先的多模态任务画布，用来把零散任务节点、文件、图片和节点关系整理成结构化上下文，再发送给 Codex Desktop 执行。
 
-Core goals:
+当前核心目标：
 
-- Keep the user's project and attachments local.
-- Make task context visible as editable canvas nodes.
-- Preserve relationships between tasks through directed edges.
-- Generate predictable Markdown that Codex can execute from the selected project folder.
-- Support both direct execution and plan-first execution.
+- 以本地文件夹作为项目，不把项目数据放到云端。
+- 用可编辑画布节点承载任务提示词、附件和执行意图。
+- 用有向连线表达任务之间的上下游关系。
+- 根据当前节点生成稳定、可预览、可复制的 Markdown。
+- 支持“只运行当前节点”和“运行当前节点及子节点”两种范围。
+- 支持计划模式，让 Codex 先出计划再等待确认。
 
-## Current User Experience
+## 当前用户流程
 
-The app starts on a welcome screen when no project is open. The user can create or open a local folder and can reopen recent projects.
+未打开项目时，应用显示欢迎页。用户可以选择或创建一个本地文件夹作为 Scatter 项目，也可以从最近项目列表重新打开。
 
-Once a project is open, the main workspace has four areas:
+打开项目后，主界面包含四块：
 
-- Sidebar: project actions, recent local projects, and light/dark theme toggle.
-- Topbar: active project name, task count, save status, add-node action, task drawer, Markdown preview, and export.
-- Canvas: React Flow workspace with draggable task nodes, directed connections, minimap, controls, and dotted background.
-- Right drawer: task list or generated Markdown preview.
+- 左侧栏：新建项目、打开项目、最近项目列表、深浅色切换。
+- 顶部栏：项目名、任务数量、保存状态、新建节点、任务清单、Markdown 预览、导出。
+- 画布：基于 React Flow 的任务节点画布，支持拖拽节点、连线、缩放、迷你地图和控制器。
+- 右侧抽屉：任务清单或 Markdown 预览。
 
-Each task node contains:
+任务节点当前包含：
 
-- Editable title.
-- Editable prompt body.
-- Attachments with image previews or file chips.
-- A plan-mode switch.
-- A run-mode selector for current node only or current node plus downstream children.
-- A run button that sends context to Codex.
+- 可编辑标题。
+- 可编辑任务正文。
+- 附件列表，图片显示缩略图，文件显示文件项。
+- 计划模式开关。
+- 运行模式选择：运行该节点及子节点，或仅运行该节点。
+- 发送到 Codex 的运行按钮。
 
-Supported attachment entry points:
+附件入口：
 
-- File upload from a node.
-- Drag and drop onto the app.
-- Clipboard image paste.
-- Clipboard file paste.
-- Plain text paste into the selected or newly created node.
+- 节点内选择文件上传。
+- 文件拖拽到应用。
+- 粘贴剪贴板图片。
+- 粘贴剪贴板文件。
+- 粘贴纯文本到当前节点或自动创建的新节点。
 
-## Architecture
+## 技术架构
 
-Scatter is an Electron app built with Electron Vite, React, TypeScript, Zustand, and React Flow.
+Scatter 是一个 Electron 桌面应用，使用 Electron Vite、React、TypeScript、Zustand 和 React Flow。
 
-Runtime layers:
+运行层次：
 
-- Main process: owns windows, project persistence, filesystem access, clipboard file/image handling, and Codex launch/proxy integration.
-- Preload script: exposes a typed `window.scatter` IPC facade to the renderer.
-- Renderer: owns canvas UI, local UI state, node editing, Markdown preview, and user interactions.
-- Shared types: define the persisted document, nodes, edges, attachments, and Codex run input/output contracts.
+- Main process：负责窗口、IPC、项目持久化、文件系统访问、剪贴板附件处理和 Codex 集成。
+- Preload：通过 `contextBridge` 暴露受控的 `window.scatter` API。
+- Renderer：负责画布 UI、节点编辑、本地交互状态、Markdown 预览和用户操作。
+- Shared types：定义 main、preload、renderer 共用的数据结构。
 
-Important files:
+关键文件：
 
-- `src/main/index.ts`: Electron window creation and IPC handlers.
-- `src/main/projectStore.ts`: project folder initialization, `.scatter` persistence, attachment storage, recent project storage.
-- `src/main/codexBridge.ts`: Codex Desktop startup, app-server proxy flow, URL fallback, and AppleScript paste fallback.
-- `src/preload/index.ts`: safe renderer API bridge.
-- `src/shared/types.ts`: cross-process data contracts.
-- `src/renderer/src/App.tsx`: main React application orchestration.
-- `src/renderer/src/store/scatterStore.ts`: Zustand state store.
-- `src/renderer/src/lib/markdown.ts`: Scatter document to Codex Markdown conversion.
-- `src/renderer/src/components/TaskNode.tsx`: editable canvas node.
-- `src/renderer/src/components/Sidebar.tsx`: project navigation.
-- `src/renderer/src/components/Topbar.tsx`: workspace actions.
-- `src/renderer/src/components/RightDrawer.tsx`: task list and Markdown preview.
-- `src/renderer/src/styles/app.css`: design tokens, layout, node styling, drawer styling, and theme variables.
+- `src/main/index.ts`：Electron 窗口创建和 IPC handler 注册。
+- `src/main/projectStore.ts`：项目初始化、`.scatter` 存储、附件保存、最近项目列表。
+- `src/main/codexBridge.ts`：Codex Desktop 启动、app-server proxy 调用、URL fallback、AppleScript 粘贴 fallback。
+- `src/preload/index.ts`：Renderer 可调用的安全 API。
+- `src/shared/types.ts`：跨进程数据契约。
+- `src/renderer/src/App.tsx`：Renderer 主应用编排。
+- `src/renderer/src/store/scatterStore.ts`：Zustand 状态和状态修改方法。
+- `src/renderer/src/lib/markdown.ts`：把节点和连线转换成 Codex Markdown。
+- `src/renderer/src/components/TaskNode.tsx`：画布任务节点。
+- `src/renderer/src/components/Sidebar.tsx`：项目导航侧栏。
+- `src/renderer/src/components/Topbar.tsx`：工作区顶部操作栏。
+- `src/renderer/src/components/RightDrawer.tsx`：任务清单和 Markdown 预览抽屉。
+- `src/renderer/src/styles/app.css`：设计 token、布局、节点样式、抽屉样式和主题变量。
 
-## Data Model
+## 数据模型
 
-Projects are ordinary local folders. Scatter stores project metadata inside the selected folder:
+Scatter 项目就是用户选择的普通本地文件夹。Scatter 自己的数据放在项目目录的 `.scatter` 下：
 
 ```text
 <project>/
@@ -83,117 +84,119 @@ Projects are ordinary local folders. Scatter stores project metadata inside the 
       <uuid>-<sanitized-name>.<ext>
 ```
 
-`scatter.json` stores a `ScatterDocument`:
+`scatter.json` 保存 `ScatterDocument`：
 
-- `version`: currently `1`.
-- `projectName`: derived from the folder name unless set in the document.
-- `updatedAt`: ISO timestamp updated on save.
-- `viewport`: declared in the schema, currently written as `{ x: 0, y: 0, zoom: 1 }`.
-- `nodes`: task nodes.
-- `edges`: directed source-to-target links.
+- `version`：当前为 `1`。
+- `projectName`：默认来自项目文件夹名。
+- `updatedAt`：保存时更新的 ISO 时间。
+- `viewport`：已在 schema 中声明，目前保存为 `{ x: 0, y: 0, zoom: 1 }`。
+- `nodes`：任务节点。
+- `edges`：有向连线。
 
-Each node stores:
+每个节点保存：
 
-- `id`, `type`, and canvas `position`.
-- Optional `width`, `height`, and `selected`.
-- `data.title`.
-- `data.body`.
-- `data.attachments`.
-- `data.planMode`.
-- `data.runMode`.
-- Optional `data.lastRunAt`.
+- `id`、`type`、画布 `position`。
+- 可选 `width`、`height`、`selected`。
+- `data.title`：标题。
+- `data.body`：提示词正文。
+- `data.attachments`：附件。
+- `data.planMode`：计划模式。
+- `data.runMode`：运行范围。
+- 可选 `data.lastRunAt`。
 
-Each attachment stores:
+每个附件保存：
 
-- Original name, MIME type, size, source, and creation time.
-- Absolute stored path.
-- Relative `.scatter/assets/...` path.
-- File URL for renderer previews.
-- Kind: `image` or `file`.
+- 原始文件名、MIME、大小、来源、创建时间。
+- 存储后的绝对路径。
+- 相对 `.scatter/assets/...` 路径。
+- Renderer 预览使用的 file URL。
+- 类型：`image` 或 `file`。
 
-Recent projects are stored in Electron `userData` as `recent-projects.json` and capped to 24 entries.
+最近项目列表保存在 Electron `userData/recent-projects.json` 中，最多保留 24 个。
 
-## Persistence
+## 持久化逻辑
 
-Project opening creates `.scatter/scatter.json` and `.scatter/assets` when needed.
+打开或创建项目时，`projectStore.ts` 会确保 `.scatter/scatter.json` 和 `.scatter/assets` 存在。
 
-Document saves are debounced in the renderer by 550 ms after node or edge changes. Saves are performed through IPC in the main process.
+Renderer 中节点或连线变化后会触发 550ms 防抖保存，通过 IPC 调用 main process 写入 `scatter.json`。
 
-Attachments are copied into `.scatter/assets` and referenced from nodes. Clipboard images are encoded as PNG. Clipboard file URLs are read from macOS-compatible clipboard formats when available.
+附件会复制到 `.scatter/assets` 后再挂到节点上。剪贴板图片会转为 PNG；剪贴板文件会尽量从 macOS 文件 URL 相关格式中读取。
 
-Current persistence limitations:
+当前限制：
 
-- React Flow viewport is not yet saved back into the document.
-- Attachment deletion or cleanup is not implemented.
-- Edge labels exist in the shared type but are not currently editable in the UI.
+- React Flow 视口还没有真正保存和恢复。
+- 还没有附件删除和无用 asset 清理。
+- `ScatterEdge` 有 `label` 字段，但 UI 里还不能编辑连线标签。
 
-## Markdown Generation
+## Markdown 生成
 
-`buildMarkdown` converts the selected execution scope into a structured prompt.
+`buildMarkdown` 负责把当前执行范围转成 Codex 可读的 Markdown。
 
-Run modes:
+运行模式：
 
-- `flow`: include the selected node and all downstream nodes reachable through outgoing edges.
-- `node`: include only the selected node.
+- `flow`：包含当前节点和所有下游子节点。
+- `node`：只包含当前节点。
 
-Ordering rules:
+排序规则：
 
-- Start from the selected node.
-- Traverse outgoing edges.
-- Sort sibling children by canvas `y` position, then `x` position.
-- If cycles are detected, include a warning in the Markdown.
+- 从当前节点开始遍历。
+- 沿 source -> target 的出边向下游走。
+- 同级子节点按画布 `y` 坐标排序，再按 `x` 坐标排序。
+- 如果发现环，会在 Markdown 中加入警告。
 
-The generated Markdown includes:
+生成的 Markdown 包含：
 
-- Task title.
-- Project name and project path.
-- Run mode and plan-mode status.
-- Included node blocks with prompt text and attachments.
-- Connection map.
-- Full attachment list with relative and absolute paths.
+- Scatter task 标题。
+- 项目名和项目路径。
+- 运行模式和计划模式状态。
+- 每个包含节点的标题、节点 ID、提示词、附件。
+- 当前范围内的连接关系。
+- 所有附件的相对路径和绝对路径。
 
-Image attachments are also passed to Codex as local image inputs when using the desktop proxy path.
+通过 Codex desktop proxy 路径发送时，图片附件的绝对路径也会作为 local image input 一起传给 Codex。
 
-## Codex Integration
+## Codex 集成
 
-Running a node starts Codex for the selected project path and then tries two paths:
+运行节点时，Scatter 会先为当前项目路径启动 Codex，然后尝试两条路径。
 
-1. Desktop proxy path:
-   - Use `/Applications/Codex.app/Contents/Resources/codex` when available, otherwise `codex`.
-   - Connect to the Codex app-server proxy through the default control socket.
-   - Initialize a Scatter client.
-   - Start a Codex thread with the project folder as `cwd`.
-   - Set the thread name.
-   - Send text plus local image paths as the first turn.
-   - Open the resulting `codex://threads/<id>` URL.
+第一条是 desktop proxy：
 
-2. Desktop UI fallback:
-   - Open `codex://threads/new?path=<projectPath>`.
-   - Copy the generated Markdown to the clipboard.
-   - Use AppleScript to paste and submit in Codex.
+- 优先使用 `/Applications/Codex.app/Contents/Resources/codex`，否则使用 PATH 中的 `codex`。
+- 通过默认 control socket 连接 `codex app-server proxy`。
+- 初始化 Scatter client。
+- 以项目文件夹作为 `cwd` 创建 Codex thread。
+- 设置 thread 名称。
+- 发送 Markdown 文本和本地图片路径。
+- 打开 `codex://threads/<id>`。
 
-Plan mode prepends a Chinese instruction asking Codex to first produce a clear plan and wait for user confirmation before execution.
+第二条是 UI fallback：
 
-The proxy path currently asks Codex for:
+- 打开 `codex://threads/new?path=<projectPath>`。
+- 把 Markdown 写入剪贴板。
+- 用 AppleScript 在 Codex 中粘贴并提交。
 
-- `approvalPolicy`: `on-request`.
-- Sandbox: `workspace-write`.
-- `cwd`: selected project folder.
+计划模式会在 Markdown 前追加中文指令，要求 Codex 先给出清晰计划并等待用户确认。
 
-## Visual Design
+desktop proxy 当前使用：
 
-Scatter currently uses a quiet desktop-tool interface:
+- `approvalPolicy`: `on-request`
+- sandbox: `workspace-write`
+- `cwd`: 当前项目路径
 
-- Neutral canvas and surface colors.
-- Compact controls and task nodes.
-- Tokenized CSS variables for light and dark themes.
-- Blue primary actions.
-- Local system font stack with Chinese font fallbacks.
-- Minimum app size of 1040 x 720.
+## 视觉设计
 
-The interface favors dense, repeatable work over a marketing-style layout. Task nodes are the main visual object, while sidebars and drawers stay secondary.
+当前界面是偏工具型的本地桌面应用：
 
-## Development Commands
+- 中性色画布和面板。
+- 紧凑控件与任务节点。
+- 通过 CSS 变量管理浅色和深色主题。
+- 主操作使用蓝色。
+- 字体使用系统字体栈，并包含中文字体 fallback。
+- 应用最小尺寸为 1040 x 720。
+
+整体方向是高密度、可重复使用、偏工作台，而不是营销页或展示页。任务节点是主要视觉对象，侧栏和抽屉承担辅助信息。
+
+## 开发命令
 
 ```bash
 npm run dev
@@ -202,13 +205,13 @@ npm run build
 npm run preview
 ```
 
-The build command runs TypeScript checking before the Electron Vite build.
+`npm run build` 会先运行 TypeScript 检查，再执行 Electron Vite build。
 
-## Known Follow-ups
+## 已知后续项
 
-- Persist and restore React Flow viewport.
-- Add node/edge deletion affordances if not already covered by React Flow defaults.
-- Add attachment removal and asset garbage collection.
-- Improve Markdown preview status when a flow contains a cycle.
-- Decide whether `design.md` should evolve into product spec, architecture spec, or both.
-- Add tests around Markdown flow traversal and project persistence.
+- 保存和恢复 React Flow viewport。
+- 明确节点和连线删除交互。
+- 增加附件移除和 asset 垃圾清理。
+- 环形 flow 的 UI 提示可以更明显。
+- 决定 `design.md` 后续偏产品规格、架构规格，还是两者合并。
+- 为 Markdown 遍历和 project persistence 增加自动化测试。

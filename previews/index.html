@@ -1,0 +1,3920 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scatter Component Previews</title>
+    <style>
+      :root {
+        --color-text: #333333;
+        --color-text-subtle: #7d7d7d;
+        --color-text-subtlest: #a3a3a3;
+        --color-inverted: #ffffff;
+        --color-icon: #7d7d7d;
+        --color-border-divider: #ebebeb;
+        --color-border-focus: #525252;
+        --color-disabled: #c2c2c2;
+        --color-primary: #0862fd;
+        --color-primary-subtle: #edf3fd;
+        --color-negative: #e51a50;
+        --color-negative-subtle: #fbebef;
+        --color-positive: #27855c;
+        --color-positive-subtle: #e7f7f0;
+        --color-background-surface: #ffffff;
+        --color-background-sunken: #f5f5f5;
+        --color-background-canvas: #f7f7f7;
+        --color-background-input: #f5f5f5;
+        --color-background-input-hover: #ebebeb;
+        --color-background-grey: #e0e0e0;
+        --color-background-dark: #1f1f1f;
+        --color-background-dark-hover: #333333;
+        --color-background-disabled: #f9f9f9;
+        --color-interaction: rgba(18, 18, 23, 0.04);
+        --color-shadow-sm: rgba(18, 18, 23, 0.1);
+        --color-shadow-md-spread: rgba(18, 18, 23, 0.04);
+        --color-shadow-md-primeter: rgba(18, 18, 23, 0.08);
+        --color-shadow-lg-spread: rgba(18, 18, 23, 0.06);
+        --color-shadow-lg-primeter: rgba(18, 18, 23, 0.14);
+        --radius-xs: 6px;
+        --radius-sm: 9px;
+        --radius-md: 12px;
+        --radius-lg: 18px;
+        --radius-full: 99999px;
+        --font-family-local: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--color-background-canvas);
+        color: var(--color-text);
+        font-family: var(--font-family-local);
+      }
+
+      .preview-page {
+        width: min(1280px, 100%);
+        margin: 0 auto;
+        padding: 40px 32px;
+      }
+
+      .page-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--color-border-divider);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 24px;
+        line-height: 32px;
+        font-weight: 600;
+      }
+
+      .page-header p,
+      .component-meta,
+      .panel-title span {
+        color: var(--color-text-subtle);
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .component-section {
+        display: grid;
+        gap: 16px;
+        padding: 28px 0;
+        border-bottom: 1px solid var(--color-border-divider);
+      }
+
+      .component-heading {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      h2 {
+        font-size: 18px;
+        line-height: 26px;
+        font-weight: 600;
+      }
+
+      .preview-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .button-preview-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-panel {
+        display: grid;
+        align-content: start;
+        gap: 16px;
+        min-height: 220px;
+        padding: 16px;
+        border: 1px solid var(--color-border-divider);
+        border-radius: var(--radius-md);
+        background: var(--color-background-surface);
+      }
+
+      .project-icon {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        background: center / contain no-repeat var(--icon-url);
+      }
+
+      .panel-title {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      h3 {
+        font-size: 14px;
+        line-height: 22px;
+        font-weight: 600;
+      }
+
+      .figma-bounds {
+        width: 235px;
+        height: 128px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 8px;
+        padding: 18px 20px;
+        border: 1px dashed #8b5cf6;
+        border-radius: 4px;
+        background: #ffffff;
+      }
+
+      .interactive-stage {
+        min-height: 128px;
+        display: grid;
+        place-items: center start;
+        padding: 18px 20px;
+      }
+
+      .action-menu-item {
+        width: 195px;
+        min-height: 32px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 6px 5px 8px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--color-text);
+        font: inherit;
+        text-align: left;
+        cursor: default;
+      }
+
+      button.action-menu-item {
+        cursor: pointer;
+      }
+
+      .action-menu-item.is-hover,
+      button.action-menu-item:hover,
+      button.action-menu-item:focus-visible {
+        outline: none;
+        background: var(--color-interaction);
+      }
+
+      .action-menu-item-content {
+        min-width: 0;
+        flex: 1 1 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .action-menu-item-icon {
+        --icon-url: url("../src/renderer/src/assets/icons/icon/work-with-apps.svg");
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        color: var(--color-icon);
+        background: center / contain no-repeat var(--icon-url);
+      }
+
+      .action-menu-item-label {
+        min-width: 0;
+        flex: 1 1 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 14px;
+        line-height: 22px;
+        font-weight: 400;
+        letter-spacing: 0;
+      }
+
+      .action-menu-item-shortcut {
+        min-height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px 4px;
+        border-radius: var(--radius-xs);
+        background: var(--color-background-surface);
+        box-shadow: 0 2px 6px var(--color-shadow-sm);
+        color: var(--color-text-subtle);
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 400;
+        letter-spacing: 0;
+        white-space: nowrap;
+      }
+
+      button.action-menu-item .action-menu-item-shortcut {
+        opacity: 0;
+      }
+
+      button.action-menu-item:hover .action-menu-item-shortcut,
+      button.action-menu-item:focus-visible .action-menu-item-shortcut {
+        opacity: 1;
+      }
+
+      .dropdown-menu-item {
+        display: flex;
+        width: 180px;
+        min-height: 36px;
+        align-items: center;
+        gap: 12px;
+        padding: 7px 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--color-text);
+        font: inherit;
+        text-align: left;
+      }
+
+      button.dropdown-menu-item {
+        cursor: pointer;
+      }
+
+      .dropdown-menu-item.is-hover,
+      button.dropdown-menu-item:hover,
+      button.dropdown-menu-item:focus-visible {
+        outline: none;
+        background: var(--color-interaction);
+      }
+
+      .dropdown-menu-item-content {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 0;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .dropdown-menu-item-label {
+        min-width: 0;
+        flex: 1 1 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 14px;
+        line-height: 22px;
+        font-weight: 400;
+      }
+
+      .dropdown-menu-item-icon,
+      .dropdown-menu-item-check {
+        --icon-url: url("../src/renderer/src/assets/icons/icon/agent.svg");
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        color: var(--color-icon);
+        background: center / contain no-repeat var(--icon-url);
+      }
+
+      .dropdown-menu-item-check {
+        --icon-url: url("../src/renderer/src/assets/icons/icon/check-md.svg");
+        color: var(--color-text);
+      }
+
+      .dropdown-menu-item-icon:has(img) {
+        background: none;
+      }
+
+      .dropdown-menu-item-icon img {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
+
+      .dropdown-menu {
+        width: 170px;
+        padding: 4px;
+        border: 1px solid var(--color-border-divider);
+        border-radius: var(--radius-md);
+        background: var(--color-background-surface);
+        box-shadow:
+          0 12px 48px var(--color-shadow-lg-primeter),
+          0 4px 24px var(--color-shadow-lg-spread);
+      }
+
+      .dropdown-menu .dropdown-menu-item {
+        width: 100%;
+      }
+
+      .dropdown-menu-demo {
+        display: grid;
+        align-content: start;
+        justify-items: start;
+        gap: 8px;
+      }
+
+      .dropdown-menu-popover {
+        display: none;
+      }
+
+      .dropdown-menu-popover.is-open {
+        display: block;
+      }
+
+      .dropdown-trigger-state-row {
+        display: grid;
+        grid-template-columns: 88px repeat(4, minmax(92px, max-content));
+        align-items: center;
+        gap: 12px 20px;
+      }
+
+      .dropdown-trigger {
+        display: inline-flex;
+        width: max-content;
+        align-items: center;
+        gap: 4px;
+        border: 0;
+        background: transparent;
+        color: var(--color-text-subtle);
+        font: inherit;
+        font-size: 14px;
+        line-height: 22px;
+        font-weight: 400;
+        white-space: nowrap;
+      }
+
+      .dropdown-trigger.size-lg {
+        padding: 5px 8px;
+        border-radius: var(--radius-md);
+      }
+
+      .dropdown-trigger.size-sm {
+        padding: 1px 6px;
+        border-radius: var(--radius-xs);
+      }
+
+      .dropdown-trigger.has-value {
+        color: var(--color-text);
+      }
+
+      .dropdown-trigger.is-hover,
+      button.dropdown-trigger:hover,
+      button.dropdown-trigger:focus-visible {
+        outline: none;
+        background: var(--color-interaction);
+      }
+
+      button.dropdown-trigger {
+        cursor: pointer;
+      }
+
+      .dropdown-trigger-icon {
+        --icon-url: url("../src/renderer/src/assets/icons/icon/chevron-down-md.svg");
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        color: currentColor;
+        background: center / contain no-repeat var(--icon-url);
+      }
+
+      .select-state-row {
+        display: grid;
+        grid-template-columns: 88px repeat(5, 200px);
+        align-items: center;
+        justify-content: start;
+        gap: 12px;
+      }
+
+      .preview-select {
+        display: inline-flex;
+        width: 200px;
+        align-items: center;
+        gap: 12px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: var(--color-background-input);
+        color: #a3a3a3;
+        font: inherit;
+        font-size: 14px;
+        line-height: 22px;
+        font-weight: 400;
+        text-align: left;
+      }
+
+      .preview-select.size-lg {
+        padding: 5px 12px;
+      }
+
+      .preview-select.size-sm {
+        padding: 3px 10px;
+      }
+
+      .preview-select.is-hover,
+      .preview-select.is-focus,
+      button.preview-select:hover,
+      button.preview-select:focus-visible {
+        outline: none;
+        background: var(--color-background-input-hover);
+      }
+
+      .preview-select.is-filled {
+        color: var(--color-text);
+      }
+
+      .preview-select.is-disabled,
+      button.preview-select:disabled,
+      button.preview-select:disabled:hover,
+      button.preview-select:disabled:focus-visible {
+        background: var(--color-background-disabled);
+        color: var(--color-disabled);
+        cursor: not-allowed;
+      }
+
+      button.preview-select:not(:disabled) {
+        cursor: pointer;
+      }
+
+      .preview-select-label {
+        min-width: 0;
+        flex: 1 1 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .preview-select-chevron {
+        --icon-url: url("../src/renderer/src/assets/icons/icon/chevron-down-md.svg");
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        color: currentColor;
+        background: center / contain no-repeat var(--icon-url);
+      }
+
+      .select-demo {
+        position: relative;
+        display: grid;
+        align-content: start;
+        justify-items: start;
+        gap: 8px;
+        min-height: 180px;
+      }
+
+      .select-menu {
+        display: none;
+        width: 200px;
+      }
+
+      .select-menu.is-open {
+        display: block;
+      }
+
+      .button-state-matrix {
+        display: grid;
+        gap: 18px;
+      }
+
+      .button-state-row {
+        display: grid;
+        grid-template-columns: 88px repeat(9, minmax(72px, max-content));
+        align-items: center;
+        gap: 10px 20px;
+      }
+
+      .button-state-label,
+      .button-column-label {
+        color: var(--color-text-subtle);
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .button-column-label {
+        text-align: center;
+      }
+
+      .preview-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--color-text);
+        font-family: var(--font-family-local);
+        font-size: 14px;
+        line-height: 22px;
+        font-weight: 500;
+        letter-spacing: 0;
+        white-space: nowrap;
+      }
+
+      .preview-button.size-lg {
+        padding: 11px 20px;
+      }
+
+      .preview-button.size-md {
+        padding: 7px 14px;
+      }
+
+      .preview-button.size-sm {
+        padding: 5px 14px;
+      }
+
+      .preview-button.is-filled {
+        background: #1f1f1f;
+        color: #ffffff;
+      }
+
+      .preview-button.is-filled.is-hover,
+      button.preview-button.is-filled:hover,
+      button.preview-button.is-filled:focus-visible {
+        background: #333333;
+      }
+
+      .preview-button.is-filled.is-alert {
+        background: #e51a50;
+        color: #ffffff;
+      }
+
+      .preview-button.is-filled.is-alert.is-hover,
+      button.preview-button.is-filled.is-alert:hover,
+      button.preview-button.is-filled.is-alert:focus-visible {
+        background: #af0a36;
+      }
+
+      .preview-button.is-outline.is-hover,
+      button.preview-button.is-outline:hover,
+      button.preview-button.is-outline:focus-visible {
+        background: var(--color-interaction);
+      }
+
+      .preview-button.is-outline.is-alert {
+        color: #e51a50;
+      }
+
+      .preview-button.is-outline.is-alert.is-hover,
+      button.preview-button.is-outline.is-alert:hover,
+      button.preview-button.is-outline.is-alert:focus-visible {
+        color: #af0a36;
+      }
+
+      button.preview-button:not(:disabled) {
+        cursor: pointer;
+      }
+
+      button.preview-button:focus-visible {
+        outline: none;
+      }
+
+      .preview-button.is-filled.is-disabled,
+      .preview-button.is-filled.is-disabled.is-alert,
+      .preview-button.is-filled.is-disabled.is-hover,
+      .preview-button.is-filled.is-disabled:hover,
+      button.preview-button.is-filled:disabled,
+      button.preview-button.is-filled:disabled:hover,
+      button.preview-button.is-filled:disabled:focus-visible {
+        background: #f9f9f9;
+        color: #c2c2c2;
+        cursor: not-allowed;
+      }
+
+      .preview-button.is-outline.is-disabled,
+      .preview-button.is-outline.is-disabled.is-alert,
+      .preview-button.is-outline.is-disabled.is-hover,
+      .preview-button.is-outline.is-disabled:hover,
+      button.preview-button.is-outline:disabled,
+      button.preview-button.is-outline:disabled:hover,
+      button.preview-button.is-outline:disabled:focus-visible {
+        background: transparent;
+        color: #c2c2c2;
+        cursor: not-allowed;
+      }
+
+      .button-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .button-controls label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--color-text-subtle);
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .button-controls select {
+        height: 28px;
+        border: 1px solid var(--color-border-divider);
+        border-radius: var(--radius-xs);
+        background: #ffffff;
+        color: var(--color-text);
+        font: inherit;
+        font-size: 12px;
+      }
+
+      .icon-button-state-row {
+        display: grid;
+        grid-template-columns: 88px repeat(9, minmax(52px, max-content));
+        align-items: center;
+        gap: 10px 24px;
+      }
+
+      .preview-icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        justify-self: center;
+        align-self: center;
+        width: max-content;
+        border: 0;
+        background: transparent;
+        color: var(--color-text);
+        line-height: 0;
+      }
+
+      .preview-icon-button.size-lg {
+        padding: 8px;
+        border-radius: var(--radius-md);
+      }
+
+      .preview-icon-button.size-md {
+        padding: 4px;
+        border-radius: var(--radius-sm);
+      }
+
+      .preview-icon-button.size-sm {
+        padding: 2px;
+        border-radius: var(--radius-xs);
+      }
+
+      .preview-icon-button.is-filled {
+        background: #1f1f1f;
+        color: #ffffff;
+      }
+
+      .preview-icon-button.is-filled.is-hover,
+      button.preview-icon-button.is-filled:hover,
+      button.preview-icon-button.is-filled:focus-visible {
+        background: #333333;
+      }
+
+      .preview-icon-button.is-outline.is-hover,
+      button.preview-icon-button.is-outline:hover,
+      button.preview-icon-button.is-outline:focus-visible {
+        background: var(--color-interaction);
+      }
+
+      .preview-icon-button.is-filled.is-disabled,
+      .preview-icon-button.is-filled.is-disabled.is-hover,
+      .preview-icon-button.is-filled.is-disabled:hover,
+      button.preview-icon-button.is-filled:disabled,
+      button.preview-icon-button.is-filled:disabled:hover,
+      button.preview-icon-button.is-filled:disabled:focus-visible {
+        background: #f9f9f9;
+        color: #c2c2c2;
+        cursor: not-allowed;
+      }
+
+      .preview-icon-button.is-outline.is-disabled,
+      .preview-icon-button.is-outline.is-disabled.is-hover,
+      .preview-icon-button.is-outline.is-disabled:hover,
+      button.preview-icon-button.is-outline:disabled,
+      button.preview-icon-button.is-outline:disabled:hover,
+      button.preview-icon-button.is-outline:disabled:focus-visible {
+        background: transparent;
+        color: #c2c2c2;
+        cursor: not-allowed;
+      }
+
+      button.preview-icon-button:not(:disabled) {
+        cursor: pointer;
+      }
+
+      button.preview-icon-button:focus-visible {
+        outline: none;
+      }
+
+      .preview-x-icon {
+        width: 16px;
+        height: 16px;
+        display: block;
+        color: currentColor;
+      }
+
+      .preview-x-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .toolbar-item-state-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(80px, max-content));
+        align-items: center;
+        gap: 12px 20px;
+      }
+
+      .preview-toolbar-item {
+        display: inline-flex;
+        width: 32px;
+        height: 32px;
+        align-items: center;
+        justify-content: center;
+        justify-self: center;
+        padding: 6px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--color-icon);
+        cursor: default;
+      }
+
+      button.preview-toolbar-item {
+        cursor: pointer;
+      }
+
+      .preview-toolbar-item.is-hover,
+      button.preview-toolbar-item:hover,
+      button.preview-toolbar-item:focus-visible {
+        outline: none;
+        background: var(--color-interaction);
+      }
+
+      .preview-toolbar-item.is-selected,
+      .preview-toolbar-item.is-selected.is-hover,
+      button.preview-toolbar-item.is-selected:hover,
+      button.preview-toolbar-item.is-selected:focus-visible {
+        background: var(--color-primary-subtle);
+        color: var(--color-primary);
+      }
+
+      .preview-toolbar-item.is-disabled,
+      .preview-toolbar-item.is-disabled:hover,
+      button.preview-toolbar-item:disabled,
+      button.preview-toolbar-item:disabled:hover,
+      button.preview-toolbar-item:disabled:focus-visible {
+        background: transparent;
+        color: var(--color-disabled);
+        cursor: not-allowed;
+      }
+
+      .preview-toolbar-icon {
+        width: 20px;
+        height: 20px;
+        color: currentColor;
+      }
+
+      .preview-toolbar-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .upload-chip-state-grid {
+        display: grid;
+        grid-template-columns: repeat(2, max-content);
+        align-items: center;
+        gap: 16px 16px;
+      }
+
+      .preview-upload-chip {
+        display: inline-flex;
+        width: max-content;
+        max-width: 100%;
+        align-items: center;
+        justify-self: start;
+        gap: 6px;
+        padding: 5px 12px 5px 6px;
+        border: 1px solid var(--color-border-divider);
+        border-radius: var(--radius-md);
+        background: var(--color-background-surface);
+        color: var(--color-text);
+        font-size: 14px;
+        line-height: 22px;
+      }
+
+      .preview-upload-chip:has(.preview-upload-chip-remove) {
+        padding-right: 6px;
+      }
+
+      .preview-upload-chip.is-clickable {
+        cursor: pointer;
+      }
+
+      .preview-upload-chip.is-clickable:focus-visible {
+        outline: 1px solid #525252;
+        outline-offset: 2px;
+      }
+
+      .preview-upload-chip-file-icon,
+      .preview-upload-chip-thumbnail {
+        display: inline-flex;
+        width: 20px;
+        height: 20px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border-radius: var(--radius-xs);
+      }
+
+      .preview-upload-chip-file-icon {
+        color: var(--color-icon);
+        background: #f5f5f5;
+      }
+
+      .preview-upload-chip-file-icon svg {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
+
+      .preview-upload-chip-thumbnail {
+        border: 1px solid var(--color-border-divider);
+        background:
+          radial-gradient(circle at 38% 32%, #314c2e 0 10%, transparent 11%),
+          radial-gradient(circle at 54% 38%, #27361d 0 13%, transparent 14%),
+          linear-gradient(135deg, #d9c7a4 0%, #9cc4cf 42%, #557f55 100%);
+      }
+
+      .preview-upload-chip-thumbnail img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .preview-upload-chip-thumbnail-empty {
+        width: 100%;
+        height: 100%;
+        background:
+          radial-gradient(circle at 38% 32%, #314c2e 0 10%, transparent 11%),
+          radial-gradient(circle at 54% 38%, #27361d 0 13%, transparent 14%),
+          linear-gradient(135deg, #d9c7a4 0%, #9cc4cf 42%, #557f55 100%);
+      }
+
+      .preview-upload-chip-label {
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .preview-upload-chip-remove {
+        display: inline-flex;
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        opacity: 0;
+        border: 0;
+        background: transparent;
+        color: var(--color-icon);
+        pointer-events: none;
+        transition: opacity 120ms ease;
+      }
+
+      .preview-upload-chip.is-hover .preview-upload-chip-remove,
+      .preview-upload-chip:has(.preview-upload-chip-remove:focus-visible) .preview-upload-chip-remove,
+      .preview-upload-chip:hover .preview-upload-chip-remove {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .preview-upload-chip-remove svg {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
+
+      .preview-cell {
+        display: flex;
+        width: 366px;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0;
+      }
+
+      .preview-cell-content {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 0;
+        flex-direction: column;
+        gap: 2px;
+        font-size: 14px;
+        line-height: 22px;
+      }
+
+      .preview-cell-heading,
+      .preview-cell-description {
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .preview-cell-heading {
+        color: var(--color-text);
+      }
+
+      .preview-cell-description {
+        color: #a3a3a3;
+      }
+
+      .preview-cell-action {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+      }
+
+      .preview-cell .preview-select {
+        width: 120px;
+      }
+
+      .project-item-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 320px);
+        gap: 20px 38px;
+      }
+
+      .preview-project-item {
+        display: flex;
+        width: 320px;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 10px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--color-text);
+        font: inherit;
+        text-align: left;
+      }
+
+      .preview-project-item.is-hover,
+      .preview-project-item.is-selected,
+      button.preview-project-item:hover,
+      button.preview-project-item:focus-visible {
+        outline: none;
+        background: var(--color-interaction);
+      }
+
+      .preview-project-leading {
+        position: relative;
+        display: inline-flex;
+        width: 16px;
+        min-height: 38px;
+        flex: 0 0 auto;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 3px;
+        color: var(--color-icon);
+      }
+
+      .preview-project-icon {
+        width: 16px;
+        height: 16px;
+        color: currentColor;
+      }
+
+      .preview-project-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .preview-project-badge {
+        position: absolute;
+        top: 3px;
+        right: -2px;
+        width: 6px;
+        height: 6px;
+        border-radius: 99999px;
+        background: var(--color-primary);
+      }
+
+      .preview-project-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid color-mix(in srgb, var(--color-icon) 22%, transparent);
+        border-top-color: var(--color-icon);
+        border-radius: 99999px;
+        animation: toast-spin 750ms linear infinite;
+      }
+
+      .preview-project-content {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 0;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .preview-project-name,
+      .preview-project-path {
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .preview-project-name {
+        color: var(--color-text);
+        font-size: 14px;
+        line-height: 22px;
+      }
+
+      .preview-project-path {
+        color: #a3a3a3;
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .preview-project-archive {
+        display: inline-flex;
+        width: 20px;
+        height: 20px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        padding: 2px;
+        opacity: 0;
+        color: var(--color-icon);
+        border-radius: var(--radius-xs);
+        pointer-events: none;
+      }
+
+      .preview-project-item.is-hover .preview-project-archive,
+      .preview-project-item:hover .preview-project-archive,
+      .preview-project-item:focus-visible .preview-project-archive {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .preview-project-archive:hover,
+      .preview-project-archive:focus-visible,
+      .preview-project-archive.is-hover {
+        background: var(--color-interaction);
+      }
+
+      .preview-project-archive svg {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
+
+      .task-item-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 320px);
+        gap: 20px 38px;
+      }
+
+      .preview-task-item {
+        display: flex;
+        width: 320px;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--color-text);
+        font: inherit;
+        text-align: left;
+      }
+
+      .preview-task-leading {
+        display: inline-flex;
+        width: 16px;
+        min-height: 38px;
+        flex: 0 0 auto;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 3px;
+        color: var(--color-icon);
+      }
+
+      .preview-task-icon {
+        width: 16px;
+        height: 16px;
+        color: currentColor;
+      }
+
+      .preview-task-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .preview-task-icon img,
+      .preview-task-action img {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .preview-task-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid color-mix(in srgb, var(--color-icon) 22%, transparent);
+        border-top-color: var(--color-icon);
+        border-radius: 99999px;
+        animation: toast-spin 750ms linear infinite;
+      }
+
+      .preview-task-content {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 0;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .preview-task-name,
+      .preview-task-meta {
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .preview-task-name {
+        color: var(--color-text);
+        font-size: 14px;
+        line-height: 22px;
+      }
+
+      .preview-task-meta {
+        color: #a3a3a3;
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .preview-task-actions {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 8px;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .preview-task-item.is-hover .preview-task-actions,
+      .preview-task-item:hover .preview-task-actions,
+      .preview-task-item:focus-visible .preview-task-actions {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .preview-task-action {
+        display: inline-flex;
+        width: 20px;
+        height: 20px;
+        align-items: center;
+        justify-content: center;
+        padding: 2px;
+        color: var(--color-icon);
+        border-radius: var(--radius-xs);
+      }
+
+      .preview-task-action:hover,
+      .preview-task-action:focus-visible,
+      .preview-task-action.is-hover {
+        background: var(--color-interaction);
+      }
+
+      .preview-task-action svg {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
+
+      .canvas-node-state-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 400px);
+        gap: 24px;
+        align-items: start;
+      }
+
+      .preview-canvas-node {
+        position: relative;
+        display: flex;
+        width: 400px;
+        flex-direction: column;
+        border-radius: var(--radius-lg, 18px);
+        background: var(--color-background-sunken, #f5f5f5);
+        box-shadow: 0 2px 6px var(--color-shadow-sm);
+      }
+
+      .preview-canvas-node.is-hover,
+      .preview-canvas-node:hover,
+      .preview-canvas-node:focus-within {
+        box-shadow: 0 8px 24px var(--color-shadow-md-primeter), 0 4px 10px var(--color-shadow-md-spread);
+      }
+
+      .preview-canvas-node-heading {
+        display: flex;
+        min-height: 40px;
+        align-items: center;
+        gap: 12px;
+        padding: 4px 8px 4px 16px;
+      }
+
+      .preview-canvas-node-title {
+        min-width: 0;
+        flex: 1 1 0;
+        overflow: hidden;
+        color: var(--color-text);
+        font-size: 14px;
+        line-height: 22px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .preview-canvas-node-actions,
+      .preview-canvas-node-footer-row,
+      .preview-canvas-node-settings {
+        display: inline-flex;
+        align-items: center;
+      }
+
+      .preview-canvas-node-actions {
+        flex: 0 0 auto;
+      }
+
+      .preview-canvas-node-menu-picker {
+        position: relative;
+        display: inline-flex;
+      }
+
+      .preview-canvas-node-actions-menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        z-index: 10;
+        width: 170px;
+        box-shadow:
+          0 12px 24px var(--color-shadow-lg-primeter),
+          0 4px 12px var(--color-shadow-lg-spread);
+      }
+
+      .preview-canvas-node-icon-button,
+      .preview-canvas-node-submit,
+      .preview-canvas-node-side {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        color: var(--color-icon);
+        background: transparent;
+        line-height: 0;
+      }
+
+      .preview-canvas-node-icon-button {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-md, 12px);
+      }
+
+      .preview-canvas-node-icon-button:hover,
+      .preview-canvas-node-icon-button:focus-visible {
+        outline: none;
+        background: var(--color-interaction);
+      }
+
+      .preview-canvas-node-icon-button img,
+      .preview-canvas-node-icon-button svg,
+      .preview-canvas-node-submit svg,
+      .preview-canvas-node-submit img {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
+
+      .preview-canvas-node-body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--color-border-divider, #ebebeb);
+        border-radius: var(--radius-lg, 18px);
+        background: var(--color-background-surface, #ffffff);
+      }
+
+      .preview-canvas-node.is-selected .preview-canvas-node-body {
+        border-color: var(--color-border-focus, #525252);
+      }
+
+      .preview-canvas-node-prompt {
+        min-height: 96px;
+        color: var(--color-text-subtlest);
+        font-size: 14px;
+        line-height: 22px;
+        white-space: pre-wrap;
+      }
+
+      .preview-canvas-node.is-filled .preview-canvas-node-prompt {
+        color: var(--color-text);
+      }
+
+      .preview-canvas-node-uploads {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .preview-canvas-node-footer {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 120ms ease;
+      }
+
+      .preview-canvas-node.is-hover .preview-canvas-node-footer,
+      .preview-canvas-node:hover .preview-canvas-node-footer,
+      .preview-canvas-node:focus-within .preview-canvas-node-footer,
+      .preview-canvas-node.is-selected .preview-canvas-node-footer {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .preview-canvas-node-divider {
+        height: 1px;
+        background: var(--color-border-divider, #ebebeb);
+      }
+
+      .preview-canvas-node-footer-row {
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .preview-canvas-node-settings {
+        gap: 12px;
+      }
+
+      .preview-canvas-node-effort-picker {
+        position: relative;
+        display: inline-flex;
+      }
+
+      .preview-canvas-node-effort-menu {
+        position: absolute;
+        left: 0;
+        bottom: calc(100% + 4px);
+        z-index: 10;
+        width: 96px;
+      }
+
+      .preview-canvas-node-plan-label {
+        color: var(--color-text-subtle);
+        font-size: 14px;
+        line-height: 22px;
+        white-space: nowrap;
+      }
+
+      .preview-canvas-node-vertical-divider {
+        width: 1px;
+        height: 16px;
+        background: var(--color-border-divider, #ebebeb);
+      }
+
+      .preview-canvas-node-submit {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-md, 12px);
+        background: var(--color-background-disabled, #f9f9f9);
+        color: var(--color-disabled);
+        cursor: not-allowed;
+      }
+
+      .preview-canvas-node-side {
+        position: absolute;
+        top: 50%;
+        width: 20px;
+        height: 20px;
+        opacity: 0;
+        padding: 2px;
+        border-radius: var(--radius-xs, 6px);
+        color: var(--color-inverted);
+        background: var(--color-background-dark);
+        pointer-events: none;
+        transform: translateY(-50%);
+      }
+
+      .preview-canvas-node-side svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .preview-canvas-node-side img {
+        width: 16px;
+        height: 16px;
+        display: block;
+        filter: brightness(0) invert(1);
+      }
+
+      .preview-canvas-node-side-left {
+        left: -10px;
+      }
+
+      .preview-canvas-node-side-right {
+        right: -10px;
+      }
+
+      .preview-canvas-node.is-hover .preview-canvas-node-side,
+      .preview-canvas-node:hover .preview-canvas-node-side,
+      .preview-canvas-node:focus-within .preview-canvas-node-side {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .preview-canvas-node-side:hover,
+      .preview-canvas-node-side:focus-visible {
+        outline: none;
+        background: var(--color-background-dark-hover);
+      }
+
+      .segmented-state-row {
+        display: grid;
+        grid-template-columns: 88px repeat(4, minmax(48px, max-content));
+        align-items: center;
+        gap: 12px 24px;
+      }
+
+      .segmented {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 0;
+        padding: 4px;
+        border-radius: var(--radius-md);
+        background: #f5f5f5;
+        overflow: hidden;
+      }
+
+      .segmented-thumb {
+        position: absolute;
+        left: 4px;
+        top: 4px;
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-sm);
+        background: var(--color-background-surface);
+        box-shadow: 0 2px 6px var(--color-shadow-sm);
+        transition: transform 180ms ease;
+        pointer-events: none;
+      }
+
+      .segmented-item {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        width: 28px;
+        height: 28px;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--color-text);
+      }
+
+      button.segmented-item {
+        cursor: pointer;
+      }
+
+      .segmented-item.is-hover,
+      button.segmented-item:hover,
+      button.segmented-item:focus-visible {
+        outline: none;
+        background: var(--color-interaction);
+      }
+
+      .segmented-item.is-selected,
+      .segmented-item.is-selected.is-hover,
+      button.segmented-item.is-selected,
+      button.segmented-item.is-selected:hover,
+      button.segmented-item.is-selected:focus-visible {
+        background: var(--color-background-surface);
+        box-shadow: 0 2px 6px var(--color-shadow-sm);
+      }
+
+      #segmented-preview .segmented-item.is-selected,
+      #segmented-preview .segmented-item.is-selected:hover,
+      #segmented-preview .segmented-item.is-selected:focus-visible {
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .segmented-icon {
+        --icon-url: url("../src/renderer/src/assets/icons/icon/marker-code.svg");
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        color: currentColor;
+        background: center / contain no-repeat var(--icon-url);
+      }
+
+      .segmented-icon.list {
+        --icon-url: url("../src/renderer/src/assets/icons/icon/emoji-lists.svg");
+      }
+
+      .segmented-icon.grid {
+        --icon-url: url("../src/renderer/src/assets/icons/icon/category.svg");
+      }
+
+      .toast-stack {
+        display: grid;
+        align-content: start;
+        gap: 12px;
+      }
+
+      .preview-toast {
+        display: inline-flex;
+        width: max-content;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: var(--radius-md);
+        background: linear-gradient(90deg, var(--toast-accent, var(--color-primary-subtle)), var(--color-background-surface));
+        box-shadow:
+          0 8px 24px var(--color-shadow-md-primeter),
+          0 4px 10px var(--color-shadow-md-spread);
+        color: var(--color-text);
+      }
+
+      .preview-toast.info,
+      .preview-toast.loading {
+        --toast-accent: var(--color-primary-subtle);
+        --toast-icon: var(--color-primary);
+      }
+
+      .preview-toast.negative {
+        --toast-accent: var(--color-negative-subtle);
+        --toast-icon: var(--color-negative);
+      }
+
+      .preview-toast.positive {
+        --toast-accent: var(--color-positive-subtle);
+        --toast-icon: var(--color-positive);
+      }
+
+      .toast-icon,
+      .toast-spinner,
+      .toast-close-icon {
+        position: relative;
+        width: 20px;
+        height: 20px;
+        flex: 0 0 auto;
+        color: var(--toast-icon);
+      }
+
+      .toast-close-icon {
+        width: 16px;
+        height: 16px;
+        color: var(--color-icon);
+      }
+
+      .toast-icon {
+        color: var(--toast-icon);
+      }
+
+      .toast-icon svg,
+      .toast-close-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .toast-message {
+        font-size: 14px;
+        line-height: 22px;
+        font-weight: 400;
+        white-space: nowrap;
+      }
+
+      .toast-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px;
+        border: 0;
+        border-radius: var(--radius-xs);
+        background: transparent;
+        color: var(--color-icon);
+        cursor: pointer;
+      }
+
+      .toast-close:hover,
+      .toast-close:focus-visible {
+        outline: none;
+        background: var(--color-interaction);
+      }
+
+      .toast-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
+        border-top-color: var(--color-primary);
+        border-radius: 999px;
+        animation: toast-spin 750ms linear infinite;
+      }
+
+      @keyframes toast-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .toast-overlay {
+        position: fixed;
+        z-index: 50;
+        top: 20px;
+        left: 50%;
+        display: none;
+        transform: translateX(-50%);
+      }
+
+      .toast-overlay.is-visible {
+        display: block;
+      }
+
+      .icon-button-demo-viewport {
+        position: relative;
+        height: 180px;
+        overflow: hidden;
+        border: 1px dashed #d8d8d8;
+        border-radius: var(--radius-md);
+        background: #ffffff;
+      }
+
+      .icon-button-trigger {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      .icon-button-floating-tooltip {
+        position: absolute;
+        z-index: 3;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .icon-button-demo-viewport:has(.icon-button-trigger:hover) .icon-button-floating-tooltip,
+      .icon-button-demo-viewport:has(.icon-button-trigger:focus-visible) .icon-button-floating-tooltip,
+      .icon-button-floating-tooltip.is-visible {
+        opacity: 1;
+      }
+
+      .checkbox-state-row {
+        display: grid;
+        grid-template-columns: 88px repeat(3, minmax(80px, max-content));
+        align-items: center;
+        gap: 14px 28px;
+      }
+
+      .preview-checkbox {
+        position: relative;
+        display: inline-flex;
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        justify-self: center;
+        border: 2px solid #b8b8b8;
+        border-radius: var(--radius-xs);
+        background: #f5f5f5;
+        color: transparent;
+        overflow: hidden;
+        transition:
+          background 140ms ease,
+          border-color 140ms ease,
+          color 140ms ease;
+      }
+
+      button.preview-checkbox {
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .preview-checkbox.is-hover,
+      button.preview-checkbox:hover,
+      button.preview-checkbox:focus-visible {
+        outline: none;
+      }
+
+      .preview-checkbox.is-selected {
+        border-color: transparent;
+        background: #1f1f1f;
+        color: #ffffff;
+      }
+
+      .preview-checkbox.is-selected.is-hover,
+      button.preview-checkbox.is-selected:hover,
+      button.preview-checkbox.is-selected:focus-visible {
+        background: #333333;
+      }
+
+      .preview-checkbox.is-disabled,
+      .preview-checkbox.is-disabled.is-hover,
+      button.preview-checkbox:disabled,
+      button.preview-checkbox:disabled:hover,
+      button.preview-checkbox:disabled:focus-visible {
+        border-color: #ebebeb;
+        background: #f9f9f9;
+        color: transparent;
+        cursor: not-allowed;
+      }
+
+      .preview-checkbox.is-selected.is-disabled,
+      .preview-checkbox.is-selected.is-disabled.is-hover,
+      button.preview-checkbox.is-selected:disabled,
+      button.preview-checkbox.is-selected:disabled:hover,
+      button.preview-checkbox.is-selected:disabled:focus-visible {
+        border-color: #ebebeb;
+        background: #f9f9f9;
+        color: #c2c2c2;
+        cursor: not-allowed;
+      }
+
+      .preview-checkbox::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 8px;
+        height: 6px;
+        background: currentColor;
+        clip-path: polygon(39% 67%, 74% 16%, 86% 24%, 44% 84%, 17% 58%, 28% 47%);
+        transform: translate(-50%, -50%);
+      }
+
+      .preview-checkbox.is-animated::before {
+        display: none;
+      }
+
+      .preview-checkbox-check {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 8px;
+        height: 6px;
+        color: currentColor;
+        overflow: visible;
+        transform: translate(-50%, -50%);
+      }
+
+      .preview-checkbox-check path {
+        opacity: 0;
+        stroke-dasharray: 10;
+        stroke-dashoffset: 10;
+        transition:
+          opacity 80ms ease 90ms,
+          stroke-dashoffset 180ms ease 110ms;
+      }
+
+      .preview-checkbox.is-selected .preview-checkbox-check path {
+        opacity: 1;
+        stroke-dashoffset: 0;
+      }
+
+      .toggle-state-row {
+        display: grid;
+        grid-template-columns: 88px repeat(2, minmax(80px, max-content));
+        align-items: center;
+        gap: 16px 28px;
+      }
+
+      .preview-toggle {
+        display: inline-flex;
+        width: 40px;
+        height: 24px;
+        align-items: center;
+        justify-content: flex-start;
+        justify-self: center;
+        padding: 4px;
+        border: 0;
+        border-radius: 99999px;
+        background: var(--color-background-grey);
+        cursor: default;
+        transition: background 160ms ease;
+      }
+
+      button.preview-toggle {
+        cursor: pointer;
+      }
+
+      .preview-toggle.is-selected {
+        background: var(--color-primary);
+      }
+
+      .preview-toggle.is-disabled,
+      .preview-toggle.is-disabled:hover,
+      button.preview-toggle:disabled,
+      button.preview-toggle:disabled:hover,
+      button.preview-toggle:disabled:focus-visible {
+        background: var(--color-background-disabled);
+        cursor: not-allowed;
+      }
+
+      .preview-toggle.is-selected.is-disabled,
+      .preview-toggle.is-selected.is-disabled:hover,
+      button.preview-toggle.is-selected:disabled,
+      button.preview-toggle.is-selected:disabled:hover,
+      button.preview-toggle.is-selected:disabled:focus-visible {
+        background: var(--color-primary-subtle);
+      }
+
+      .preview-toggle:focus-visible {
+        outline: none;
+      }
+
+      .preview-toggle-handle {
+        display: block;
+        width: 16px;
+        height: 16px;
+        border-radius: 99999px;
+        background: var(--color-background-surface);
+        box-shadow: 0 2px 6px var(--color-shadow-sm);
+        transform: translateX(0);
+        transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      .preview-toggle.is-selected .preview-toggle-handle {
+        transform: translateX(16px);
+      }
+
+      .checkbox-interactive-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--color-text);
+        font-size: 14px;
+        line-height: 22px;
+      }
+
+      .tooltip-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .preview-tooltip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border: 1px solid var(--color-border-divider);
+        border-radius: var(--radius-sm);
+        background: var(--color-background-surface);
+        color: var(--color-text);
+        font-size: 14px;
+        line-height: 22px;
+        font-weight: 400;
+        letter-spacing: 0;
+        white-space: nowrap;
+      }
+
+      .preview-tooltip.has-shortcut {
+        padding-right: 3px;
+      }
+
+      .tooltip-shortcut {
+        display: inline-flex;
+        min-height: 20px;
+        align-items: center;
+        justify-content: center;
+        padding: 2px 4px;
+        border-radius: var(--radius-xs);
+        background: #f5f5f5;
+        color: var(--color-text-subtle);
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 400;
+      }
+
+      .tooltip-demo-viewport {
+        position: relative;
+        height: 280px;
+        overflow: hidden;
+        border: 1px dashed #d8d8d8;
+        border-radius: var(--radius-md);
+        background:
+          linear-gradient(90deg, rgba(18, 18, 23, 0.04) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(18, 18, 23, 0.04) 1px, transparent 1px),
+          #ffffff;
+        background-size: 32px 32px;
+      }
+
+      .tooltip-trigger {
+        position: absolute;
+        z-index: 2;
+      }
+
+      .tooltip-floating {
+        position: absolute;
+        z-index: 3;
+        pointer-events: none;
+      }
+
+      .tooltip-demo-viewport[data-trigger="center"] .tooltip-trigger {
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      .tooltip-demo-viewport[data-trigger="top"] .tooltip-trigger {
+        left: 50%;
+        top: 8px;
+        transform: translateX(-50%);
+      }
+
+      .tooltip-demo-viewport[data-trigger="right"] .tooltip-trigger {
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+
+      .tooltip-demo-viewport[data-trigger="bottom-left"] .tooltip-trigger {
+        left: 8px;
+        bottom: 8px;
+      }
+
+      .tooltip-placement-readout {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        color: var(--color-text-subtle);
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      @media (max-width: 760px) {
+        .preview-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .button-state-row {
+          grid-template-columns: 72px repeat(3, minmax(72px, max-content));
+        }
+
+        .icon-button-state-row {
+          grid-template-columns: 72px repeat(3, minmax(52px, max-content));
+        }
+
+        .dropdown-trigger-state-row {
+          grid-template-columns: 72px repeat(2, minmax(92px, max-content));
+        }
+
+        .segmented-state-row {
+          grid-template-columns: 72px repeat(2, minmax(48px, max-content));
+        }
+
+        .select-state-row {
+          grid-template-columns: 88px repeat(5, 200px);
+        }
+
+        .button-state-row > :nth-child(n + 5) {
+          display: none;
+        }
+
+        .icon-button-state-row > :nth-child(n + 5) {
+          display: none;
+        }
+
+        .dropdown-trigger-state-row > :nth-child(n + 4) {
+          display: none;
+        }
+
+        .segmented-state-row > :nth-child(n + 4) {
+          display: none;
+        }
+
+      }
+    </style>
+  </head>
+  <body>
+    <main class="preview-page">
+      <header class="page-header">
+        <div>
+          <h1>Scatter Component Previews</h1>
+          <p>静态状态 + 交互预览。后续组件继续追加到这个页面。</p>
+        </div>
+      </header>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Action Menu Item</h2>
+            <p class="component-meta">Figma node: 244:668</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>default / hover</span>
+            </div>
+            <div class="figma-bounds">
+              <div class="action-menu-item">
+                <span class="action-menu-item-content">
+                  <span class="action-menu-item-icon" aria-hidden="true"></span>
+                  <span class="action-menu-item-label">Actions</span>
+                </span>
+              </div>
+
+              <div class="action-menu-item is-hover">
+                <span class="action-menu-item-content">
+                  <span class="action-menu-item-icon" aria-hidden="true"></span>
+                  <span class="action-menu-item-label">Actions</span>
+                </span>
+        <span class="action-menu-item-shortcut">⌘ T</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>hover / focus</span>
+            </div>
+            <div class="interactive-stage">
+              <button class="action-menu-item" type="button">
+                <span class="action-menu-item-content">
+                  <span class="action-menu-item-icon" aria-hidden="true"></span>
+                  <span class="action-menu-item-label">Actions</span>
+                </span>
+                <span class="action-menu-item-shortcut">⌘ T</span>
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Toast</h2>
+            <p class="component-meta">Figma node: 241:420</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>info / negative / positive / loading</span>
+            </div>
+            <div class="toast-stack">
+              <div class="preview-toast info">
+                <span class="toast-icon info" aria-hidden="true"></span>
+                <span class="toast-message">This is a toast message</span>
+                <button class="toast-close" type="button" aria-label="Close"><span class="toast-close-icon"></span></button>
+              </div>
+              <div class="preview-toast negative">
+                <span class="toast-icon negative" aria-hidden="true"></span>
+                <span class="toast-message">This is a toast message</span>
+                <button class="toast-close" type="button" aria-label="Close"><span class="toast-close-icon"></span></button>
+              </div>
+              <div class="preview-toast positive">
+                <span class="toast-icon positive" aria-hidden="true"></span>
+                <span class="toast-message">This is a toast message</span>
+                <button class="toast-close" type="button" aria-label="Close"><span class="toast-close-icon"></span></button>
+              </div>
+              <div class="preview-toast loading">
+                <span class="toast-spinner" aria-hidden="true"></span>
+                <span class="toast-message">This is a toast message</span>
+                <button class="toast-close" type="button" aria-label="Close"><span class="toast-close-icon"></span></button>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>top center, 20px</span>
+            </div>
+            <div class="button-controls">
+              <label>
+                Type
+                <select id="toast-type">
+                  <option value="info">information</option>
+                  <option value="loading" selected>loading</option>
+                  <option value="positive">positive</option>
+                  <option value="negative">negative</option>
+                </select>
+              </label>
+              <button id="toast-show" class="preview-button size-md is-filled" type="button">Show toast</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <div id="toast-overlay" class="toast-overlay" aria-live="polite"></div>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Segmented</h2>
+            <p class="component-meta">Figma nodes: item 244:586 / container 244:635</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Item States</h3>
+              <span>default / hover / selected</span>
+            </div>
+            <div class="button-state-matrix">
+              <div class="segmented-state-row">
+                <span></span>
+                <span class="button-column-label">selected</span>
+                <span class="button-column-label">selected hover</span>
+                <span class="button-column-label">default</span>
+                <span class="button-column-label">hover</span>
+              </div>
+              <div class="segmented-state-row">
+                <span class="button-state-label">item</span>
+                <span class="segmented-item is-selected"><span class="segmented-icon code"></span></span>
+                <span class="segmented-item is-selected is-hover"><span class="segmented-icon code"></span></span>
+                <span class="segmented-item"><span class="segmented-icon code"></span></span>
+                <span class="segmented-item is-hover"><span class="segmented-icon code"></span></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>container + items</span>
+            </div>
+            <div class="interactive-stage">
+              <div id="segmented-preview" class="segmented" role="tablist" aria-label="View mode">
+                <span id="segmented-thumb" class="segmented-thumb" aria-hidden="true"></span>
+                <button class="segmented-item is-selected" type="button" role="tab" aria-selected="true" data-segment="code" title="Code">
+                  <span class="segmented-icon code" aria-hidden="true"></span>
+                </button>
+                <button class="segmented-item" type="button" role="tab" aria-selected="false" data-segment="list" title="List">
+                  <span class="segmented-icon list" aria-hidden="true"></span>
+                </button>
+                <button class="segmented-item" type="button" role="tab" aria-selected="false" data-segment="grid" title="Grid">
+                  <span class="segmented-icon grid" aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Select</h2>
+            <p class="component-meta">Figma node: 241:341</p>
+          </div>
+        </div>
+
+        <div class="preview-grid button-preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>lg / sm</span>
+            </div>
+            <div class="button-state-matrix">
+              <div class="select-state-row">
+                <span></span>
+                <span class="button-column-label">default</span>
+                <span class="button-column-label">hover</span>
+                <span class="button-column-label">focus</span>
+                <span class="button-column-label">filled</span>
+                <span class="button-column-label">disabled</span>
+              </div>
+              <div class="select-state-row">
+                <span class="button-state-label">lg</span>
+                <span class="preview-select size-lg"><span class="preview-select-label">Select options</span><span class="preview-select-chevron"></span></span>
+                <span class="preview-select size-lg is-hover"><span class="preview-select-label">Select options</span><span class="preview-select-chevron"></span></span>
+                <span class="preview-select size-lg is-focus"><span class="preview-select-label">Select options</span><span class="preview-select-chevron"></span></span>
+                <span class="preview-select size-lg is-filled"><span class="preview-select-label">Select options</span><span class="preview-select-chevron"></span></span>
+                <span class="preview-select size-lg is-disabled"><span class="preview-select-label">Select options</span><span class="preview-select-chevron"></span></span>
+              </div>
+              <div class="select-state-row">
+                <span class="button-state-label">sm</span>
+                <span class="preview-select size-sm"><span class="preview-select-label">Select options</span><span class="preview-select-chevron"></span></span>
+                <span class="preview-select size-sm is-hover"><span class="preview-select-label">Select options</span><span class="preview-select-chevron"></span></span>
+                <span class="preview-select size-sm is-focus"><span class="preview-select-label">Select options</span><span class="preview-select-chevron"></span></span>
+                <span class="preview-select size-sm is-filled"><span class="preview-select-label">Select options</span><span class="preview-select-chevron"></span></span>
+                <span class="preview-select size-sm is-disabled"><span class="preview-select-label">Select options</span><span class="preview-select-chevron"></span></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>select + menu</span>
+            </div>
+            <div class="button-controls">
+              <label>
+                Size
+                <select id="select-size">
+                  <option value="lg">lg</option>
+                  <option value="sm" selected>sm</option>
+                </select>
+              </label>
+              <label><input id="select-disabled" type="checkbox" /> disabled</label>
+            </div>
+            <div class="select-demo">
+              <button id="select-preview" class="preview-select size-sm" type="button">
+                <span id="select-label" class="preview-select-label">Select options</span>
+                <span class="preview-select-chevron" aria-hidden="true"></span>
+              </button>
+              <div id="select-menu" class="dropdown-menu select-menu is-open">
+                <button class="dropdown-menu-item" type="button" data-select-value="Option A">
+                  <span class="dropdown-menu-item-content">
+                    <span class="dropdown-menu-item-label">Option A</span>
+                  </span>
+                </button>
+                <button class="dropdown-menu-item" type="button" data-select-value="Option B">
+                  <span class="dropdown-menu-item-content">
+                    <span class="dropdown-menu-item-label">Option B</span>
+                  </span>
+                </button>
+                <button class="dropdown-menu-item" type="button" data-select-value="Option C">
+                  <span class="dropdown-menu-item-content">
+                    <span class="dropdown-menu-item-label">Option C</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Dropdown Trigger</h2>
+            <p class="component-meta">Figma node: 244:502</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>lg / sm + value</span>
+            </div>
+            <div class="button-state-matrix">
+              <div class="dropdown-trigger-state-row">
+                <span></span>
+                <span class="button-column-label">lg empty</span>
+                <span class="button-column-label">lg value</span>
+                <span class="button-column-label">sm empty</span>
+                <span class="button-column-label">sm value</span>
+              </div>
+              <div class="dropdown-trigger-state-row">
+                <span class="button-state-label">default</span>
+                <span class="dropdown-trigger size-lg">Trigger <span class="dropdown-trigger-icon"></span></span>
+                <span class="dropdown-trigger size-lg has-value">Trigger <span class="dropdown-trigger-icon"></span></span>
+                <span class="dropdown-trigger size-sm">Trigger <span class="dropdown-trigger-icon"></span></span>
+                <span class="dropdown-trigger size-sm has-value">Trigger <span class="dropdown-trigger-icon"></span></span>
+              </div>
+              <div class="dropdown-trigger-state-row">
+                <span class="button-state-label">hover</span>
+                <span class="dropdown-trigger size-lg is-hover">Trigger <span class="dropdown-trigger-icon"></span></span>
+                <span class="dropdown-trigger size-lg has-value is-hover">Trigger <span class="dropdown-trigger-icon"></span></span>
+                <span class="dropdown-trigger size-sm is-hover">Trigger <span class="dropdown-trigger-icon"></span></span>
+                <span class="dropdown-trigger size-sm has-value is-hover">Trigger <span class="dropdown-trigger-icon"></span></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>trigger + menu</span>
+            </div>
+            <div class="dropdown-menu-demo">
+              <button id="dropdown-trigger-preview" class="dropdown-trigger size-lg" type="button">
+                <span id="dropdown-trigger-label">Trigger</span>
+                <span class="dropdown-trigger-icon" aria-hidden="true"></span>
+              </button>
+              <div id="dropdown-trigger-menu" class="dropdown-menu dropdown-menu-popover is-open">
+                <button class="dropdown-menu-item" type="button" data-trigger-option="Option A">
+                  <span class="dropdown-menu-item-content">
+                    <span class="dropdown-menu-item-label">Option A</span>
+                  </span>
+                </button>
+                <button class="dropdown-menu-item" type="button" data-trigger-option="Option B">
+                  <span class="dropdown-menu-item-content">
+                    <span class="dropdown-menu-item-label">Option B</span>
+                  </span>
+                </button>
+                <button class="dropdown-menu-item" type="button" data-trigger-option="Option C">
+                  <span class="dropdown-menu-item-content">
+                    <span class="dropdown-menu-item-label">Option C</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Dropdown Menu</h2>
+            <p class="component-meta">Figma nodes: item 241:442 / menu 241:452</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Menu Item States</h3>
+              <span>default / hover / selected / icon</span>
+            </div>
+            <div class="figma-bounds">
+              <div class="dropdown-menu-item">
+                <span class="dropdown-menu-item-content">
+                  <span class="dropdown-menu-item-label">This is an option</span>
+                </span>
+              </div>
+              <div class="dropdown-menu-item is-hover">
+                <span class="dropdown-menu-item-content">
+                  <span class="dropdown-menu-item-label">This is an option</span>
+                </span>
+              </div>
+            </div>
+            <div class="dropdown-menu-item">
+              <span class="dropdown-menu-item-content">
+                <span class="dropdown-menu-item-icon" aria-hidden="true"></span>
+                <span class="dropdown-menu-item-label">Option with icon</span>
+              </span>
+              <span class="dropdown-menu-item-check" aria-hidden="true"></span>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive Menu</h3>
+              <span>container + item</span>
+            </div>
+            <div class="dropdown-menu-demo">
+              <button id="dropdown-menu-trigger" class="preview-button size-md is-filled" type="button">Open menu</button>
+              <div id="dropdown-menu-popover" class="dropdown-menu dropdown-menu-popover is-open">
+                <button class="dropdown-menu-item" type="button">
+                  <span class="dropdown-menu-item-content">
+                    <span class="dropdown-menu-item-icon" aria-hidden="true"></span>
+                    <span class="dropdown-menu-item-label">First option</span>
+                  </span>
+                </button>
+                <button class="dropdown-menu-item is-hover" type="button">
+                  <span class="dropdown-menu-item-content">
+                    <span class="dropdown-menu-item-label">Selected option</span>
+                  </span>
+                  <span class="dropdown-menu-item-check" aria-hidden="true"></span>
+                </button>
+                <button class="dropdown-menu-item" type="button">
+                  <span class="dropdown-menu-item-content">
+                    <span class="dropdown-menu-item-label">Another option</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Task Item</h2>
+            <p class="component-meta">Figma node: 248:3545</p>
+          </div>
+        </div>
+
+        <div class="preview-grid button-preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>task / flow / loading / hover</span>
+            </div>
+            <div class="figma-bounds" style="width: 718px; height: 268px;">
+              <div class="task-item-grid">
+                <span class="preview-task-item" data-flow="false">
+                  <span class="preview-task-leading"><span class="preview-task-icon"></span></span>
+                  <span class="preview-task-content"><span class="preview-task-name">Task name</span><span class="preview-task-meta">Ready for play</span></span>
+                  <span class="preview-task-actions"><span class="preview-task-action" data-action="play"></span><span class="preview-task-action" data-action="message"></span></span>
+                </span>
+                <span class="preview-task-item" data-flow="true">
+                  <span class="preview-task-leading"><span class="preview-task-icon"></span></span>
+                  <span class="preview-task-content"><span class="preview-task-name">Task name</span><span class="preview-task-meta">3 nodes</span></span>
+                  <span class="preview-task-actions"><span class="preview-task-action" data-action="play"></span><span class="preview-task-action" data-action="message"></span></span>
+                </span>
+                <span class="preview-task-item is-hover" data-flow="false">
+                  <span class="preview-task-leading"><span class="preview-task-icon"></span></span>
+                  <span class="preview-task-content"><span class="preview-task-name">Task name</span><span class="preview-task-meta">Ready for play</span></span>
+                  <span class="preview-task-actions"><span class="preview-task-action" data-action="play"></span><span class="preview-task-action" data-action="message"></span></span>
+                </span>
+                <span class="preview-task-item is-hover" data-flow="true">
+                  <span class="preview-task-leading"><span class="preview-task-icon"></span></span>
+                  <span class="preview-task-content"><span class="preview-task-name">Task name</span><span class="preview-task-meta">3 nodes</span></span>
+                  <span class="preview-task-actions"><span class="preview-task-action" data-action="play"></span><span class="preview-task-action" data-action="message"></span></span>
+                </span>
+                <span class="preview-task-item" data-loading="true" data-flow="false">
+                  <span class="preview-task-leading"><span class="preview-task-spinner"></span></span>
+                  <span class="preview-task-content"><span class="preview-task-name">Task name</span><span class="preview-task-meta">Ready for play</span></span>
+                  <span class="preview-task-actions"><span class="preview-task-action" data-action="play"></span><span class="preview-task-action" data-action="message"></span></span>
+                </span>
+                <span class="preview-task-item" data-loading="true" data-flow="true">
+                  <span class="preview-task-leading"><span class="preview-task-spinner"></span></span>
+                  <span class="preview-task-content"><span class="preview-task-name">Task name</span><span class="preview-task-meta">3 nodes</span></span>
+                  <span class="preview-task-actions"><span class="preview-task-action" data-action="play"></span><span class="preview-task-action" data-action="message"></span></span>
+                </span>
+                <span class="preview-task-item is-hover" data-loading="true" data-flow="false">
+                  <span class="preview-task-leading"><span class="preview-task-spinner"></span></span>
+                  <span class="preview-task-content"><span class="preview-task-name">Task name</span><span class="preview-task-meta">Ready for play</span></span>
+                  <span class="preview-task-actions"><span class="preview-task-action" data-action="play"></span><span class="preview-task-action" data-action="message"></span></span>
+                </span>
+                <span class="preview-task-item is-hover" data-loading="true" data-flow="true">
+                  <span class="preview-task-leading"><span class="preview-task-spinner"></span></span>
+                  <span class="preview-task-content"><span class="preview-task-name">Task name</span><span class="preview-task-meta">3 nodes</span></span>
+                  <span class="preview-task-actions"><span class="preview-task-action" data-action="play"></span><span class="preview-task-action" data-action="message"></span></span>
+                </span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>play / message</span>
+            </div>
+            <div class="button-controls">
+              <label><input id="task-flow" type="checkbox" /> flow</label>
+              <label><input id="task-loading" type="checkbox" /> loading</label>
+            </div>
+            <button id="task-preview" class="preview-task-item" type="button">
+              <span id="task-leading" class="preview-task-leading"><span class="preview-task-icon"></span></span>
+              <span class="preview-task-content">
+                <span class="preview-task-name">Task name</span>
+                <span id="task-meta" class="preview-task-meta">Ready for play</span>
+              </span>
+              <span class="preview-task-actions"><span id="task-play" class="preview-task-action" data-action="play" role="button" tabindex="-1"></span><span id="task-message" class="preview-task-action" data-action="message" role="button" tabindex="-1"></span></span>
+            </button>
+            <p id="task-readout" class="component-meta">click: select task</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Canvas Node</h2>
+            <p class="component-meta">Figma node: 247:2227</p>
+          </div>
+        </div>
+
+        <div class="preview-grid button-preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>empty / filled / hover / selected</span>
+            </div>
+            <div class="figma-bounds" style="width: 1720px; min-height: 520px;">
+              <div id="canvas-node-state-grid" class="canvas-node-state-grid"></div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>node preview</span>
+            </div>
+            <div class="button-controls">
+              <label><input id="canvas-node-filled" type="checkbox" checked /> filled</label>
+              <label><input id="canvas-node-selected" type="checkbox" /> selected</label>
+              <label><input id="canvas-node-hover" type="checkbox" checked /> hover</label>
+              <label><input id="canvas-node-unconnected" type="checkbox" checked /> unconnected</label>
+              <label><input id="canvas-node-upload" type="checkbox" /> uploadFiles</label>
+              <label><input id="canvas-node-plan" type="checkbox" checked /> plan</label>
+            </div>
+            <span id="canvas-node-preview" class="preview-canvas-node is-filled is-hover is-unconnected" role="group" aria-label="Canvas node preview">
+              <span class="preview-canvas-node-heading">
+                <span class="preview-canvas-node-title">This is a title</span>
+                <span class="preview-canvas-node-actions"><button class="preview-canvas-node-icon-button" type="button" data-canvas-icon="canvasPlay" aria-label="Run"></button><span class="preview-canvas-node-menu-picker"><button id="canvas-node-menu-trigger" class="preview-canvas-node-icon-button" type="button" data-canvas-icon="dots" aria-label="More" aria-haspopup="menu" aria-expanded="false"></button><span id="canvas-node-actions-menu" class="dropdown-menu preview-canvas-node-actions-menu" role="menu" hidden><button class="dropdown-menu-item" type="button" data-node-menu-action="run"><span class="dropdown-menu-item-content"><span class="dropdown-menu-item-icon" aria-hidden="true"></span><span class="dropdown-menu-item-label">仅运行当前节点</span></span></button><button class="dropdown-menu-item" type="button" data-node-menu-action="copy"><span class="dropdown-menu-item-content"><span class="dropdown-menu-item-icon" aria-hidden="true"></span><span class="dropdown-menu-item-label">复制</span></span></button><button class="dropdown-menu-item" type="button" data-node-menu-action="delete"><span class="dropdown-menu-item-content"><span class="dropdown-menu-item-icon" aria-hidden="true"></span><span class="dropdown-menu-item-label">删除</span></span></button></span></span></span>
+              </span>
+              <span class="preview-canvas-node-body">
+                <span id="canvas-node-prompt" class="preview-canvas-node-prompt">Prompt and description go here...</span>
+                <span id="canvas-node-uploads" class="preview-canvas-node-uploads" hidden>
+                  <span class="preview-upload-chip"><span class="preview-upload-chip-file-icon" aria-hidden="true"></span><span class="preview-upload-chip-label">source.pdf</span><button class="preview-upload-chip-remove" type="button" aria-label="Remove"></button></span>
+                  <span class="preview-upload-chip"><span class="preview-upload-chip-thumbnail" aria-hidden="true"><span class="preview-upload-chip-thumbnail-empty"></span></span><span class="preview-upload-chip-label">screenshot.png</span><button class="preview-upload-chip-remove" type="button" aria-label="Remove"></button></span>
+                </span>
+                <span class="preview-canvas-node-footer">
+                  <span class="preview-canvas-node-divider"></span>
+                  <span class="preview-canvas-node-footer-row">
+                    <button id="canvas-node-upload-button" class="preview-canvas-node-icon-button" type="button" data-canvas-icon="plus" aria-label="Upload attachment"></button>
+                    <input id="canvas-node-file-input" type="file" multiple hidden />
+                    <span class="preview-canvas-node-settings"><span class="preview-canvas-node-effort-picker"><button id="canvas-node-effort-trigger" class="dropdown-trigger size-lg" type="button" aria-haspopup="menu" aria-expanded="false"><span id="canvas-node-effort-label">极高</span> <span class="dropdown-trigger-icon"></span></button><span id="canvas-node-effort-menu" class="dropdown-menu preview-canvas-node-effort-menu" hidden><button class="dropdown-menu-item" type="button" data-effort-option="低"><span class="dropdown-menu-item-content"><span class="dropdown-menu-item-label">低</span></span></button><button class="dropdown-menu-item" type="button" data-effort-option="中"><span class="dropdown-menu-item-content"><span class="dropdown-menu-item-label">中</span></span></button><button class="dropdown-menu-item" type="button" data-effort-option="高"><span class="dropdown-menu-item-content"><span class="dropdown-menu-item-label">高</span></span></button><button class="dropdown-menu-item" type="button" data-effort-option="极高"><span class="dropdown-menu-item-content"><span class="dropdown-menu-item-label">极高</span></span><span class="dropdown-menu-item-check" aria-hidden="true"></span></button></span></span><span class="preview-canvas-node-plan-label">计划模式</span><button id="canvas-node-toggle" class="preview-toggle is-selected" type="button" aria-pressed="true"><span class="preview-toggle-handle"></span></button><span class="preview-canvas-node-vertical-divider"></span><button class="preview-canvas-node-submit" type="button" data-canvas-icon="arrowUp" aria-label="Submit" disabled></button></span>
+                  </span>
+                </span>
+              </span>
+              <button id="canvas-node-left-side" class="preview-canvas-node-side preview-canvas-node-side-left" type="button" data-canvas-icon="plusSm" aria-label="Connect left"></button>
+              <button class="preview-canvas-node-side preview-canvas-node-side-right" type="button" data-canvas-icon="plusSm" aria-label="Connect right"></button>
+            </span>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Project Item</h2>
+            <p class="component-meta">Figma node: 244:912</p>
+          </div>
+        </div>
+
+        <div class="preview-grid button-preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>selected / loading / hover / unread</span>
+            </div>
+            <div class="figma-bounds" style="width: 718px; height: 348px;">
+              <div class="project-item-grid">
+                <span class="preview-project-item" data-folder="closed">
+                  <span class="preview-project-leading"><span class="preview-project-icon"></span></span>
+                  <span class="preview-project-content"><span class="preview-project-name">Project name</span><span class="preview-project-path">Naill-Young/DeskTop</span></span>
+                  <span class="preview-project-archive"></span>
+                </span>
+                <span class="preview-project-item is-selected" data-folder="open">
+                  <span class="preview-project-leading"><span class="preview-project-icon"></span></span>
+                  <span class="preview-project-content"><span class="preview-project-name">Project name</span><span class="preview-project-path">Naill-Young/DeskTop</span></span>
+                  <span class="preview-project-archive"></span>
+                </span>
+                <span class="preview-project-item is-hover" data-folder="closed">
+                  <span class="preview-project-leading"><span class="preview-project-icon"></span></span>
+                  <span class="preview-project-content"><span class="preview-project-name">Project name</span><span class="preview-project-path">Naill-Young/DeskTop</span></span>
+                  <span class="preview-project-archive"></span>
+                </span>
+                <span class="preview-project-item is-selected is-hover" data-folder="open">
+                  <span class="preview-project-leading"><span class="preview-project-icon"></span></span>
+                  <span class="preview-project-content"><span class="preview-project-name">Project name</span><span class="preview-project-path">Naill-Young/DeskTop</span></span>
+                  <span class="preview-project-archive"></span>
+                </span>
+                <span class="preview-project-item" data-loading="true">
+                  <span class="preview-project-leading"><span class="preview-project-spinner"></span></span>
+                  <span class="preview-project-content"><span class="preview-project-name">Project name</span><span class="preview-project-path">Naill-Young/DeskTop</span></span>
+                  <span class="preview-project-archive"></span>
+                </span>
+                <span class="preview-project-item is-selected" data-loading="true">
+                  <span class="preview-project-leading"><span class="preview-project-spinner"></span></span>
+                  <span class="preview-project-content"><span class="preview-project-name">Project name</span><span class="preview-project-path">Naill-Young/DeskTop</span></span>
+                  <span class="preview-project-archive"></span>
+                </span>
+                <span class="preview-project-item is-hover" data-loading="true">
+                  <span class="preview-project-leading"><span class="preview-project-spinner"></span></span>
+                  <span class="preview-project-content"><span class="preview-project-name">Project name</span><span class="preview-project-path">Naill-Young/DeskTop</span></span>
+                  <span class="preview-project-archive"></span>
+                </span>
+                <span class="preview-project-item is-selected is-hover" data-loading="true">
+                  <span class="preview-project-leading"><span class="preview-project-spinner"></span></span>
+                  <span class="preview-project-content"><span class="preview-project-name">Project name</span><span class="preview-project-path">Naill-Young/DeskTop</span></span>
+                  <span class="preview-project-archive"></span>
+                </span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>click / archive</span>
+            </div>
+            <div class="button-controls">
+              <label><input id="project-selected" type="checkbox" /> selected</label>
+              <label><input id="project-loading" type="checkbox" /> loading</label>
+              <label><input id="project-unread" type="checkbox" checked /> unread</label>
+            </div>
+            <button id="project-preview" class="preview-project-item" type="button">
+              <span class="preview-project-leading"><span id="project-leading-icon" class="preview-project-icon"></span></span>
+              <span class="preview-project-content">
+                <span class="preview-project-name">Project name</span>
+                <span class="preview-project-path">Naill-Young/DeskTop</span>
+              </span>
+              <span id="project-archive" class="preview-project-archive" role="button" tabindex="-1" aria-label="Archive"></span>
+            </button>
+            <p id="project-readout" class="component-meta">click: open project</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Cell</h2>
+            <p class="component-meta">Figma node: 244:697</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>select / toggle</span>
+            </div>
+            <div class="figma-bounds" style="width: 406px; height: 200px;">
+              <div class="preview-cell">
+                <span class="preview-cell-content">
+                  <span class="preview-cell-heading">This is heading</span>
+                  <span class="preview-cell-description">Description goes here...</span>
+                </span>
+                <span class="preview-cell-action">
+                  <span class="preview-select size-sm is-filled">
+                    <span class="preview-select-label">Chinese</span>
+                    <span class="preview-select-chevron"></span>
+                  </span>
+                </span>
+              </div>
+              <div class="preview-cell">
+                <span class="preview-cell-content">
+                  <span class="preview-cell-heading">This is heading</span>
+                  <span class="preview-cell-description">Description goes here...</span>
+                </span>
+                <span class="preview-cell-action">
+                  <span class="preview-toggle is-selected"><span class="preview-toggle-handle"></span></span>
+                </span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>action kind</span>
+            </div>
+            <div class="button-controls">
+              <label>
+                Kind
+                <select id="cell-kind">
+                  <option value="select" selected>select</option>
+                  <option value="toggle">toggle</option>
+                </select>
+              </label>
+              <label><input id="cell-description" type="checkbox" checked /> description</label>
+              <label><input id="cell-long" type="checkbox" /> long text</label>
+            </div>
+            <div id="cell-preview" class="preview-cell">
+              <span class="preview-cell-content">
+                <span id="cell-heading" class="preview-cell-heading">This is heading</span>
+                <span id="cell-description-text" class="preview-cell-description">Description goes here...</span>
+              </span>
+              <span id="cell-action" class="preview-cell-action"></span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Upload Chip</h2>
+            <p class="component-meta">Figma node: 244:794</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>file / image / hover</span>
+            </div>
+            <div class="figma-bounds" style="width: 374px; height: 124px;">
+              <div class="upload-chip-state-grid">
+                <span class="preview-upload-chip">
+                  <span class="preview-upload-chip-file-icon" aria-hidden="true"></span>
+                  <span class="preview-upload-chip-label">This is a file.pdf</span>
+                  <button class="preview-upload-chip-remove" type="button" aria-label="Remove"></button>
+                </span>
+                <span class="preview-upload-chip is-hover">
+                  <span class="preview-upload-chip-file-icon" aria-hidden="true"></span>
+                  <span class="preview-upload-chip-label">This is a file.pdf</span>
+                  <button class="preview-upload-chip-remove" type="button" aria-label="Remove"></button>
+                </span>
+                <span class="preview-upload-chip">
+                  <span class="preview-upload-chip-thumbnail" aria-hidden="true"></span>
+                  <span class="preview-upload-chip-label">This is a file.pdf</span>
+                  <button class="preview-upload-chip-remove" type="button" aria-label="Remove"></button>
+                </span>
+                <span class="preview-upload-chip is-hover">
+                  <span class="preview-upload-chip-thumbnail" aria-hidden="true"></span>
+                  <span class="preview-upload-chip-label">This is a file.pdf</span>
+                  <button class="preview-upload-chip-remove" type="button" aria-label="Remove"></button>
+                </span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>hover remove</span>
+            </div>
+            <div class="button-controls">
+              <label>
+                Kind
+                <select id="upload-chip-kind">
+                  <option value="file" selected>file</option>
+                  <option value="image">image</option>
+                </select>
+              </label>
+              <label>
+                Image URL
+                <input id="upload-chip-image-url" type="text" value="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23b9d7cf'/%3E%3Ccircle cx='15' cy='15' r='8' fill='%232f5134'/%3E%3Cpath d='M0 34 12 22l8 7 8-10 12 15v6H0z' fill='%237d9a55'/%3E%3C/svg%3E" />
+              </label>
+              <label><input id="upload-chip-long" type="checkbox" /> long name</label>
+            </div>
+            <span id="upload-chip-preview" class="preview-upload-chip is-clickable" role="button" tabindex="0">
+              <span id="upload-chip-leading" class="preview-upload-chip-file-icon" aria-hidden="true"></span>
+              <span id="upload-chip-label" class="preview-upload-chip-label">This is a file.pdf</span>
+              <button class="preview-upload-chip-remove" type="button" aria-label="Remove"></button>
+            </span>
+            <p id="upload-chip-open-readout" class="component-meta">click: Finder reveal</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Toolbar Item</h2>
+            <p class="component-meta">Figma node: 244:812</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>default / hover / selected / disabled</span>
+            </div>
+            <div class="figma-bounds" style="width: 228px; height: 72px;">
+              <div class="toolbar-item-state-row">
+                <span class="button-column-label">default</span>
+                <span class="button-column-label">hover</span>
+                <span class="button-column-label">selected</span>
+                <span class="button-column-label">disabled</span>
+                <span class="preview-toolbar-item"><span class="preview-toolbar-icon"></span></span>
+                <span class="preview-toolbar-item is-hover"><span class="preview-toolbar-icon"></span></span>
+                <span class="preview-toolbar-item is-selected"><span class="preview-toolbar-icon"></span></span>
+                <span class="preview-toolbar-item is-disabled"><span class="preview-toolbar-icon"></span></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>click to select</span>
+            </div>
+            <div class="button-controls">
+              <label><input id="toolbar-selected" type="checkbox" checked /> selected</label>
+              <label><input id="toolbar-disabled" type="checkbox" /> disabled</label>
+            </div>
+            <button id="toolbar-preview" class="preview-toolbar-item is-selected" type="button" aria-pressed="true" aria-label="Tool item">
+              <span class="preview-toolbar-icon" aria-hidden="true"></span>
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Toggle</h2>
+            <p class="component-meta">Figma node: 241:356</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>default / disabled</span>
+            </div>
+            <div class="figma-bounds" style="width: 140px; height: 108px;">
+              <div class="toggle-state-row">
+                <span class="button-state-label">off</span>
+                <span class="preview-toggle"><span class="preview-toggle-handle"></span></span>
+                <span class="preview-toggle is-disabled"><span class="preview-toggle-handle"></span></span>
+              </div>
+              <div class="toggle-state-row">
+                <span class="button-state-label">on</span>
+                <span class="preview-toggle is-selected"><span class="preview-toggle-handle"></span></span>
+                <span class="preview-toggle is-selected is-disabled"><span class="preview-toggle-handle"></span></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>click to toggle</span>
+            </div>
+            <div class="button-controls">
+              <label><input id="toggle-selected" type="checkbox" checked /> selected</label>
+              <label><input id="toggle-disabled" type="checkbox" /> disabled</label>
+            </div>
+            <label class="checkbox-interactive-row">
+              <button id="toggle-preview" class="preview-toggle is-selected" type="button" aria-pressed="true">
+                <span class="preview-toggle-handle"></span>
+              </button>
+              <span>Toggle label</span>
+            </label>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Checkbox</h2>
+            <p class="component-meta">Figma node: 244:556</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>default / hover / disabled</span>
+            </div>
+            <div class="button-state-matrix">
+              <div class="checkbox-state-row">
+                <span></span>
+                <span class="button-column-label">default</span>
+                <span class="button-column-label">hover</span>
+                <span class="button-column-label">disabled</span>
+              </div>
+              <div class="checkbox-state-row">
+                <span class="button-state-label">unchecked</span>
+                <span class="preview-checkbox"></span>
+                <span class="preview-checkbox is-hover"></span>
+                <span class="preview-checkbox is-disabled"></span>
+              </div>
+              <div class="checkbox-state-row">
+                <span class="button-state-label">checked</span>
+                <span class="preview-checkbox is-selected"></span>
+                <span class="preview-checkbox is-selected is-hover"></span>
+                <span class="preview-checkbox is-selected is-disabled"></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>click / disabled</span>
+            </div>
+            <div class="button-controls">
+              <label><input id="checkbox-selected" type="checkbox" checked /> selected</label>
+              <label><input id="checkbox-disabled" type="checkbox" /> disabled</label>
+            </div>
+            <label class="checkbox-interactive-row">
+              <button id="checkbox-preview" class="preview-checkbox is-selected is-animated" type="button" aria-pressed="true">
+                <svg class="preview-checkbox-check" viewBox="0 0 8 6" fill="none" aria-hidden="true">
+                  <path d="M1 3L3 5L7 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              </button>
+              <span>Checkbox label</span>
+            </label>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Icon Button</h2>
+            <p class="component-meta">Figma node: 241:290</p>
+          </div>
+        </div>
+
+        <div class="preview-grid button-preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>lg / md / sm</span>
+            </div>
+            <div class="button-state-matrix">
+              <div class="icon-button-state-row">
+                <span></span>
+                <span class="button-column-label">lg</span>
+                <span class="button-column-label">lg hover</span>
+                <span class="button-column-label">lg disabled</span>
+                <span class="button-column-label">md</span>
+                <span class="button-column-label">md hover</span>
+                <span class="button-column-label">md disabled</span>
+                <span class="button-column-label">sm</span>
+                <span class="button-column-label">sm hover</span>
+                <span class="button-column-label">sm disabled</span>
+              </div>
+              <div class="icon-button-state-row">
+                <span class="button-state-label">filled</span>
+                <span class="preview-icon-button size-lg is-filled"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-lg is-filled is-hover"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-lg is-filled is-disabled"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-md is-filled"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-md is-filled is-hover"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-md is-filled is-disabled"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-sm is-filled"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-sm is-filled is-hover"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-sm is-filled is-disabled"><span class="preview-x-icon"></span></span>
+              </div>
+              <div class="icon-button-state-row">
+                <span class="button-state-label">plain</span>
+                <span class="preview-icon-button size-lg is-outline"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-lg is-outline is-hover"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-lg is-outline is-disabled"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-md is-outline"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-md is-outline is-hover"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-md is-outline is-disabled"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-sm is-outline"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-sm is-outline is-hover"><span class="preview-x-icon"></span></span>
+                <span class="preview-icon-button size-sm is-outline is-disabled"><span class="preview-x-icon"></span></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>hover / focus + tooltip</span>
+            </div>
+            <div class="button-controls">
+              <label>
+                Size
+                <select id="icon-button-size">
+                  <option value="lg" selected>lg</option>
+                  <option value="md">md</option>
+                  <option value="sm">sm</option>
+                </select>
+              </label>
+              <label><input id="icon-button-filled" type="checkbox" checked /> filled</label>
+              <label><input id="icon-button-disabled" type="checkbox" /> disabled</label>
+              <label><input id="icon-button-tooltip-visible" type="checkbox" checked /> show tooltip</label>
+            </div>
+            <div id="icon-button-demo" class="icon-button-demo-viewport">
+              <button id="icon-button-preview" class="preview-icon-button size-lg is-filled icon-button-trigger" type="button" aria-label="Close">
+                <span class="preview-x-icon" aria-hidden="true"></span>
+              </button>
+              <div id="icon-button-tooltip" class="preview-tooltip has-shortcut icon-button-floating-tooltip is-visible">
+                <span>Close</span>
+                <span class="tooltip-shortcut">Esc</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Button</h2>
+            <p class="component-meta">Figma node: 241:127</p>
+          </div>
+        </div>
+
+        <div class="preview-grid button-preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>lg / md / sm</span>
+            </div>
+            <div class="button-state-matrix">
+              <div class="button-state-row">
+                <span></span>
+                <span class="button-column-label">lg</span>
+                <span class="button-column-label">lg hover</span>
+                <span class="button-column-label">lg disabled</span>
+                <span class="button-column-label">md</span>
+                <span class="button-column-label">md hover</span>
+                <span class="button-column-label">md disabled</span>
+                <span class="button-column-label">sm</span>
+                <span class="button-column-label">sm hover</span>
+                <span class="button-column-label">sm disabled</span>
+              </div>
+              <div class="button-state-row">
+                <span class="button-state-label">filled</span>
+                <span class="preview-button size-lg is-filled">Button</span>
+                <span class="preview-button size-lg is-filled is-hover">Button</span>
+                <span class="preview-button size-lg is-filled is-disabled">Button</span>
+                <span class="preview-button size-md is-filled">Button</span>
+                <span class="preview-button size-md is-filled is-hover">Button</span>
+                <span class="preview-button size-md is-filled is-disabled">Button</span>
+                <span class="preview-button size-sm is-filled">Button</span>
+                <span class="preview-button size-sm is-filled is-hover">Button</span>
+                <span class="preview-button size-sm is-filled is-disabled">Button</span>
+              </div>
+              <div class="button-state-row">
+                <span class="button-state-label">plain</span>
+                <span class="preview-button size-lg is-outline">Button</span>
+                <span class="preview-button size-lg is-outline is-hover">Button</span>
+                <span class="preview-button size-lg is-outline is-disabled">Button</span>
+                <span class="preview-button size-md is-outline">Button</span>
+                <span class="preview-button size-md is-outline is-hover">Button</span>
+                <span class="preview-button size-md is-outline is-disabled">Button</span>
+                <span class="preview-button size-sm is-outline">Button</span>
+                <span class="preview-button size-sm is-outline is-hover">Button</span>
+                <span class="preview-button size-sm is-outline is-disabled">Button</span>
+              </div>
+              <div class="button-state-row">
+                <span class="button-state-label">alert filled</span>
+                <span class="preview-button size-lg is-filled is-alert">Button</span>
+                <span class="preview-button size-lg is-filled is-alert is-hover">Button</span>
+                <span class="preview-button size-lg is-filled is-alert is-disabled">Button</span>
+                <span class="preview-button size-md is-filled is-alert">Button</span>
+                <span class="preview-button size-md is-filled is-alert is-hover">Button</span>
+                <span class="preview-button size-md is-filled is-alert is-disabled">Button</span>
+                <span class="preview-button size-sm is-filled is-alert">Button</span>
+                <span class="preview-button size-sm is-filled is-alert is-hover">Button</span>
+                <span class="preview-button size-sm is-filled is-alert is-disabled">Button</span>
+              </div>
+              <div class="button-state-row">
+                <span class="button-state-label">alert plain</span>
+                <span class="preview-button size-lg is-outline is-alert">Button</span>
+                <span class="preview-button size-lg is-outline is-alert is-hover">Button</span>
+                <span class="preview-button size-lg is-outline is-alert is-disabled">Button</span>
+                <span class="preview-button size-md is-outline is-alert">Button</span>
+                <span class="preview-button size-md is-outline is-alert is-hover">Button</span>
+                <span class="preview-button size-md is-outline is-alert is-disabled">Button</span>
+                <span class="preview-button size-sm is-outline is-alert">Button</span>
+                <span class="preview-button size-sm is-outline is-alert is-hover">Button</span>
+                <span class="preview-button size-sm is-outline is-alert is-disabled">Button</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>hover / focus + controls</span>
+            </div>
+            <div class="button-controls">
+              <label>
+                Size
+                <select id="button-size">
+                  <option value="lg">lg</option>
+                  <option value="md" selected>md</option>
+                  <option value="sm">sm</option>
+                </select>
+              </label>
+              <label><input id="button-filled" type="checkbox" checked /> filled</label>
+              <label><input id="button-alert" type="checkbox" /> alert</label>
+              <label><input id="button-disabled" type="checkbox" /> disabled</label>
+            </div>
+            <div class="interactive-stage">
+              <button id="button-preview" class="preview-button size-md is-filled" type="button">Button</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section">
+        <div class="component-heading">
+          <div>
+            <h2>Tooltip</h2>
+            <p class="component-meta">Figma node: 244:1001</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>States</h3>
+              <span>label / shortcut</span>
+            </div>
+            <div class="figma-bounds">
+              <div class="tooltip-row">
+                <div class="preview-tooltip">Tooltip label</div>
+                <div class="preview-tooltip has-shortcut">
+                  <span>Tooltip label</span>
+                  <span class="tooltip-shortcut">⌘ D</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="preview-panel">
+            <div class="panel-title">
+              <h3>Interactive</h3>
+              <span>4px gap + auto placement</span>
+            </div>
+            <div class="button-controls">
+              <label>
+                Trigger
+                <select id="tooltip-trigger-position">
+                  <option value="center">center</option>
+                  <option value="top">top edge</option>
+                  <option value="right">right edge</option>
+                  <option value="bottom-left">bottom left</option>
+                </select>
+              </label>
+              <label>
+                Preferred
+                <select id="tooltip-preferred-placement">
+                  <option value="auto" selected>auto</option>
+                  <option value="top">top</option>
+                  <option value="right">right</option>
+                  <option value="bottom">bottom</option>
+                  <option value="left">left</option>
+                </select>
+              </label>
+              <label><input id="tooltip-shortcut-toggle" type="checkbox" checked /> shortcut</label>
+            </div>
+            <div id="tooltip-demo" class="tooltip-demo-viewport" data-trigger="center">
+              <button id="tooltip-trigger" class="preview-button size-md is-filled tooltip-trigger" type="button">Button</button>
+              <div id="tooltip-floating" class="preview-tooltip has-shortcut tooltip-floating">
+                <span>Tooltip label</span>
+                <span class="tooltip-shortcut">⌘ D</span>
+              </div>
+              <span id="tooltip-placement-readout" class="tooltip-placement-readout">placement: auto</span>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const projectIcons = {
+        info: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12V16C11 16.5523 11.4477 17 12 17C12.5523 17 13 16.5523 13 16V12Z" fill="currentColor"/><path d="M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2ZM4 12C4 7.58172 7.58172 4 12 4C16.4183 4 20 7.58172 20 12C20 16.4183 16.4183 20 12 20C7.58172 20 4 16.4183 4 12Z" fill="currentColor"/><path d="M12 9.30005C12.6351 9.30005 13.15 8.78518 13.15 8.15005C13.15 7.51492 12.6351 7.00005 12 7.00005C11.3649 7.00005 10.85 7.51492 10.85 8.15005C10.85 8.78518 11.3649 9.30005 12 9.30005Z" fill="currentColor"/></svg>`,
+        negative: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M11 12C11 12.5523 11.4477 13 12 13C12.5523 13 13 12.5523 13 12V8C13 7.44772 12.5523 7 12 7C11.4477 7 11 7.44772 11 8V12Z" fill="currentColor"/><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22ZM20 12C20 16.4183 16.4183 20 12 20C7.58172 20 4 16.4183 4 12C4 7.58172 7.58172 4 12 4C16.4183 4 20 7.58172 20 12Z" fill="currentColor"/><path d="M12 14.7C11.3649 14.7 10.85 15.2148 10.85 15.85C10.85 16.4851 11.3649 17 12 17C12.6351 17 13.15 16.4851 13.15 15.85C13.15 15.2148 12.6351 14.7 12 14.7Z" fill="currentColor"/></svg>`,
+        positive: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4ZM2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12ZM16.0755 7.93219C16.5272 8.25003 16.6356 8.87383 16.3178 9.32549L11.5678 16.0755C11.3931 16.3237 11.1152 16.4792 10.8123 16.4981C10.5093 16.517 10.2142 16.3973 10.0101 16.1727L7.51006 13.4227C7.13855 13.014 7.16867 12.3816 7.57733 12.0101C7.98598 11.6386 8.61843 11.6687 8.98994 12.0773L10.6504 13.9039L14.6822 8.17451C15 7.72284 15.6238 7.61436 16.0755 7.93219Z" fill="currentColor"/></svg>`,
+        folder: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8.86575 5.00294C9.32074 5.02764 9.75366 5.20696 10.0929 5.51123C10.1285 5.54323 10.166 5.58025 10.2929 5.70711L10.3095 5.72369C10.4127 5.82694 10.4905 5.90476 10.5717 5.97756C11.25 6.58609 12.1159 6.94474 13.0259 6.99413C13.1347 7.00003 13.2448 7.00002 13.3908 7.00001L16.2 7C17.0566 7 17.6389 7.00078 18.089 7.03755C18.5274 7.07337 18.7516 7.1383 18.908 7.21799C19.2843 7.40974 19.5903 7.7157 19.782 8.09202C19.8617 8.24842 19.9266 8.47263 19.9624 8.91104C19.9864 9.20463 19.9951 9.55448 19.9982 10H4V8.8C4 7.94342 4.00078 7.36113 4.03755 6.91104C4.07337 6.47263 4.1383 6.24842 4.21799 6.09202C4.40973 5.7157 4.7157 5.40974 5.09202 5.21799C5.24842 5.1383 5.47262 5.07337 5.91104 5.03755C6.36113 5.00078 6.94342 5 7.8 5H8.58579C8.76519 5 8.81789 5.00035 8.86575 5.00294ZM22 10.7587C22 9.95372 22 9.28937 21.9558 8.74818C21.9099 8.18608 21.8113 7.66938 21.564 7.18404C21.1805 6.43139 20.5686 5.81947 19.816 5.43598C19.3306 5.18869 18.8139 5.09012 18.2518 5.0442C17.7106 4.99998 17.0463 4.99999 16.2413 5L13.4142 5C13.2348 5 13.1821 4.99966 13.1343 4.99706C12.6793 4.97237 12.2463 4.79305 11.9071 4.48878C11.8715 4.45678 11.834 4.41976 11.7071 4.2929L11.6905 4.27633C11.5873 4.17307 11.5095 4.09525 11.4283 4.02245C10.75 3.41391 9.88412 3.05527 8.97414 3.00588C8.86528 2.99997 8.75524 2.99999 8.60922 3L7.7587 3C6.95373 2.99999 6.28937 2.99998 5.74817 3.0442C5.18608 3.09012 4.66937 3.18869 4.18404 3.43598C3.43139 3.81947 2.81947 4.43139 2.43597 5.18404C2.18868 5.66938 2.09012 6.18608 2.04419 6.74818C1.99998 7.28937 1.99999 7.95373 2 8.7587V15.2413C1.99999 16.0463 1.99998 16.7106 2.04419 17.2518C2.09012 17.8139 2.18868 18.3306 2.43597 18.816C2.81947 19.5686 3.43139 20.1805 4.18404 20.564C4.66937 20.8113 5.18608 20.9099 5.74817 20.9558C6.28936 21 6.95372 21 7.75868 21H16.2413C17.0463 21 17.7106 21 18.2518 20.9558C18.8139 20.9099 19.3306 20.8113 19.816 20.564C20.5686 20.1805 21.1805 19.5686 21.564 18.816C21.8113 18.3306 21.9099 17.8139 21.9558 17.2518C22 16.7106 22 16.0463 22 15.2413V10.7587ZM20 12V15.2C20 16.0566 19.9992 16.6389 19.9624 17.089C19.9266 17.5274 19.8617 17.7516 19.782 17.908C19.5903 18.2843 19.2843 18.5903 18.908 18.782C18.7516 18.8617 18.5274 18.9266 18.089 18.9625C17.6389 18.9992 17.0566 19 16.2 19H7.8C6.94342 19 6.36113 18.9992 5.91104 18.9625C5.47262 18.9266 5.24842 18.8617 5.09202 18.782C4.7157 18.5903 4.40973 18.2843 4.21799 17.908C4.1383 17.7516 4.07337 17.5274 4.03755 17.089C4.00078 16.6389 4 16.0566 4 15.2V12H20Z" fill="currentColor"/></svg>`,
+        folderOpen: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M8.36575 5.00294C8.31789 5.00035 8.26519 5 8.08579 5H7.3C6.44342 5 5.86113 5.00078 5.41104 5.03755C4.97262 5.07337 4.74842 5.1383 4.59202 5.21799C4.2157 5.40974 3.90973 5.7157 3.71799 6.09202C3.6383 6.24842 3.57337 6.47263 3.53755 6.91104C3.50078 7.36113 3.5 7.94342 3.5 8.8V13.3338C4.10345 12.2477 4.92627 11.2786 6.03229 10.4584C6.46262 10.1392 6.97003 10 7.45416 10H19.4995C19.4981 9.54872 19.4929 9.20759 19.4738 8.92661C19.4487 8.55915 19.4031 8.36814 19.3478 8.23464C19.1448 7.74458 18.7554 7.35523 18.2654 7.15224C18.1319 7.09695 17.9409 7.0513 17.5734 7.02623C17.197 7.00054 16.7126 7 16 7L12.8908 7.00001C12.7448 7.00002 12.6347 7.00003 12.5259 6.99413C11.6159 6.94474 10.75 6.58609 10.0717 5.97756C9.99052 5.90478 9.91272 5.82696 9.80953 5.72375L9.7929 5.70711C9.66604 5.58025 9.62853 5.54323 9.59285 5.51123C9.25366 5.20696 8.82074 5.02764 8.36575 5.00294ZM21.4996 10H21.6958C23.2725 10 24.218 11.7333 23.3868 13.0603C22.2267 14.9122 21.6207 15.9779 21.2984 17.3273C20.8483 19.2122 19.3008 21 17.0719 21H7.25868C7.23455 21 7.21056 21 7.18669 21H6.07372C5.95032 21 5.8274 20.9941 5.70538 20.9825C5.54408 20.9762 5.3918 20.9675 5.24817 20.9558C4.68608 20.9099 4.16937 20.8113 3.68404 20.564C2.93139 20.1805 2.31947 19.5686 1.93597 18.816C1.68868 18.3306 1.59012 17.8139 1.54419 17.2518C1.49998 16.7106 1.49999 16.0463 1.5 15.2413V8.7587C1.49999 7.95373 1.49998 7.28937 1.54419 6.74818C1.59012 6.18608 1.68868 5.66938 1.93597 5.18404C2.31947 4.43139 2.93139 3.81947 3.68404 3.43598C4.16937 3.18869 4.68608 3.09012 5.24817 3.0442C5.78937 2.99998 6.45373 2.99999 7.2587 3L8.10922 3C8.25524 2.99999 8.36528 2.99997 8.47414 3.00588C9.38412 3.05527 10.25 3.41391 10.9283 4.02245C11.0095 4.09525 11.0873 4.17306 11.1905 4.27632L11.2071 4.2929C11.334 4.41975 11.3715 4.45678 11.4072 4.48878C11.7463 4.79305 12.1793 4.97237 12.6343 4.99706C12.6821 4.99966 12.7348 5 12.9142 5L16.0343 5C16.7041 4.99999 17.2569 4.99999 17.7095 5.03087C18.1788 5.06289 18.6129 5.13142 19.0307 5.30449C20.0108 5.71046 20.7895 6.48916 21.1955 7.46927C21.3686 7.88708 21.4371 8.32118 21.4691 8.79047C21.4925 9.1336 21.4982 9.53436 21.4996 10ZM17.0719 19C18.1001 19 19.0467 18.1456 19.3531 16.8627C19.7604 15.1572 20.5385 13.8397 21.691 12H7.45416C7.34602 12 7.26903 12.0312 7.22363 12.0648C5.55547 13.3019 4.68121 14.9804 4.2774 17.1283C4.11717 17.9806 4.77661 18.8636 5.82444 18.9857C6.20963 18.9996 6.68386 19 7.3 19H17.0719Z" fill="currentColor"/></svg>`,
+        connectApps: `<img alt="" src="../src/renderer/src/assets/icons/icon/connect-apps.svg" />`,
+        addSources: `<img alt="" src="../src/renderer/src/assets/icons/icon/add-sources.svg" />`,
+        play: `<img alt="" src="../src/renderer/src/assets/icons/icon/play.svg" />`,
+        canvasPlay: `<img alt="" src="../src/renderer/src/assets/icons/icon/play-1.svg" />`,
+        dots: `<img alt="" src="../src/renderer/src/assets/icons/icon/dots-horizontal, more, menu.svg" />`,
+        chevron: `<img alt="" src="../src/renderer/src/assets/icons/icon/chevron-down-md.svg" />`,
+        arrowUp: `<img alt="" src="../src/renderer/src/assets/icons/icon/arrow-up-lg.svg" />`,
+        plus: `<img alt="" src="../src/renderer/src/assets/icons/icon/plus-lg, 18px, add.svg" />`,
+        plusSm: `<img alt="" src="../src/renderer/src/assets/icons/icon/plus-lg, 18px, add.svg" />`,
+        copy: `<img alt="" src="../src/renderer/src/assets/icons/icon/copy.svg" />`,
+        trash: `<img alt="" src="../src/renderer/src/assets/icons/icon/trash, remove.svg" />`,
+        messaging: `<img alt="" src="../src/renderer/src/assets/icons/icon/messaging.svg" />`,
+        archive: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.5 6C2.5 4.34315 3.84315 3 5.5 3H18.5C20.1569 3 21.5 4.34315 21.5 6V7C21.5 7.61337 21.3159 8.18374 21 8.6589V15.2413C21 16.0463 21 16.7106 20.9558 17.2518C20.9099 17.8139 20.8113 18.3306 20.564 18.816C20.1805 19.5686 19.5686 20.1805 18.816 20.564C18.3306 20.8113 17.8139 20.9099 17.2518 20.9558C16.7106 21 16.0463 21 15.2413 21H8.75868C7.95372 21 7.28936 21 6.74817 20.9558C6.18608 20.9099 5.66937 20.8113 5.18404 20.564C4.43139 20.1805 3.81947 19.5686 3.43597 18.816C3.18868 18.3306 3.09012 17.8139 3.04419 17.2518C2.99998 16.7106 2.99999 16.0463 3 15.2413L3 8.6589C2.68408 8.18374 2.5 7.61337 2.5 7V6ZM5.5 8H18.5C19.0523 8 19.5 7.55228 19.5 7V6C19.5 5.44772 19.0523 5 18.5 5H5.5C4.94772 5 4.5 5.44772 4.5 6V7C4.5 7.55228 4.94772 8 5.5 8ZM5 10V15.2C5 16.0566 5.00078 16.6389 5.03755 17.089C5.07337 17.5274 5.1383 17.7516 5.21799 17.908C5.40973 18.2843 5.7157 18.5903 6.09202 18.782C6.24842 18.8617 6.47262 18.9266 6.91104 18.9624C7.36113 18.9992 7.94342 19 8.8 19H15.2C16.0566 19 16.6389 18.9992 17.089 18.9624C17.5274 18.9266 17.7516 18.8617 17.908 18.782C18.2843 18.5903 18.5903 18.2843 18.782 17.908C18.8617 17.7516 18.9266 17.5274 18.9624 17.089C18.9992 16.6389 19 16.0566 19 15.2V10H5ZM15 13C15 13.5523 14.5523 14 14 14H10C9.44772 14 9 13.5523 9 13C9 12.4477 9.44772 12 10 12H14C14.5523 12 15 12.4477 15 13Z" fill="currentColor"/></svg>`,
+        analyzeData: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 15C15.5523 15 16 15.4477 16 16C16 16.5523 15.5523 17 15 17H8C7.44772 17 7 16.5523 7 16C7 15.4477 7.44772 15 8 15H15Z" fill="currentColor"/><path d="M13 11C13.5523 11 14 11.4477 14 12C14 12.5523 13.5523 13 13 13H8C7.44772 13 7 12.5523 7 12C7 11.4477 7.44772 11 8 11H13Z" fill="currentColor"/><path d="M10.75 7C11.3023 7 11.75 7.44772 11.75 8C11.75 8.55228 11.3023 9 10.75 9L8 9C7.44772 9 7 8.55229 7 8C7 7.44772 7.44772 7 8 7L10.75 7Z" fill="currentColor"/><path d="M16 7C16.5523 7 17 7.44772 17 8C17 8.55229 16.5523 9 16 9H14.25C13.6977 9 13.25 8.55229 13.25 8C13.25 7.44772 13.6977 7 14.25 7H16Z" fill="currentColor"/><path d="M15.2002 3C16.0237 3 16.7016 2.99898 17.252 3.04395C17.814 3.08988 18.3311 3.18827 18.8164 3.43555L19.0918 3.58985C19.7183 3.97414 20.2289 4.52513 20.5645 5.1836L20.6504 5.36719C20.8356 5.79892 20.9159 6.2562 20.9561 6.74805C21.001 7.29843 21 7.97632 21 8.79981V15.2002C21 16.0237 21.001 16.7016 20.9561 17.252C20.9159 17.7438 20.8356 18.2011 20.6504 18.6328L20.5645 18.8164C20.2289 19.4749 19.7183 20.0259 19.0918 20.4102L18.8164 20.5645C18.3311 20.8117 17.814 20.9101 17.252 20.9561C16.7016 21.001 16.0237 21 15.2002 21H8.79981C7.97632 21 7.29843 21.001 6.74805 20.9561C6.2562 20.9159 5.79892 20.8356 5.36719 20.6504L5.1836 20.5645C4.52513 20.2289 3.97414 19.7183 3.58985 19.0918L3.43555 18.8164C3.18827 18.3311 3.08988 17.814 3.04395 17.252C2.99898 16.7016 3 16.0237 3 15.2002V8.79981C3 7.97632 2.99898 7.29843 3.04395 6.74805C3.08988 6.18599 3.18827 5.6689 3.43555 5.1836C3.81902 4.43109 4.43109 3.81902 5.1836 3.43555C5.6689 3.18827 6.18599 3.08988 6.74805 3.04395C7.29843 2.99898 7.97632 3 8.79981 3H15.2002ZM8.79981 5C7.94342 5 7.36117 5.00035 6.91113 5.03711C6.47272 5.07293 6.2482 5.13809 6.0918 5.21778C5.71555 5.40951 5.40951 5.71555 5.21778 6.0918C5.13809 6.2482 5.07293 6.47272 5.03711 6.91113C5.00035 7.36117 5 7.94342 5 8.79981V15.2002C5 16.0566 5.00035 16.6388 5.03711 17.0889C5.07293 17.5273 5.13809 17.7518 5.21778 17.9082L5.29492 18.0459C5.48707 18.3592 5.76256 18.6145 6.0918 18.7822L6.22461 18.8389C6.37418 18.8924 6.58253 18.936 6.91113 18.9629C7.36117 18.9997 7.94342 19 8.79981 19H15.2002C16.0566 19 16.6388 18.9997 17.0889 18.9629C17.5273 18.9271 17.7518 18.8619 17.9082 18.7822L18.0459 18.7051C18.3592 18.5129 18.6145 18.2374 18.7822 17.9082L18.8389 17.7754C18.8924 17.6258 18.936 17.4175 18.9629 17.0889C18.9997 16.6388 19 16.0566 19 15.2002V8.79981C19 7.94342 18.9997 7.36117 18.9629 6.91113C18.936 6.58253 18.8924 6.37418 18.8389 6.22461L18.7822 6.0918C18.6145 5.76256 18.3592 5.48707 18.0459 5.29492L17.9082 5.21778C17.7518 5.13809 17.5273 5.07293 17.0889 5.03711C16.6388 5.00035 16.0566 5 15.2002 5H8.79981Z" fill="currentColor"/></svg>`,
+        workWithApps: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.99854 6.66673C2.99854 4.64168 4.64016 3.00006 6.6652 3.00006H7.99854C8.55082 3.00006 8.99854 3.44778 8.99854 4.00006C8.99854 4.55235 8.55082 5.00006 7.99854 5.00006H6.6652C5.74473 5.00006 4.99854 5.74625 4.99854 6.66673V8.00006C4.99854 8.55235 4.55082 9.00006 3.99854 9.00006C3.44625 9.00006 2.99854 8.55235 2.99854 8.00006V6.66673ZM14.9985 4.00006C14.9985 3.44778 15.4462 3.00006 15.9985 3.00006H17.3319C19.3569 3.00006 20.9985 4.64168 20.9985 6.66673V8.00006C20.9985 8.55235 20.5508 9.00006 19.9985 9.00006C19.4463 9.00006 18.9985 8.55235 18.9985 8.00006V6.66673C18.9985 5.74625 18.2523 5.00006 17.3319 5.00006H15.9985C15.4462 5.00006 14.9985 4.55235 14.9985 4.00006ZM13.639 13.6389L15.6581 19.3597L16.5899 17.3631C16.7488 17.0225 17.0226 16.7487 17.3632 16.5898L19.3598 15.658L13.639 13.6389ZM11.4746 13.5159C11.0272 12.248 12.2481 11.0271 13.5159 11.4746L20.9485 14.0978C22.2995 14.5747 22.3909 16.4506 21.0926 17.0565L18.3407 18.3407L17.0566 21.0925C16.4507 22.3908 14.5747 22.2994 14.0979 20.9484L11.4746 13.5159ZM3.99854 15.0001C4.55082 15.0001 4.99854 15.4478 4.99854 16.0001V17.3334C4.99854 18.2539 5.74473 19.0001 6.6652 19.0001H7.99854C8.55082 19.0001 8.99854 19.4478 8.99854 20.0001C8.99854 20.5523 8.55082 21.0001 7.99854 21.0001H6.6652C4.64016 21.0001 2.99854 19.3584 2.99854 17.3334V16.0001C2.99854 15.4478 3.44625 15.0001 3.99854 15.0001Z" fill="currentColor"/></svg>`,
+        x: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5.63603 5.63603C6.02656 5.24551 6.65972 5.24551 7.05025 5.63603L12 10.5858L16.9497 5.63603C17.3403 5.24551 17.9734 5.24551 18.364 5.63603C18.7545 6.02656 18.7545 6.65972 18.364 7.05025L13.4142 12L18.364 16.9497C18.7545 17.3403 18.7545 17.9734 18.364 18.364C17.9734 18.7545 17.3403 18.7545 16.9497 18.364L12 13.4142L7.05025 18.364C6.65972 18.7545 6.02656 18.7545 5.63603 18.364C5.24551 17.9734 5.24551 17.3403 5.63603 16.9497L10.5858 12L5.63603 7.05025C5.24551 6.65972 5.24551 6.02656 5.63603 5.63603Z" fill="currentColor"/></svg>`
+      };
+
+      document.querySelectorAll(".preview-x-icon").forEach((icon) => {
+        icon.innerHTML = projectIcons.x;
+      });
+
+      document.querySelectorAll(".preview-toolbar-icon").forEach((icon) => {
+        icon.innerHTML = projectIcons.workWithApps;
+      });
+
+      document.querySelectorAll(".preview-project-item").forEach((item) => {
+        item.querySelectorAll(".preview-project-archive").forEach((icon) => {
+          icon.innerHTML = projectIcons.archive;
+        });
+        const icon = item.querySelector(".preview-project-icon");
+        if (icon) icon.innerHTML = item.dataset.folder === "open" ? projectIcons.folderOpen : projectIcons.folder;
+      });
+
+      document.querySelectorAll(".preview-task-item").forEach((item) => {
+        const icon = item.querySelector(".preview-task-icon");
+        if (icon) icon.innerHTML = item.dataset.flow === "true" ? projectIcons.addSources : projectIcons.connectApps;
+      });
+
+      document.querySelectorAll('.preview-task-action[data-action="play"]').forEach((icon) => {
+        icon.innerHTML = projectIcons.play;
+      });
+
+      document.querySelectorAll('.preview-task-action[data-action="message"]').forEach((icon) => {
+        icon.innerHTML = projectIcons.messaging;
+      });
+
+      function canvasNodeMarkup({ filled = false, hover = false, selected = false, unconnected = true } = {}) {
+        const classes = ["preview-canvas-node", filled && "is-filled", hover && "is-hover", selected && "is-selected", unconnected && "is-unconnected"].filter(Boolean).join(" ");
+        const promptText = filled ? "Prompt and description go here..." : "Prompt and description go here...";
+        const toggleClass = "preview-toggle is-selected";
+        return `
+          <span class="${classes}">
+            <span class="preview-canvas-node-heading">
+              <span class="preview-canvas-node-title">This is a title</span>
+              <span class="preview-canvas-node-actions"><span class="preview-canvas-node-icon-button" data-canvas-icon="canvasPlay"></span><span class="preview-canvas-node-icon-button" data-canvas-icon="dots"></span></span>
+            </span>
+            <span class="preview-canvas-node-body">
+              <span class="preview-canvas-node-prompt">${promptText}</span>
+              <span class="preview-canvas-node-footer">
+                <span class="preview-canvas-node-divider"></span>
+                <span class="preview-canvas-node-footer-row">
+                  <span class="preview-canvas-node-icon-button" data-canvas-icon="plus"></span>
+                  <span class="preview-canvas-node-settings"><span class="dropdown-trigger size-lg">极高 <span class="dropdown-trigger-icon"></span></span><span class="preview-canvas-node-plan-label">计划模式</span><span class="${toggleClass}"><span class="preview-toggle-handle"></span></span><span class="preview-canvas-node-vertical-divider"></span><span class="preview-canvas-node-submit" data-canvas-icon="arrowUp"></span></span>
+                </span>
+              </span>
+            </span>
+            ${hover && unconnected ? '<span class="preview-canvas-node-side preview-canvas-node-side-left" data-canvas-icon="plusSm"></span>' : ""}
+            ${hover ? '<span class="preview-canvas-node-side preview-canvas-node-side-right" data-canvas-icon="plusSm"></span>' : ""}
+          </span>`;
+      }
+
+      const canvasNodeStateGrid = document.querySelector("#canvas-node-state-grid");
+      if (canvasNodeStateGrid) {
+        canvasNodeStateGrid.innerHTML = [
+          canvasNodeMarkup({ filled: false, hover: false, selected: false }),
+          canvasNodeMarkup({ filled: false, hover: true, selected: false }),
+          canvasNodeMarkup({ filled: true, hover: false, selected: false }),
+          canvasNodeMarkup({ filled: true, hover: true, selected: false }),
+          canvasNodeMarkup({ filled: false, hover: false, selected: true }),
+          canvasNodeMarkup({ filled: false, hover: true, selected: true }),
+          canvasNodeMarkup({ filled: true, hover: false, selected: true }),
+          canvasNodeMarkup({ filled: true, hover: true, selected: true })
+        ].join("");
+      }
+
+      document.querySelectorAll("[data-canvas-icon]").forEach((icon) => {
+        icon.innerHTML = projectIcons[icon.dataset.canvasIcon] || "";
+      });
+
+      document.querySelectorAll("[data-node-menu-action]").forEach((item) => {
+        const icon = item.querySelector(".dropdown-menu-item-icon");
+        if (!icon) return;
+        const icons = {
+          run: projectIcons.play,
+          copy: projectIcons.copy,
+          delete: projectIcons.trash
+        };
+        icon.innerHTML = icons[item.dataset.nodeMenuAction] || "";
+      });
+
+      document.querySelectorAll(".preview-upload-chip-file-icon").forEach((icon) => {
+        icon.innerHTML = projectIcons.analyzeData;
+      });
+
+      document.querySelectorAll(".preview-upload-chip-remove").forEach((icon) => {
+        icon.innerHTML = projectIcons.x;
+      });
+
+      document.addEventListener("click", (event) => {
+        const removeButton = event.target.closest(".preview-upload-chip-remove");
+        if (!removeButton) return;
+        event.stopPropagation();
+        event.preventDefault();
+        removeButton.closest(".preview-upload-chip")?.remove();
+        const uploadReadout = document.querySelector("#upload-chip-open-readout");
+        if (uploadReadout) uploadReadout.textContent = "remove clicked";
+      });
+
+      document.querySelectorAll(".toast-close-icon").forEach((icon) => {
+        icon.innerHTML = projectIcons.x;
+      });
+
+      document.querySelectorAll(".toast-icon.info").forEach((icon) => {
+        icon.innerHTML = projectIcons.info;
+      });
+
+      document.querySelectorAll(".toast-icon.negative").forEach((icon) => {
+        icon.innerHTML = projectIcons.negative;
+      });
+
+      document.querySelectorAll(".toast-icon.positive").forEach((icon) => {
+        icon.innerHTML = projectIcons.positive;
+      });
+
+      const dropdownMenuTrigger = document.querySelector("#dropdown-menu-trigger");
+      const dropdownMenuPopover = document.querySelector("#dropdown-menu-popover");
+
+      dropdownMenuTrigger.addEventListener("click", () => {
+        dropdownMenuPopover.classList.toggle("is-open");
+      });
+
+      const dropdownTriggerPreview = document.querySelector("#dropdown-trigger-preview");
+      const dropdownTriggerLabel = document.querySelector("#dropdown-trigger-label");
+      const dropdownTriggerMenu = document.querySelector("#dropdown-trigger-menu");
+
+      dropdownTriggerPreview.addEventListener("click", () => {
+        dropdownTriggerMenu.classList.toggle("is-open");
+      });
+
+      dropdownTriggerMenu.querySelectorAll("[data-trigger-option]").forEach((option) => {
+        option.addEventListener("click", () => {
+          dropdownTriggerLabel.textContent = option.dataset.triggerOption;
+          dropdownTriggerPreview.classList.add("has-value");
+          dropdownTriggerMenu.classList.remove("is-open");
+        });
+      });
+
+      const selectPreview = document.querySelector("#select-preview");
+      const selectLabel = document.querySelector("#select-label");
+      const selectMenu = document.querySelector("#select-menu");
+      const selectSize = document.querySelector("#select-size");
+      const selectDisabled = document.querySelector("#select-disabled");
+
+      function updateSelectPreview() {
+        selectPreview.className = [
+          "preview-select",
+          `size-${selectSize.value}`,
+          selectPreview.dataset.filled === "true" ? "is-filled" : "",
+          selectDisabled.checked ? "is-disabled" : ""
+        ]
+          .filter(Boolean)
+          .join(" ");
+        selectPreview.disabled = selectDisabled.checked;
+        if (selectDisabled.checked) {
+          selectMenu.classList.remove("is-open");
+        }
+      }
+
+      selectPreview.addEventListener("click", () => {
+        if (selectDisabled.checked) return;
+        selectMenu.classList.toggle("is-open");
+      });
+
+      selectMenu.querySelectorAll("[data-select-value]").forEach((option) => {
+        option.addEventListener("click", () => {
+          selectLabel.textContent = option.dataset.selectValue;
+          selectPreview.dataset.filled = "true";
+          selectMenu.classList.remove("is-open");
+          updateSelectPreview();
+        });
+      });
+
+      [selectSize, selectDisabled].forEach((control) => {
+        control.addEventListener("change", updateSelectPreview);
+      });
+
+      const segmentedPreview = document.querySelector("#segmented-preview");
+      const segmentedThumb = document.querySelector("#segmented-thumb");
+
+      function updateSegmentedThumb(item) {
+        const previewRect = segmentedPreview.getBoundingClientRect();
+        const itemRect = item.getBoundingClientRect();
+        segmentedThumb.style.transform = `translateX(${itemRect.left - previewRect.left - 4}px)`;
+      }
+
+      document.querySelectorAll("#segmented-preview .segmented-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          document.querySelectorAll("#segmented-preview .segmented-item").forEach((candidate) => {
+            const selected = candidate === item;
+            candidate.classList.toggle("is-selected", selected);
+            candidate.setAttribute("aria-selected", String(selected));
+          });
+          updateSegmentedThumb(item);
+        });
+      });
+
+      updateSegmentedThumb(document.querySelector("#segmented-preview .segmented-item.is-selected"));
+      window.addEventListener("resize", () => {
+        updateSegmentedThumb(document.querySelector("#segmented-preview .segmented-item.is-selected"));
+      });
+
+      const toastOverlay = document.querySelector("#toast-overlay");
+      const toastType = document.querySelector("#toast-type");
+      const toastShow = document.querySelector("#toast-show");
+      let toastTimer = null;
+
+      function toastIconMarkup(type) {
+        if (type === "loading") return '<span class="toast-spinner" aria-hidden="true"></span>';
+        const iconType = type === "info" ? "info" : type;
+        return `<span class="toast-icon ${iconType}" aria-hidden="true">${projectIcons[iconType]}</span>`;
+      }
+
+      function showToast(type) {
+        window.clearTimeout(toastTimer);
+        toastOverlay.className = "toast-overlay is-visible";
+        toastOverlay.innerHTML = `
+          <div class="preview-toast ${type}">
+            ${toastIconMarkup(type)}
+            <span class="toast-message">This is a toast message</span>
+            <button class="toast-close" type="button" aria-label="Close"><span class="toast-close-icon">${projectIcons.x}</span></button>
+          </div>
+        `;
+        toastOverlay.querySelector(".toast-close").addEventListener("click", () => {
+          toastOverlay.classList.remove("is-visible");
+        });
+        toastTimer = window.setTimeout(() => {
+          toastOverlay.classList.remove("is-visible");
+        }, 2600);
+      }
+
+      toastShow.addEventListener("click", () => {
+        showToast(toastType.value);
+      });
+
+      const buttonPreview = document.querySelector("#button-preview");
+      const buttonSize = document.querySelector("#button-size");
+      const buttonFilled = document.querySelector("#button-filled");
+      const buttonAlert = document.querySelector("#button-alert");
+      const buttonDisabled = document.querySelector("#button-disabled");
+
+      function updateButtonPreview() {
+        const size = buttonSize.value;
+        buttonPreview.className = [
+          "preview-button",
+          `size-${size}`,
+          buttonFilled.checked ? "is-filled" : "is-outline",
+          buttonAlert.checked ? "is-alert" : "",
+          buttonDisabled.checked ? "is-disabled" : ""
+        ]
+          .filter(Boolean)
+          .join(" ");
+        buttonPreview.disabled = buttonDisabled.checked;
+      }
+
+      [buttonSize, buttonFilled, buttonAlert, buttonDisabled].forEach((control) => {
+        control.addEventListener("change", updateButtonPreview);
+      });
+
+      const iconButtonPreview = document.querySelector("#icon-button-preview");
+      const iconButtonSize = document.querySelector("#icon-button-size");
+      const iconButtonFilled = document.querySelector("#icon-button-filled");
+      const iconButtonDisabled = document.querySelector("#icon-button-disabled");
+      const iconButtonTooltipVisible = document.querySelector("#icon-button-tooltip-visible");
+      const iconButtonDemo = document.querySelector("#icon-button-demo");
+      const iconButtonTooltip = document.querySelector("#icon-button-tooltip");
+
+      function updateIconButtonPreview() {
+        iconButtonPreview.className = [
+          "preview-icon-button",
+          `size-${iconButtonSize.value}`,
+          iconButtonFilled.checked ? "is-filled" : "is-outline",
+          iconButtonDisabled.checked ? "is-disabled" : "",
+          "icon-button-trigger"
+        ]
+          .filter(Boolean)
+          .join(" ");
+        iconButtonPreview.disabled = iconButtonDisabled.checked;
+        iconButtonTooltip.classList.toggle("is-visible", iconButtonTooltipVisible.checked);
+
+        requestAnimationFrame(() => {
+          const position = placeFloatingElement(iconButtonDemo, iconButtonPreview, iconButtonTooltip, "top");
+          iconButtonTooltip.style.left = `${position.left}px`;
+          iconButtonTooltip.style.top = `${position.top}px`;
+        });
+      }
+
+      [iconButtonSize, iconButtonFilled, iconButtonDisabled, iconButtonTooltipVisible].forEach((control) => {
+        control.addEventListener("change", updateIconButtonPreview);
+      });
+
+      const toolbarPreview = document.querySelector("#toolbar-preview");
+      const toolbarSelected = document.querySelector("#toolbar-selected");
+      const toolbarDisabled = document.querySelector("#toolbar-disabled");
+
+      function updateToolbarPreview() {
+        toolbarPreview.className = ["preview-toolbar-item", toolbarSelected.checked ? "is-selected" : "", toolbarDisabled.checked ? "is-disabled" : ""]
+          .filter(Boolean)
+          .join(" ");
+        toolbarPreview.disabled = toolbarDisabled.checked;
+        toolbarPreview.setAttribute("aria-pressed", String(toolbarSelected.checked));
+      }
+
+      toolbarPreview.addEventListener("click", () => {
+        if (toolbarDisabled.checked) return;
+        toolbarSelected.checked = !toolbarSelected.checked;
+        updateToolbarPreview();
+      });
+
+      [toolbarSelected, toolbarDisabled].forEach((control) => {
+        control.addEventListener("change", updateToolbarPreview);
+      });
+
+      const projectPreview = document.querySelector("#project-preview");
+      const projectSelected = document.querySelector("#project-selected");
+      const projectLoading = document.querySelector("#project-loading");
+      const projectUnread = document.querySelector("#project-unread");
+      const projectLeadingIcon = document.querySelector("#project-leading-icon");
+      const projectArchive = document.querySelector("#project-archive");
+      const projectReadout = document.querySelector("#project-readout");
+
+      function updateProjectPreview() {
+        const selected = projectSelected.checked;
+        const loading = projectLoading.checked;
+        projectPreview.className = ["preview-project-item", selected ? "is-selected" : ""].filter(Boolean).join(" ");
+        const leading = projectLeadingIcon.parentElement;
+        leading.innerHTML = loading
+          ? '<span class="preview-project-spinner"></span>'
+          : `<span id="project-leading-icon" class="preview-project-icon">${selected ? projectIcons.folderOpen : projectIcons.folder}</span>${!selected && projectUnread.checked ? '<span class="preview-project-badge"></span>' : ""}`;
+        projectArchive.innerHTML = projectIcons.archive;
+      }
+
+      projectPreview.addEventListener("click", () => {
+        projectReadout.textContent = "click: open project";
+      });
+      projectArchive.addEventListener("click", (event) => {
+        event.stopPropagation();
+        projectReadout.textContent = "archive clicked";
+      });
+      [projectSelected, projectLoading, projectUnread].forEach((control) => {
+        control.addEventListener("change", updateProjectPreview);
+      });
+      updateProjectPreview();
+
+      const taskPreview = document.querySelector("#task-preview");
+      const taskFlow = document.querySelector("#task-flow");
+      const taskLoading = document.querySelector("#task-loading");
+      const taskLeading = document.querySelector("#task-leading");
+      const taskMeta = document.querySelector("#task-meta");
+      const taskReadout = document.querySelector("#task-readout");
+
+      function updateTaskPreview() {
+        const isFlow = taskFlow.checked;
+        const isLoading = taskLoading.checked;
+        taskLeading.innerHTML = isLoading
+          ? '<span class="preview-task-spinner"></span>'
+          : `<span class="preview-task-icon">${isFlow ? projectIcons.addSources : projectIcons.connectApps}</span>`;
+        taskMeta.textContent = isFlow ? "3 nodes" : "Ready for play";
+      }
+
+      taskPreview.addEventListener("click", () => {
+        taskReadout.textContent = "click: select task";
+      });
+      document.querySelector("#task-play").addEventListener("click", (event) => {
+        event.stopPropagation();
+        taskReadout.textContent = "play clicked";
+      });
+      document.querySelector("#task-message").addEventListener("click", (event) => {
+        event.stopPropagation();
+        taskReadout.textContent = "message clicked";
+      });
+      [taskFlow, taskLoading].forEach((control) => {
+        control.addEventListener("change", updateTaskPreview);
+      });
+      updateTaskPreview();
+
+      const canvasNodePreview = document.querySelector("#canvas-node-preview");
+      const canvasNodeFilled = document.querySelector("#canvas-node-filled");
+      const canvasNodeSelected = document.querySelector("#canvas-node-selected");
+      const canvasNodeHover = document.querySelector("#canvas-node-hover");
+      const canvasNodeUnconnected = document.querySelector("#canvas-node-unconnected");
+      const canvasNodeUpload = document.querySelector("#canvas-node-upload");
+      const canvasNodePlan = document.querySelector("#canvas-node-plan");
+      const canvasNodePrompt = document.querySelector("#canvas-node-prompt");
+      const canvasNodeUploads = document.querySelector("#canvas-node-uploads");
+      const canvasNodeToggle = document.querySelector("#canvas-node-toggle");
+      const canvasNodeLeftSide = document.querySelector("#canvas-node-left-side");
+      const canvasNodeUploadButton = document.querySelector("#canvas-node-upload-button");
+      const canvasNodeFileInput = document.querySelector("#canvas-node-file-input");
+      const canvasNodeEffortTrigger = document.querySelector("#canvas-node-effort-trigger");
+      const canvasNodeEffortLabel = document.querySelector("#canvas-node-effort-label");
+      const canvasNodeEffortMenu = document.querySelector("#canvas-node-effort-menu");
+      const canvasNodeMenuTrigger = document.querySelector("#canvas-node-menu-trigger");
+      const canvasNodeActionsMenu = document.querySelector("#canvas-node-actions-menu");
+
+      function uploadChipMarkup(file) {
+        const isImage = file.type.startsWith("image/");
+        const safeName = file.name.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+        const leading = isImage
+          ? `<span class="preview-upload-chip-thumbnail" aria-hidden="true"><img alt="" src="${URL.createObjectURL(file)}" /></span>`
+          : `<span class="preview-upload-chip-file-icon" aria-hidden="true">${projectIcons.analyzeData}</span>`;
+        return `<span class="preview-upload-chip">${leading}<span class="preview-upload-chip-label">${safeName}</span><button class="preview-upload-chip-remove" type="button" aria-label="Remove">${projectIcons.x}</button></span>`;
+      }
+
+      function updateCanvasNodePreview() {
+        const filled = canvasNodeFilled.checked;
+        const selected = canvasNodeSelected.checked;
+        const hover = canvasNodeHover.checked;
+        const unconnected = canvasNodeUnconnected.checked;
+        const plan = canvasNodePlan.checked;
+        canvasNodePreview.className = [
+          "preview-canvas-node",
+          filled ? "is-filled" : "",
+          selected ? "is-selected" : "",
+          hover ? "is-hover" : "",
+          unconnected ? "is-unconnected" : ""
+        ]
+          .filter(Boolean)
+          .join(" ");
+        canvasNodePrompt.textContent = "Prompt and description go here...";
+        canvasNodeUploads.hidden = !canvasNodeUpload.checked;
+        canvasNodeToggle.classList.toggle("is-selected", plan);
+        canvasNodeToggle.setAttribute("aria-pressed", String(plan));
+        canvasNodeLeftSide.hidden = !unconnected;
+      }
+
+      [canvasNodeFilled, canvasNodeSelected, canvasNodeHover, canvasNodeUnconnected, canvasNodeUpload, canvasNodePlan].forEach((control) => {
+        control.addEventListener("change", updateCanvasNodePreview);
+      });
+      canvasNodeToggle.addEventListener("click", () => {
+        canvasNodePlan.checked = !canvasNodePlan.checked;
+        updateCanvasNodePreview();
+      });
+      canvasNodeUploadButton.addEventListener("click", () => {
+        canvasNodeFileInput.click();
+      });
+      canvasNodeFileInput.addEventListener("change", () => {
+        const files = Array.from(canvasNodeFileInput.files || []);
+        if (files.length === 0) return;
+        canvasNodeUploads.hidden = false;
+        canvasNodeUpload.checked = true;
+        canvasNodeUploads.insertAdjacentHTML("beforeend", files.map(uploadChipMarkup).join(""));
+        canvasNodeFileInput.value = "";
+      });
+      canvasNodeEffortTrigger.addEventListener("click", () => {
+        const isOpen = canvasNodeEffortMenu.hidden;
+        canvasNodeEffortMenu.hidden = !isOpen;
+        canvasNodeEffortTrigger.setAttribute("aria-expanded", String(isOpen));
+      });
+      canvasNodeEffortMenu.querySelectorAll("[data-effort-option]").forEach((option) => {
+        option.addEventListener("click", () => {
+          const value = option.dataset.effortOption;
+          canvasNodeEffortLabel.textContent = value;
+          canvasNodeEffortMenu.querySelectorAll("[data-effort-option]").forEach((candidate) => {
+            const selected = candidate.dataset.effortOption === value;
+            candidate.querySelector(".dropdown-menu-item-check")?.remove();
+            if (selected) {
+              candidate.insertAdjacentHTML("beforeend", '<span class="dropdown-menu-item-check" aria-hidden="true"></span>');
+            }
+          });
+          canvasNodeEffortMenu.hidden = true;
+          canvasNodeEffortTrigger.setAttribute("aria-expanded", "false");
+        });
+      });
+      canvasNodeMenuTrigger.addEventListener("click", () => {
+        const isOpen = canvasNodeActionsMenu.hidden;
+        canvasNodeActionsMenu.hidden = !isOpen;
+        canvasNodeMenuTrigger.setAttribute("aria-expanded", String(isOpen));
+      });
+      canvasNodeActionsMenu.querySelectorAll("[data-node-menu-action]").forEach((item) => {
+        item.addEventListener("click", () => {
+          canvasNodeActionsMenu.hidden = true;
+          canvasNodeMenuTrigger.setAttribute("aria-expanded", "false");
+        });
+      });
+      document.addEventListener("pointerdown", (event) => {
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        const effortPicker = canvasNodeEffortTrigger.closest(".preview-canvas-node-effort-picker");
+        const nodeMenuPicker = canvasNodeMenuTrigger.closest(".preview-canvas-node-menu-picker");
+        if (!effortPicker.contains(target)) {
+          canvasNodeEffortMenu.hidden = true;
+          canvasNodeEffortTrigger.setAttribute("aria-expanded", "false");
+        }
+        if (!nodeMenuPicker.contains(target)) {
+          canvasNodeActionsMenu.hidden = true;
+          canvasNodeMenuTrigger.setAttribute("aria-expanded", "false");
+        }
+      });
+      updateCanvasNodePreview();
+
+      const cellKind = document.querySelector("#cell-kind");
+      const cellDescription = document.querySelector("#cell-description");
+      const cellLong = document.querySelector("#cell-long");
+      const cellHeading = document.querySelector("#cell-heading");
+      const cellDescriptionText = document.querySelector("#cell-description-text");
+      const cellAction = document.querySelector("#cell-action");
+
+      function updateCellPreview() {
+        const isToggle = cellKind.value === "toggle";
+        cellHeading.textContent = cellLong.checked ? "This is a very long heading that should truncate" : "This is heading";
+        cellDescriptionText.textContent = cellLong.checked ? "Description goes here and should truncate cleanly..." : "Description goes here...";
+        cellDescriptionText.style.display = cellDescription.checked ? "" : "none";
+        cellAction.innerHTML = isToggle
+          ? '<button class="preview-toggle is-selected" type="button" aria-pressed="true"><span class="preview-toggle-handle"></span></button>'
+          : '<button class="preview-select size-sm is-filled" type="button"><span class="preview-select-label">Chinese</span><span class="preview-select-chevron"></span></button>';
+      }
+
+      [cellKind, cellDescription, cellLong].forEach((control) => {
+        control.addEventListener("change", updateCellPreview);
+      });
+      updateCellPreview();
+
+      const uploadChipKind = document.querySelector("#upload-chip-kind");
+      const uploadChipImageUrl = document.querySelector("#upload-chip-image-url");
+      const uploadChipLong = document.querySelector("#upload-chip-long");
+      const uploadChipPreview = document.querySelector("#upload-chip-preview");
+      const uploadChipLeading = document.querySelector("#upload-chip-leading");
+      const uploadChipLabel = document.querySelector("#upload-chip-label");
+      const uploadChipOpenReadout = document.querySelector("#upload-chip-open-readout");
+
+      function updateUploadChipPreview() {
+        const isImage = uploadChipKind.value === "image";
+        uploadChipLeading.className = isImage ? "preview-upload-chip-thumbnail" : "preview-upload-chip-file-icon";
+        const imageUrl = uploadChipImageUrl.value.trim();
+        uploadChipLeading.innerHTML = isImage
+          ? imageUrl
+            ? `<img alt="" src="${imageUrl.replaceAll('"', "&quot;")}" />`
+            : '<span class="preview-upload-chip-thumbnail-empty"></span>'
+          : projectIcons.analyzeData;
+        uploadChipLabel.textContent = uploadChipLong.checked ? "This is a very long uploaded file name.pdf" : "This is a file.pdf";
+      }
+
+      [uploadChipKind, uploadChipImageUrl, uploadChipLong].forEach((control) => {
+        control.addEventListener("change", updateUploadChipPreview);
+        control.addEventListener("input", updateUploadChipPreview);
+      });
+
+      function previewOpenUploadChip() {
+        uploadChipOpenReadout.textContent = "click: would call window.scatter.showInFolder(storedPath)";
+      }
+
+      uploadChipPreview.addEventListener("click", previewOpenUploadChip);
+      uploadChipPreview.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          previewOpenUploadChip();
+        }
+      });
+      updateUploadChipPreview();
+
+      const togglePreview = document.querySelector("#toggle-preview");
+      const toggleSelected = document.querySelector("#toggle-selected");
+      const toggleDisabled = document.querySelector("#toggle-disabled");
+
+      function updateTogglePreview() {
+        togglePreview.className = ["preview-toggle", toggleSelected.checked ? "is-selected" : "", toggleDisabled.checked ? "is-disabled" : ""]
+          .filter(Boolean)
+          .join(" ");
+        togglePreview.disabled = toggleDisabled.checked;
+        togglePreview.setAttribute("aria-pressed", String(toggleSelected.checked));
+      }
+
+      togglePreview.addEventListener("click", () => {
+        if (toggleDisabled.checked) return;
+        toggleSelected.checked = !toggleSelected.checked;
+        updateTogglePreview();
+      });
+
+      [toggleSelected, toggleDisabled].forEach((control) => {
+        control.addEventListener("change", updateTogglePreview);
+      });
+
+      const checkboxPreview = document.querySelector("#checkbox-preview");
+      const checkboxSelected = document.querySelector("#checkbox-selected");
+      const checkboxDisabled = document.querySelector("#checkbox-disabled");
+
+      function updateCheckboxPreview() {
+        checkboxPreview.className = [
+          "preview-checkbox",
+          "is-animated",
+          checkboxSelected.checked ? "is-selected" : "",
+          checkboxDisabled.checked ? "is-disabled" : ""
+        ]
+          .filter(Boolean)
+          .join(" ");
+        checkboxPreview.disabled = checkboxDisabled.checked;
+        checkboxPreview.setAttribute("aria-pressed", String(checkboxSelected.checked));
+      }
+
+      checkboxPreview.addEventListener("click", () => {
+        if (checkboxDisabled.checked) return;
+        checkboxSelected.checked = !checkboxSelected.checked;
+        updateCheckboxPreview();
+      });
+
+      [checkboxSelected, checkboxDisabled].forEach((control) => {
+        control.addEventListener("change", updateCheckboxPreview);
+      });
+
+      const tooltipDemo = document.querySelector("#tooltip-demo");
+      const tooltipTrigger = document.querySelector("#tooltip-trigger");
+      const tooltipFloating = document.querySelector("#tooltip-floating");
+      const tooltipTriggerPosition = document.querySelector("#tooltip-trigger-position");
+      const tooltipPreferredPlacement = document.querySelector("#tooltip-preferred-placement");
+      const tooltipShortcutToggle = document.querySelector("#tooltip-shortcut-toggle");
+      const tooltipPlacementReadout = document.querySelector("#tooltip-placement-readout");
+      const tooltipGap = 4;
+      const tooltipViewportPadding = 8;
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function getTooltipCandidates(preferred, triggerRect, boundaryRect, tooltipRect) {
+        const spaces = {
+          top: triggerRect.top - boundaryRect.top,
+          right: boundaryRect.right - triggerRect.right,
+          bottom: boundaryRect.bottom - triggerRect.bottom,
+          left: triggerRect.left - boundaryRect.left
+        };
+        const fits = {
+          top: spaces.top >= tooltipRect.height + tooltipGap,
+          right: spaces.right >= tooltipRect.width + tooltipGap,
+          bottom: spaces.bottom >= tooltipRect.height + tooltipGap,
+          left: spaces.left >= tooltipRect.width + tooltipGap
+        };
+        const autoOrder = Object.entries(spaces)
+          .sort((a, b) => b[1] - a[1])
+          .map(([side]) => side);
+
+        if (preferred !== "auto") {
+          return [preferred, ...autoOrder.filter((side) => side !== preferred)];
+        }
+
+        return [...autoOrder.filter((side) => fits[side]), ...autoOrder.filter((side) => !fits[side])];
+      }
+
+      function placeFloatingElement(boundary, trigger, floating, preferred) {
+        floating.style.left = "0px";
+        floating.style.top = "0px";
+
+        const boundaryRect = boundary.getBoundingClientRect();
+        const triggerRect = trigger.getBoundingClientRect();
+        const tooltipRect = floating.getBoundingClientRect();
+        const candidates = getTooltipCandidates(preferred, triggerRect, boundaryRect, tooltipRect);
+        const placement = candidates[0] || "top";
+        let left = 0;
+        let top = 0;
+
+        if (placement === "top" || placement === "bottom") {
+          left = triggerRect.left - boundaryRect.left + (triggerRect.width - tooltipRect.width) / 2;
+          top =
+            placement === "top"
+              ? triggerRect.top - boundaryRect.top - tooltipRect.height - tooltipGap
+              : triggerRect.bottom - boundaryRect.top + tooltipGap;
+        } else {
+          left =
+            placement === "left"
+              ? triggerRect.left - boundaryRect.left - tooltipRect.width - tooltipGap
+              : triggerRect.right - boundaryRect.left + tooltipGap;
+          top = triggerRect.top - boundaryRect.top + (triggerRect.height - tooltipRect.height) / 2;
+        }
+
+        left = clamp(left, tooltipViewportPadding, boundaryRect.width - tooltipRect.width - tooltipViewportPadding);
+        top = clamp(top, tooltipViewportPadding, boundaryRect.height - tooltipRect.height - tooltipViewportPadding);
+
+        return { left, top, placement };
+      }
+
+      function updateTooltipPreview() {
+        tooltipDemo.dataset.trigger = tooltipTriggerPosition.value;
+        tooltipFloating.classList.toggle("has-shortcut", tooltipShortcutToggle.checked);
+        tooltipFloating.innerHTML = tooltipShortcutToggle.checked
+          ? '<span>Tooltip label</span><span class="tooltip-shortcut">⌘ D</span>'
+          : '<span>Tooltip label</span>';
+
+        requestAnimationFrame(() => {
+          const position = placeFloatingElement(tooltipDemo, tooltipTrigger, tooltipFloating, tooltipPreferredPlacement.value);
+          tooltipFloating.style.left = `${position.left}px`;
+          tooltipFloating.style.top = `${position.top}px`;
+          tooltipPlacementReadout.textContent = `placement: ${position.placement}, gap: 4px`;
+        });
+      }
+
+      [tooltipTriggerPosition, tooltipPreferredPlacement, tooltipShortcutToggle].forEach((control) => {
+        control.addEventListener("change", updateTooltipPreview);
+      });
+      window.addEventListener("resize", updateTooltipPreview);
+      window.addEventListener("resize", updateIconButtonPreview);
+      updateIconButtonPreview();
+      updateTooltipPreview();
+    </script>
+  </body>
+</html>
