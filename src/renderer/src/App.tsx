@@ -17,7 +17,6 @@ import {
   type NodeTypes
 } from "@xyflow/react";
 import { nanoid } from "nanoid";
-import { Inbox } from "lucide-react";
 import type {
   Attachment,
   AttachmentInput,
@@ -35,6 +34,7 @@ import { Topbar } from "./components/Topbar";
 import { RightDrawer } from "./components/RightDrawer";
 import { TaskNode, setTaskNodeActions } from "./components/TaskNode";
 import { Button } from "./components/ui/button";
+import { Icon } from "./components/ui/icon";
 import { useScatterStore } from "./store/scatterStore";
 import "./styles/app.css";
 import "@xyflow/react/dist/style.css";
@@ -364,7 +364,7 @@ function App(): ReactElement {
       <main className="welcome-shell" data-theme={theme}>
         <div className="welcome-card">
           <div className="welcome-icon">
-            <Inbox size={24} />
+            <Icon name="inbox" size={24} />
           </div>
           <h1>Scatter</h1>
           <p>选择一个本地文件夹作为项目，然后开始组织多模态任务画布。</p>

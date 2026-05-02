@@ -1,9 +1,9 @@
-import { Clipboard, ExternalLink, ListChecks, X } from "lucide-react";
 import type { ReactElement } from "react";
 import type { RunMode, ScatterEdge, ScatterNode } from "../../../shared/types";
 import { childCount } from "../lib/markdown";
 import { formatBytes } from "../lib/utils";
 import { Button } from "./ui/button";
+import { Icon } from "./ui/icon";
 
 interface RightDrawerProps {
   drawer: "tasks" | "markdown" | null;
@@ -40,7 +40,7 @@ export function RightDrawer({
           <span>{drawer === "tasks" ? `${nodes.length} 个节点任务` : selectedNode?.data.title || "未选中节点"}</span>
         </div>
         <Button variant="ghost" size="icon" onClick={onClose}>
-          <X size={16} />
+          <Icon name="x" size={16} />
         </Button>
       </div>
 
@@ -74,7 +74,7 @@ export function RightDrawer({
                       onRunNode(node.id, node.data.runMode || "flow");
                     }}
                   >
-                    <ListChecks size={14} />
+                    <Icon name="list-checks" size={14} />
                     <span>运行</span>
                   </Button>
                 </div>
@@ -99,14 +99,14 @@ export function RightDrawer({
                 navigator.clipboard.writeText(markdown);
               }}
             >
-              <Clipboard size={16} />
+              <Icon name="clipboard" size={16} />
               <span>复制</span>
             </Button>
           </div>
           <pre>{markdown || "选择一个节点后，这里会显示发送给 Codex 的 Markdown。"}</pre>
           {selectedNode ? (
             <Button variant="primary" onClick={() => onRunNode(selectedNode.id, currentRunMode)}>
-              <ExternalLink size={16} />
+              <Icon name="external-link" size={16} />
               <span>发送到 Codex</span>
             </Button>
           ) : null}

@@ -1,8 +1,8 @@
-import { FolderOpen, FolderPlus, Layers, Moon, Sun } from "lucide-react";
 import type { ReactElement } from "react";
 import type { ScatterProjectInfo } from "../../../shared/types";
 import { shortPath } from "../lib/utils";
 import { Button } from "./ui/button";
+import { Icon } from "./ui/icon";
 
 interface SidebarProps {
   recentProjects: ScatterProjectInfo[];
@@ -27,7 +27,7 @@ export function Sidebar({
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-mark">
-          <Layers size={18} />
+          <Icon name="layers" size={18} />
         </div>
         <div>
           <strong>Scatter</strong>
@@ -37,11 +37,11 @@ export function Sidebar({
 
       <div className="sidebar-actions">
         <Button variant="primary" onClick={onCreateProject}>
-          <FolderPlus size={16} />
+          <Icon name="folder-plus" size={16} />
           <span>新建项目</span>
         </Button>
         <Button onClick={onOpenProject}>
-          <FolderOpen size={16} />
+          <Icon name="folder-open" size={16} />
           <span>打开项目</span>
         </Button>
       </div>
@@ -67,7 +67,7 @@ export function Sidebar({
 
       <div className="sidebar-footer">
         <Button variant="ghost" onClick={onToggleTheme}>
-          {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+          <Icon name={theme === "light" ? "moon" : "sun"} size={16} />
           <span>{theme === "light" ? "深色模式" : "浅色模式"}</span>
         </Button>
       </div>

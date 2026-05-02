@@ -1,10 +1,10 @@
 import { memo, useCallback, type ReactElement } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { ChevronDown, FileText, ImageIcon, Paperclip, Play } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { RunMode, ScatterNodeData } from "../../../shared/types";
 import { formatBytes } from "../lib/utils";
 import { Button } from "./ui/button";
+import { Icon } from "./ui/icon";
 import { Switch } from "./ui/switch";
 
 type TaskNodeProps = NodeProps<Node<ScatterNodeData, "task">>;
@@ -46,7 +46,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <Button className="nodrag" variant="ghost" size="icon" title="Run mode">
-              <ChevronDown size={15} />
+              <Icon name="chevron-down" size={15} />
             </Button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
@@ -87,7 +87,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
             {attachment.kind === "image" ? (
               <img src={attachment.fileUrl} alt={attachment.originalName} />
             ) : (
-              <FileText size={15} />
+              <Icon name="file-text" size={15} />
             )}
             <span>{attachment.originalName}</span>
             <small>{formatBytes(attachment.size)}</small>
@@ -97,7 +97,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
 
       <div className="task-node-footer">
         <label className="attach-button nodrag">
-          <Paperclip size={15} />
+          <Icon name="paperclip" size={15} />
           <span>附件</span>
           <input type="file" multiple onChange={onUpload} />
         </label>
@@ -107,7 +107,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
           onCheckedChange={(checked) => taskNodeActions?.updateNodeData(id, { planMode: checked })}
         />
         <Button className="nodrag run-node-button" variant="primary" size="sm" onClick={() => taskNodeActions?.runNode(id, runMode)}>
-          <Play size={14} />
+          <Icon name="play" size={14} />
           <span>{runMode === "flow" ? "运行流程" : "运行节点"}</span>
         </Button>
       </div>
@@ -115,7 +115,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
         {runMode === "flow" ? "默认发送当前节点及所有子节点" : "只发送当前节点内容"}
       </div>
       <Handle type="source" position={Position.Right} className="node-handle" />
-      {data.attachments.some((item) => item.kind === "image") ? <ImageIcon className="node-corner-icon" size={16} /> : null}
+      {data.attachments.some((item) => item.kind === "image") ? <Icon name="image-icon" className="node-corner-icon" size={16} /> : null}
     </div>
   );
 }
