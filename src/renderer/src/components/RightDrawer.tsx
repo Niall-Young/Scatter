@@ -1,8 +1,6 @@
 import { Fragment, useEffect, useState, type ReactElement, type ReactNode } from "react";
 import type { RunMode, ScatterEdge, ScatterNode } from "../../../shared/types";
 import { childCount } from "../lib/markdown";
-import { Button } from "./ui/button";
-import { Icon } from "./ui/icon";
 import { IconButton } from "./ui/icon-button";
 import { Segmented, SegmentedItem } from "./ui/segmented";
 import { TaskItem } from "./ui/task-item";
@@ -15,12 +13,71 @@ interface RightDrawerProps {
   selectedNodeId: string | null;
   markdown: string;
   currentRunMode: RunMode;
-  onPreviewNode: (nodeId: string) => void;
-  onSelectNode: (nodeId: string) => void;
+  onSelectNode: (nodeId: string, mode: RunMode) => void;
   onRunNode: (nodeId: string, mode: RunMode) => void;
 }
 
 type MarkdownView = "source" | "preview";
+type TaskListEntry = {
+  canRun: boolean;
+  flow: boolean;
+  id: string;
+  meta: string;
+  mode: RunMode;
+  node: ScatterNode;
+  nodeCount: number;
+};
+
+function taskListEntries(nodes: ScatterNode[], edges: ScatterEdge[]): TaskListEntry[] {
+  const incomingNodeIds = new Set(edges.map((edge) => edge.target));
+  const outgoingNodeIds = new Set(edges.map((edge) => edge.source));
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+
+  return nodes.flatMap((node) => {
+    const entries: TaskListEntry[] = [];
+    const isFlowStart = outgoingNodeIds.has(node.id) && !incomingNodeIds.has(node.id);
+    const isStandaloneNode = !incomingNodeIds.has(node.id) && !outgoingNodeIds.has(node.id);
+    const hasPrompt = node.data.body.trim().length > 0;
+
+    if (isFlowStart) {
+      const downstreamCount = childCount(node.id, edges);
+      const nodeCount = downstreamCount + 1;
+      const downstreamNodeIds = new Set<string>([node.id]);
+      const visit = (nodeId: string): void => {
+        for (const edge of edges.filter((item) => item.source === nodeId)) {
+          if (downstreamNodeIds.has(edge.target)) continue;
+          downstreamNodeIds.add(edge.target);
+          visit(edge.target);
+        }
+      };
+      visit(node.id);
+
+      entries.push({
+        canRun: Array.from(downstreamNodeIds).some((nodeId) => (nodeById.get(nodeId)?.data.body.trim().length ?? 0) > 0),
+        flow: true,
+        id: `flow-${node.id}`,
+        meta: `流程起点 · 共 ${nodeCount} 个节点`,
+        mode: "flow",
+        node,
+        nodeCount
+      });
+    }
+
+    if (!isStandaloneNode) return entries;
+
+    entries.push({
+      canRun: hasPrompt,
+      flow: false,
+      id: `node-${node.id}`,
+      meta: hasPrompt ? "可发送给 Codex" : "暂未编辑",
+      mode: "node",
+      node,
+      nodeCount: 1
+    });
+
+    return entries;
+  });
+}
 
 function inlineMarkdown(text: string): ReactNode[] {
   const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
@@ -154,12 +211,16 @@ export function RightDrawer({
   selectedNodeId,
   markdown,
   currentRunMode,
-  onPreviewNode,
   onSelectNode,
   onRunNode
-}: RightDrawerProps): ReactElement | null {
+}: RightDrawerProps): ReactElement {
   const [copyStatus, setCopyStatus] = useState<"idle" | "success">("idle");
   const [markdownView, setMarkdownView] = useState<MarkdownView>("source");
+  const [renderedDrawer, setRenderedDrawer] = useState<Exclude<RightDrawerProps["drawer"], null>>("tasks");
+
+  useEffect(() => {
+    if (drawer) setRenderedDrawer(drawer);
+  }, [drawer]);
 
   useEffect(() => {
     if (copyStatus !== "success") return undefined;
@@ -167,9 +228,10 @@ export function RightDrawer({
     return () => window.clearTimeout(timer);
   }, [copyStatus]);
 
-  if (!drawer) return null;
-
+  const isOpen = drawer !== null;
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+  const taskEntries = taskListEntries(nodes, edges);
+  const flowStartNodeIds = new Set(taskEntries.filter((entry) => entry.flow).map((entry) => entry.node.id));
   function downloadMarkdown(): void {
     const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -186,29 +248,36 @@ export function RightDrawer({
   }
 
   return (
-    <aside className={`right-drawer is-${drawer}`} aria-label={drawer === "tasks" ? "任务清单" : "Markdown 预览"}>
-      {drawer === "tasks" ? (
+    <aside
+      className={`right-drawer is-${renderedDrawer} ${isOpen ? "is-open" : "is-collapsed"}`}
+      aria-hidden={!isOpen}
+      aria-label={renderedDrawer === "tasks" ? "任务清单" : "Markdown 预览"}
+      inert={!isOpen}
+    >
+      {renderedDrawer === "tasks" ? (
         <div className="task-sidebar">
           <p className="right-sidebar-title">任务清单</p>
           <div className="task-list">
             {nodes.length === 0 ? (
               <p className="empty-copy">画布中还没有任务节点。</p>
             ) : (
-              nodes.map((node) => {
-                const downstreamCount = childCount(node.id, edges);
-                const isFlow = downstreamCount > 0 || (node.data.runMode || "flow") === "flow";
+              taskEntries.map((entry) => {
+                const isActive =
+                  entry.node.id === selectedNodeId &&
+                  (entry.mode === currentRunMode || (!entry.flow && !flowStartNodeIds.has(entry.node.id)));
 
                 return (
                   <TaskItem
-                    key={node.id}
-                    className={node.id === selectedNodeId ? "is-active" : undefined}
-                    flow={isFlow}
-                    meta={isFlow ? `共 ${downstreamCount + 1} 个流程节点` : "已准备就绪"}
-                    nodeCount={downstreamCount + 1}
-                    taskName={node.data.title || "未命名任务"}
-                    onClick={() => onSelectNode(node.id)}
-                    onMessage={() => onPreviewNode(node.id)}
-                    onPlay={() => onRunNode(node.id, node.data.runMode || "flow")}
+                    key={entry.id}
+                    canRun={entry.canRun}
+                    className={isActive ? "is-active" : undefined}
+                    flow={entry.flow}
+                    meta={entry.meta}
+                    nodeCount={entry.nodeCount}
+                    taskName={entry.node.data.title || "未命名任务"}
+                    onClick={() => onSelectNode(entry.node.id, entry.mode)}
+                    onLocate={() => onSelectNode(entry.node.id, entry.mode)}
+                    onPlay={() => onRunNode(entry.node.id, entry.mode)}
                   />
                 );
               })
@@ -254,12 +323,6 @@ export function RightDrawer({
               <p>选择一个节点后，这里会显示发送给 Codex 的 Markdown。</p>
             </div>
           )}
-          {selectedNode ? (
-            <Button variant="primary" onClick={() => onRunNode(selectedNode.id, currentRunMode)}>
-              <Icon name="external-link" size={16} />
-              <span>发送到 Codex</span>
-            </Button>
-          ) : null}
           {copyStatus === "success" ? (
             <ToastViewport>
               <Toast tone="positive" message="已复制 Markdown" onClose={() => setCopyStatus("idle")} />

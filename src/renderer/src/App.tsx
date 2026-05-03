@@ -250,13 +250,15 @@ function App(): ReactElement {
   const canvasShellRef = useRef<HTMLDivElement | null>(null);
   const workspaceContentRef = useRef<HTMLDivElement | null>(null);
   const nodeDragHistoryOpenRef = useRef(false);
+  const [taskRunModeOverride, setTaskRunModeOverride] = useState<{ nodeId: string; mode: RunMode } | null>(null);
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) || null,
     [nodes, selectedNodeId]
   );
 
-  const selectedRunMode = selectedNode?.data.runMode || "flow";
+  const selectedRunModeOverride = taskRunModeOverride && taskRunModeOverride.nodeId === selectedNode?.id ? taskRunModeOverride.mode : null;
+  const selectedRunMode = selectedRunModeOverride ?? selectedNode?.data.runMode ?? "flow";
   const panModeActive = canvasTool === "pan" || spacePanActive;
   const zoomPercent = Math.round(viewportZoom * 100);
   const markdownResult = useMemo(
@@ -421,6 +423,10 @@ function App(): ReactElement {
       const node = nodes.find((item) => item.id === nodeId);
       if (!node) return;
       const result = buildMarkdown(nodes, edges, nodeId, mode, project.name, project.path);
+      if (result.nodes.every((item) => item.data.body.trim().length === 0)) {
+        setStatus("暂未编辑，无法发送到 Codex");
+        return;
+      }
       const threadName = mode === "flow" ? `Scatter Flow: ${node.data.title || "Untitled"}` : `Scatter: ${node.data.title || "Untitled"}`;
       setStatus("正在发送到 Codex...");
       try {
@@ -729,8 +735,25 @@ function App(): ReactElement {
   const runActiveNode = useCallback(() => {
     const target = selectedNode || nodes[0];
     if (!target) return;
-    void runNode(target.id, target.data.runMode || "flow");
-  }, [nodes, runNode, selectedNode]);
+    void runNode(target.id, selectedNode ? selectedRunMode : target.data.runMode || "flow");
+  }, [nodes, runNode, selectedNode, selectedRunMode]);
+
+  const focusCanvasNode = useCallback(
+    (nodeId: string, mode: RunMode) => {
+      setTaskRunModeOverride({ nodeId, mode });
+      setSelectedNodeId(nodeId);
+      replaceCanvasLive({ nodes: nodes.map((node) => ({ ...node, selected: node.id === nodeId })) });
+
+      const target = nodes.find((node) => node.id === nodeId);
+      if (!target) return;
+      const bounds = nodeBounds(target);
+      void flowInstanceRef.current?.setCenter(target.position.x + bounds.width / 2, target.position.y + bounds.height / 2, {
+        duration: 240,
+        zoom: viewportZoom
+      });
+    },
+    [nodes, replaceCanvasLive, setSelectedNodeId, viewportZoom]
+  );
 
   const startMarkdownResize = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
     if (drawer !== "markdown") return;
@@ -962,14 +985,15 @@ function App(): ReactElement {
                   </RadixDropdownMenu.Root>
                 </div>
               </div>
-              {drawer === "markdown" ? (
-                <button
-                  className="workspace-resize-handle"
-                  type="button"
-                  aria-label="调整 Markdown 预览宽度"
-                  onPointerDown={startMarkdownResize}
-                />
-              ) : null}
+              <button
+                className={`workspace-resize-handle ${drawer === "markdown" ? "is-active" : ""}`}
+                type="button"
+                aria-hidden={drawer !== "markdown"}
+                aria-label="调整 Markdown 预览宽度"
+                disabled={drawer !== "markdown"}
+                tabIndex={drawer === "markdown" ? 0 : -1}
+                onPointerDown={startMarkdownResize}
+              />
               <RightDrawer
                 drawer={drawer}
                 nodes={nodes}
@@ -977,15 +1001,7 @@ function App(): ReactElement {
                 selectedNodeId={selectedNodeId}
                 markdown={markdownResult.markdown}
                 currentRunMode={selectedRunMode}
-                onPreviewNode={(nodeId) => {
-                  setSelectedNodeId(nodeId);
-                  replaceCanvasLive({ nodes: nodes.map((node) => ({ ...node, selected: node.id === nodeId })) });
-                  setDrawer("markdown");
-                }}
-                onSelectNode={(nodeId) => {
-                  setSelectedNodeId(nodeId);
-                  replaceCanvasLive({ nodes: nodes.map((node) => ({ ...node, selected: node.id === nodeId })) });
-                }}
+                onSelectNode={focusCanvasNode}
                 onRunNode={runNode}
               />
             </>

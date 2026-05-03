@@ -3,29 +3,32 @@ import { cn } from "../../lib/utils";
 import { Icon } from "./icon";
 
 interface TaskItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  canRun?: boolean;
   flow?: boolean;
   loading?: boolean;
   meta?: string;
   nodeCount?: number;
-  onMessage?: () => void;
+  onLocate?: () => void;
   onPlay?: () => void;
   taskName: string;
 }
 
 export function TaskItem({
+  canRun = true,
   className,
   flow = false,
   loading = false,
   meta,
   nodeCount = 3,
-  onMessage,
+  onLocate,
   onPlay,
   taskName,
   type = "button",
   ...props
 }: TaskItemProps): ReactElement {
-  function handleAction(event: MouseEvent<HTMLSpanElement>, action?: () => void): void {
+  function handleAction(event: MouseEvent<HTMLSpanElement>, action?: () => void, disabled = false): void {
     event.stopPropagation();
+    if (disabled) return;
     action?.();
   }
 
@@ -36,14 +39,21 @@ export function TaskItem({
       </span>
       <span className="kit-task-item-content">
         <span className="kit-task-item-name">{taskName}</span>
-        <span className="kit-task-item-meta">{meta || (flow ? `${nodeCount} nodes` : "Ready for play")}</span>
+        <span className="kit-task-item-meta">{meta || (flow ? `${nodeCount} 个节点` : "可发送给 Codex")}</span>
       </span>
       <span className="kit-task-item-actions">
-        <span className="kit-task-item-action" role="button" tabIndex={-1} aria-label="运行任务" onClick={(event) => handleAction(event, onPlay)}>
+        <span
+          className={cn("kit-task-item-action", !canRun && "is-disabled")}
+          role="button"
+          tabIndex={-1}
+          aria-disabled={!canRun}
+          aria-label="运行任务"
+          onClick={(event) => handleAction(event, onPlay, !canRun)}
+        >
           <Icon name="play" size={16} />
         </span>
-        <span className="kit-task-item-action" role="button" tabIndex={-1} aria-label="发送到对话" onClick={(event) => handleAction(event, onMessage)}>
-          <Icon name="messaging" size={16} />
+        <span className="kit-task-item-action" role="button" tabIndex={-1} aria-label="定位节点" onClick={(event) => handleAction(event, onLocate)}>
+          <Icon name="map-pin" size={16} />
         </span>
       </span>
     </button>

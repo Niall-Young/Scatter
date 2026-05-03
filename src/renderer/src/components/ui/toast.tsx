@@ -1,4 +1,5 @@
-import type { HTMLAttributes, ReactElement } from "react";
+import type { HTMLAttributes, ReactElement, ReactPortal } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
 import { Icon } from "./icon";
 
@@ -28,6 +29,6 @@ export function Toast({ className, message, onClose, tone = "information", ...pr
   );
 }
 
-export function ToastViewport({ className, ...props }: HTMLAttributes<HTMLDivElement>): ReactElement {
-  return <div className={cn("kit-toast-viewport", className)} {...props} />;
+export function ToastViewport({ className, ...props }: HTMLAttributes<HTMLDivElement>): ReactPortal {
+  return createPortal(<div className={cn("kit-toast-viewport", className)} {...props} />, document.body);
 }
