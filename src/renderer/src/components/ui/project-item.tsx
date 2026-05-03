@@ -1,7 +1,9 @@
 import type { ButtonHTMLAttributes, MouseEvent, ReactElement } from "react";
+import { useI18n } from "../../lib/i18n";
 import { cn } from "../../lib/utils";
 import { Icon } from "./icon";
 import { IconButton } from "./icon-button";
+import { TooltipAnchor } from "./tooltip";
 
 interface ProjectItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
@@ -23,6 +25,8 @@ export function ProjectItem({
   unread = false,
   ...props
 }: ProjectItemProps): ReactElement {
+  const { t } = useI18n();
+
   function handleArchive(event: MouseEvent<HTMLButtonElement>): void {
     event.stopPropagation();
     onArchive?.();
@@ -47,7 +51,9 @@ export function ProjectItem({
         </span>
       </button>
       {onArchive ? (
-        <IconButton className="kit-project-item-archive" filled={false} icon="archive" size="sm" aria-label="移出项目" onClick={handleArchive} />
+        <TooltipAnchor label={t("projectItem.remove")} side="left">
+          <IconButton className="kit-project-item-archive" filled={false} icon="archive" size="sm" aria-label={t("projectItem.remove")} onClick={handleArchive} />
+        </TooltipAnchor>
       ) : null}
     </div>
   );

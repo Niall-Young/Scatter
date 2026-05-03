@@ -14,3 +14,32 @@ export function Tooltip({ children, className, shortcut, ...props }: TooltipProp
     </div>
   );
 }
+
+interface TooltipAnchorProps extends HTMLAttributes<HTMLSpanElement> {
+  align?: "start" | "center" | "end";
+  children: ReactNode;
+  label: ReactNode;
+  shortcut?: string;
+  side?: "top" | "right" | "bottom" | "left";
+  tooltipClassName?: string;
+}
+
+export function TooltipAnchor({
+  align = "center",
+  children,
+  className,
+  label,
+  shortcut,
+  side = "top",
+  tooltipClassName,
+  ...props
+}: TooltipAnchorProps): ReactElement {
+  return (
+    <span className={cn("kit-tooltip-anchor", `is-side-${side}`, `is-align-${align}`, className)} {...props}>
+      {children}
+      <Tooltip className={cn("kit-tooltip-floating", tooltipClassName)} shortcut={shortcut} aria-hidden="true">
+        {label}
+      </Tooltip>
+    </span>
+  );
+}

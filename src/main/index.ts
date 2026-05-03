@@ -12,7 +12,8 @@ import {
   saveDocument
 } from "./projectStore";
 import { runInCodex } from "./codexBridge";
-import type { AttachmentInput, CodexRunInput, ScatterDocument } from "../shared/types";
+import { getSettings, saveSettings } from "./settingsStore";
+import type { AppSettings, AttachmentInput, CodexRunInput, ScatterDocument } from "../shared/types";
 
 const SPLASH_MIN_DURATION_MS = 5000;
 
@@ -151,6 +152,8 @@ function createWindow(showWhenReady = false): BrowserWindow {
 
 app.whenReady().then(() => {
   registerAssetProtocol();
+  ipcMain.handle("scatter:get-settings", () => getSettings());
+  ipcMain.handle("scatter:save-settings", (_event, settings: AppSettings) => saveSettings(settings));
   ipcMain.handle("scatter:get-recent-projects", () => getRecentProjects());
   ipcMain.handle("scatter:remove-recent-project", (_event, projectPath: string) => removeRecentProject(projectPath));
   ipcMain.handle("scatter:create-project", () => chooseProject("create"));

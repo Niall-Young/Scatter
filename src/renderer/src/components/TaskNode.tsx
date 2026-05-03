@@ -2,6 +2,9 @@ import { memo, useCallback, useEffect, useRef, useState, type ReactElement } fro
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { EffortLevel, RunMode, ScatterNodeData } from "../../../shared/types";
+import { useI18n } from "../lib/i18n";
+import { shortcuts } from "../lib/shortcuts";
+import { effortLabelKey } from "../lib/translations";
 import { formatBytes } from "../lib/utils";
 import { useScatterStore } from "../store/scatterStore";
 import { ActionMenuItem } from "./ui/action-menu-item";
@@ -10,17 +13,13 @@ import { DropdownTrigger } from "./ui/dropdown-trigger";
 import { IconButton } from "./ui/icon-button";
 import { Icon } from "./ui/icon";
 import { Switch } from "./ui/switch";
+import { TooltipAnchor } from "./ui/tooltip";
 import { UploadChip } from "./ui/upload-chip";
 
 type TaskNodeProps = NodeProps<Node<ScatterNodeData, "task">>;
 type EditableField = "title" | "body";
 
-const effortOptions: Array<{ label: string; value: EffortLevel }> = [
-  { label: "低", value: "low" },
-  { label: "中", value: "medium" },
-  { label: "高", value: "high" },
-  { label: "极高", value: "xhigh" }
-];
+const effortOptions: EffortLevel[] = ["low", "medium", "high", "xhigh"];
 
 interface RuntimeActions {
   updateNodeData: (nodeId: string, patch: Partial<ScatterNodeData>) => void;
@@ -40,6 +39,7 @@ export function setTaskNodeActions(actions: RuntimeActions): void {
 }
 
 function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement {
+  const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -59,7 +59,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
 
   const runMode = data.runMode || "flow";
   const effort = data.effort || "xhigh";
-  const effortLabel = effortOptions.find((option) => option.value === effort)?.label || "极高";
+  const effortLabel = t(effortLabelKey(effort));
   const hasBody = data.body.trim().length > 0;
   const hasParent = useScatterStore((state) => state.edges.some((edge) => edge.target === id));
 
@@ -145,7 +145,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
           ref={titleRef}
           className={`task-title ${editingField === "title" ? "nodrag is-editing" : "is-readonly"}`}
           value={data.title}
-          placeholder="任务标题"
+          placeholder={t("task.titlePlaceholder")}
           readOnly={editingField !== "title"}
           tabIndex={editingField === "title" ? 0 : -1}
           onPointerDown={handleEditablePointerDown}
@@ -157,33 +157,37 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
           onKeyDown={handleEditableKeyDown}
           onChange={(event) => taskNodeActions?.updateNodeData(id, { title: event.target.value })}
         />
-        <IconButton
-          className="nodrag"
-          filled={false}
-          icon="play-1"
-          size="lg"
-          aria-label={hasBody ? "运行当前任务" : "提示词为空，无法运行"}
-          disabled={!hasBody}
-          onClick={() => taskNodeActions?.runNode(id, runMode)}
-        />
-        <RadixDropdownMenu.Root>
-          <RadixDropdownMenu.Trigger asChild>
-            <IconButton className="nodrag" filled={false} icon="dots-horizontal" size="lg" aria-label="更多操作" />
-          </RadixDropdownMenu.Trigger>
-          <RadixDropdownMenu.Portal>
-            <RadixDropdownMenu.Content className="dropdown-content node-action-menu" sideOffset={8} align="end">
-              <RadixDropdownMenu.Item asChild>
-                <ActionMenuItem icon="play" label="仅运行当前节点" onClick={() => taskNodeActions?.runNode(id, "node")} />
-              </RadixDropdownMenu.Item>
-              <RadixDropdownMenu.Item asChild>
-                <ActionMenuItem icon="copy" label="复制" onClick={() => taskNodeActions?.duplicateNode(id)} />
-              </RadixDropdownMenu.Item>
-              <RadixDropdownMenu.Item asChild>
-                <ActionMenuItem icon="trash" label="删除" onClick={() => taskNodeActions?.deleteNode(id)} />
-              </RadixDropdownMenu.Item>
-            </RadixDropdownMenu.Content>
-          </RadixDropdownMenu.Portal>
-        </RadixDropdownMenu.Root>
+        <TooltipAnchor className="nodrag" label={hasBody ? t("task.run") : t("task.runEmpty")} shortcut={shortcuts.runCurrentTask}>
+          <IconButton
+            className="nodrag"
+            filled={false}
+            icon="play-1"
+            size="lg"
+            aria-label={hasBody ? t("task.run") : t("task.runEmpty")}
+            disabled={!hasBody}
+            onClick={() => taskNodeActions?.runNode(id, runMode)}
+          />
+        </TooltipAnchor>
+        <TooltipAnchor className="nodrag" label={t("task.more")}>
+          <RadixDropdownMenu.Root>
+            <RadixDropdownMenu.Trigger asChild>
+              <IconButton className="nodrag" filled={false} icon="dots-horizontal" size="lg" aria-label={t("task.more")} />
+            </RadixDropdownMenu.Trigger>
+            <RadixDropdownMenu.Portal>
+              <RadixDropdownMenu.Content className="dropdown-content node-action-menu" sideOffset={8} align="end">
+                <RadixDropdownMenu.Item asChild>
+                  <ActionMenuItem icon="play" label={t("task.runNodeOnly")} onClick={() => taskNodeActions?.runNode(id, "node")} />
+                </RadixDropdownMenu.Item>
+                <RadixDropdownMenu.Item asChild>
+                  <ActionMenuItem icon="copy" label={t("task.copy")} onClick={() => taskNodeActions?.duplicateNode(id)} />
+                </RadixDropdownMenu.Item>
+                <RadixDropdownMenu.Item asChild>
+                  <ActionMenuItem icon="trash" label={t("task.delete")} onClick={() => taskNodeActions?.deleteNode(id)} />
+                </RadixDropdownMenu.Item>
+              </RadixDropdownMenu.Content>
+            </RadixDropdownMenu.Portal>
+          </RadixDropdownMenu.Root>
+        </TooltipAnchor>
       </div>
 
       <div className="task-node-card">
@@ -191,7 +195,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
           ref={bodyRef}
           className={`task-body ${hasBody ? "has-content" : ""} ${editingField === "body" ? "nodrag nowheel is-editing" : "is-readonly"}`}
           value={data.body}
-          placeholder="请输入提示词内容"
+          placeholder={t("task.bodyPlaceholder")}
           readOnly={editingField !== "body"}
           tabIndex={editingField === "body" ? 0 : -1}
           onPointerDown={handleEditablePointerDown}
@@ -226,7 +230,9 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
 
         <div className="task-node-footer">
           <input ref={fileInputRef} className="task-node-file-input" type="file" multiple onChange={onUpload} />
-          <IconButton className="nodrag" filled={false} icon="plus-lg" size="lg" aria-label="添加附件" onClick={() => fileInputRef.current?.click()} />
+          <TooltipAnchor className="nodrag" label={t("task.addAttachment")}>
+            <IconButton className="nodrag" filled={false} icon="plus-lg" size="lg" aria-label={t("task.addAttachment")} onClick={() => fileInputRef.current?.click()} />
+          </TooltipAnchor>
           <div className="task-node-settings">
             <div className="task-node-effort-picker">
               <DropdownTrigger
@@ -241,13 +247,13 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
                 <DropdownMenu className="task-node-effort-menu" role="menu">
                   {effortOptions.map((option) => (
                     <DropdownMenuItem
-                      key={option.value}
-                      label={option.label}
-                      selected={option.value === effort}
+                      key={option}
+                      label={t(effortLabelKey(option))}
+                      selected={option === effort}
                       role="menuitemradio"
-                      aria-checked={option.value === effort}
+                      aria-checked={option === effort}
                       onClick={() => {
-                        taskNodeActions?.updateNodeData(id, { effort: option.value });
+                        taskNodeActions?.updateNodeData(id, { effort: option });
                         setEffortMenuOpen(false);
                       }}
                     />
@@ -257,7 +263,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
             </div>
             <Switch
               checked={data.planMode}
-              label="计划模式"
+              label={t("task.planMode")}
               onCheckedChange={(checked) => taskNodeActions?.updateNodeData(id, { planMode: checked })}
             />
           </div>

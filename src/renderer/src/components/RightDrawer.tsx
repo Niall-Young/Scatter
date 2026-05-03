@@ -1,8 +1,11 @@
 import { Fragment, useEffect, useState, type ReactElement, type ReactNode } from "react";
 import type { RunMode, ScatterEdge, ScatterNode } from "../../../shared/types";
+import { useI18n } from "../lib/i18n";
 import { childCount } from "../lib/markdown";
+import type { Translate } from "../lib/translations";
 import { IconButton } from "./ui/icon-button";
 import { Segmented, SegmentedItem } from "./ui/segmented";
+import { TooltipAnchor } from "./ui/tooltip";
 import { TaskItem } from "./ui/task-item";
 import { Toast, ToastViewport } from "./ui/toast";
 
@@ -28,7 +31,7 @@ type TaskListEntry = {
   nodeCount: number;
 };
 
-function taskListEntries(nodes: ScatterNode[], edges: ScatterEdge[]): TaskListEntry[] {
+function taskListEntries(nodes: ScatterNode[], edges: ScatterEdge[], t: Translate): TaskListEntry[] {
   const incomingNodeIds = new Set(edges.map((edge) => edge.target));
   const outgoingNodeIds = new Set(edges.map((edge) => edge.source));
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
@@ -56,7 +59,7 @@ function taskListEntries(nodes: ScatterNode[], edges: ScatterEdge[]): TaskListEn
         canRun: Array.from(downstreamNodeIds).some((nodeId) => (nodeById.get(nodeId)?.data.body.trim().length ?? 0) > 0),
         flow: true,
         id: `flow-${node.id}`,
-        meta: `流程起点 · 共 ${nodeCount} 个节点`,
+        meta: t("drawer.flowStartMeta", { count: nodeCount }),
         mode: "flow",
         node,
         nodeCount
@@ -69,7 +72,7 @@ function taskListEntries(nodes: ScatterNode[], edges: ScatterEdge[]): TaskListEn
       canRun: hasPrompt,
       flow: false,
       id: `node-${node.id}`,
-      meta: hasPrompt ? "可发送给 Codex" : "暂未编辑",
+      meta: hasPrompt ? t("drawer.canSend") : t("drawer.notEdited"),
       mode: "node",
       node,
       nodeCount: 1
@@ -214,6 +217,7 @@ export function RightDrawer({
   onSelectNode,
   onRunNode
 }: RightDrawerProps): ReactElement {
+  const { t } = useI18n();
   const [copyStatus, setCopyStatus] = useState<"idle" | "success">("idle");
   const [markdownView, setMarkdownView] = useState<MarkdownView>("source");
   const [renderedDrawer, setRenderedDrawer] = useState<Exclude<RightDrawerProps["drawer"], null>>("tasks");
@@ -230,7 +234,7 @@ export function RightDrawer({
 
   const isOpen = drawer !== null;
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
-  const taskEntries = taskListEntries(nodes, edges);
+  const taskEntries = taskListEntries(nodes, edges, t);
   const flowStartNodeIds = new Set(taskEntries.filter((entry) => entry.flow).map((entry) => entry.node.id));
   function downloadMarkdown(): void {
     const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
@@ -251,15 +255,15 @@ export function RightDrawer({
     <aside
       className={`right-drawer is-${renderedDrawer} ${isOpen ? "is-open" : "is-collapsed"}`}
       aria-hidden={!isOpen}
-      aria-label={renderedDrawer === "tasks" ? "任务清单" : "Markdown 预览"}
+      aria-label={renderedDrawer === "tasks" ? t("drawer.tasks") : t("drawer.markdown")}
       inert={!isOpen}
     >
       {renderedDrawer === "tasks" ? (
         <div className="task-sidebar">
-          <p className="right-sidebar-title">任务清单</p>
+          <p className="right-sidebar-title">{t("drawer.tasks")}</p>
           <div className="task-list">
             {nodes.length === 0 ? (
-              <p className="empty-copy">画布中还没有任务节点。</p>
+              <p className="empty-copy">{t("drawer.noTasks")}</p>
             ) : (
               taskEntries.map((entry) => {
                 const isActive =
@@ -274,7 +278,7 @@ export function RightDrawer({
                     flow={entry.flow}
                     meta={entry.meta}
                     nodeCount={entry.nodeCount}
-                    taskName={entry.node.data.title || "未命名任务"}
+                    taskName={entry.node.data.title || t("drawer.unnamedTask")}
                     onClick={() => onSelectNode(entry.node.id, entry.mode)}
                     onLocate={() => onSelectNode(entry.node.id, entry.mode)}
                     onPlay={() => onRunNode(entry.node.id, entry.mode)}
@@ -287,45 +291,49 @@ export function RightDrawer({
       ) : (
         <div className="markdown-pane">
           <div className="markdown-sidebar-heading">
-            <Segmented aria-label="预览模式">
+            <Segmented aria-label={t("drawer.previewMode")}>
               <SegmentedItem
                 icon="marker-code"
                 selected={markdownView === "source"}
-                aria-label="Markdown 源码"
+                aria-label={t("drawer.markdownSource")}
                 onClick={() => setMarkdownView("source")}
               />
               <SegmentedItem
                 icon="notebook-narrow"
                 selected={markdownView === "preview"}
-                aria-label="Markdown 渲染预览"
+                aria-label={t("drawer.markdownPreview")}
                 onClick={() => setMarkdownView("preview")}
               />
             </Segmented>
             <div className="markdown-actions">
-              <IconButton className="topbar-icon-button" filled={false} icon="download" size="md" aria-label="下载 Markdown" disabled={!markdown} onClick={downloadMarkdown} />
-              <IconButton
-                className="topbar-icon-button"
-                filled={false}
-                icon={copyStatus === "success" ? "check-md" : "copy"}
-                size="md"
-                aria-label={copyStatus === "success" ? "已复制 Markdown" : "复制 Markdown"}
-                disabled={!markdown}
-                onClick={() => void copyMarkdown()}
-              />
+              <TooltipAnchor label={t("drawer.downloadMarkdown")} side="bottom" align="end">
+                <IconButton className="topbar-icon-button" filled={false} icon="download" size="md" aria-label={t("drawer.downloadMarkdown")} disabled={!markdown} onClick={downloadMarkdown} />
+              </TooltipAnchor>
+              <TooltipAnchor label={copyStatus === "success" ? t("drawer.copiedMarkdown") : t("drawer.copyMarkdown")} side="bottom" align="end">
+                <IconButton
+                  className="topbar-icon-button"
+                  filled={false}
+                  icon={copyStatus === "success" ? "check-md" : "copy"}
+                  size="md"
+                  aria-label={copyStatus === "success" ? t("drawer.copiedMarkdown") : t("drawer.copyMarkdown")}
+                  disabled={!markdown}
+                  onClick={() => void copyMarkdown()}
+                />
+              </TooltipAnchor>
             </div>
           </div>
           {markdownView === "source" ? (
-            <pre className="markdown-source">{markdown || "选择一个节点后，这里会显示发送给 Codex 的 Markdown。"}</pre>
+            <pre className="markdown-source">{markdown || t("drawer.markdownPlaceholder")}</pre>
           ) : markdown ? (
             <MarkdownPreview markdown={markdown} />
           ) : (
             <div className="markdown-preview">
-              <p>选择一个节点后，这里会显示发送给 Codex 的 Markdown。</p>
+              <p>{t("drawer.markdownPlaceholder")}</p>
             </div>
           )}
           {copyStatus === "success" ? (
             <ToastViewport>
-              <Toast tone="positive" message="已复制 Markdown" onClose={() => setCopyStatus("idle")} />
+              <Toast tone="positive" message={t("drawer.copiedMarkdown")} onClose={() => setCopyStatus("idle")} />
             </ToastViewport>
           ) : null}
         </div>

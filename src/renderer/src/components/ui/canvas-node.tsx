@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState, type ChangeEvent, type HTMLAttributes, type ReactElement } from "react";
+import type { EffortLevel } from "../../../../shared/types";
+import { useI18n } from "../../lib/i18n";
+import { shortcuts } from "../../lib/shortcuts";
+import { effortLabelKey } from "../../lib/translations";
 import { cn } from "../../lib/utils";
 import { DropdownMenu, DropdownMenuItem } from "./dropdown-menu";
 import { DropdownTrigger } from "./dropdown-trigger";
 import { IconButton } from "./icon-button";
 import { Icon } from "./icon";
+import { TooltipAnchor } from "./tooltip";
 import { Toggle } from "./toggle";
 import { UploadChip } from "./upload-chip";
 
@@ -17,7 +22,7 @@ export interface CanvasNodeUpload {
   onRemove?: () => void;
 }
 
-export type CanvasNodeEffort = "低" | "中" | "高" | "极高";
+export type CanvasNodeEffort = EffortLevel;
 
 interface CanvasNodeProps extends HTMLAttributes<HTMLDivElement> {
   effortLabel?: CanvasNodeEffort;
@@ -48,7 +53,7 @@ export function CanvasNode({
   className,
   effortLabel,
   filled = false,
-  heading = "This is a title",
+  heading,
   hover = false,
   onCopy,
   onDelete,
@@ -62,7 +67,7 @@ export function CanvasNode({
   onRunCurrentNode,
   onUploadFiles,
   planMode = true,
-  prompt = "Prompt and description go here...",
+  prompt,
   selected = false,
   unconnected = false,
   uploadAccept,
@@ -70,14 +75,15 @@ export function CanvasNode({
   uploads = [],
   ...props
 }: CanvasNodeProps): ReactElement {
+  const { t } = useI18n();
   const hasUploads = uploads.length > 0;
   const rootRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [effortMenuOpen, setEffortMenuOpen] = useState(false);
   const [nodeMenuOpen, setNodeMenuOpen] = useState(false);
-  const [localEffort, setLocalEffort] = useState<CanvasNodeEffort>(effortLabel ?? "极高");
+  const [localEffort, setLocalEffort] = useState<CanvasNodeEffort>(effortLabel ?? "xhigh");
   const currentEffort = effortLabel ?? localEffort;
-  const effortOptions: CanvasNodeEffort[] = ["低", "中", "高", "极高"];
+  const effortOptions: CanvasNodeEffort[] = ["low", "medium", "high", "xhigh"];
 
   useEffect(() => {
     if (!effortMenuOpen && !nodeMenuOpen) return;
@@ -103,27 +109,31 @@ export function CanvasNode({
   return (
     <div ref={rootRef} className={cn("kit-canvas-node", filled && "is-filled", hover && "is-hover", selected && "is-selected", unconnected && "is-unconnected", className)} {...props}>
       <div className="kit-canvas-node-heading">
-        <div className="kit-canvas-node-title">{heading}</div>
+        <div className="kit-canvas-node-title">{heading ?? t("task.titlePlaceholder")}</div>
         <div className="kit-canvas-node-heading-actions">
-          <IconButton filled={false} icon="play-1" size="lg" aria-label={filled ? "运行节点" : "提示词为空，无法运行"} disabled={!filled || !onRun} onClick={onRun} />
+          <TooltipAnchor label={filled ? t("task.run") : t("task.runEmpty")} shortcut={shortcuts.runCurrentTask}>
+            <IconButton filled={false} icon="play-1" size="lg" aria-label={filled ? t("task.run") : t("task.runEmpty")} disabled={!filled || !onRun} onClick={onRun} />
+          </TooltipAnchor>
           <div className="kit-canvas-node-menu-picker">
-            <IconButton
-              filled={false}
-              icon="dots-horizontal"
-              size="lg"
-              aria-label="更多操作"
-              aria-haspopup="menu"
-              aria-expanded={nodeMenuOpen}
-              onClick={() => {
-                onMenu?.();
-                setNodeMenuOpen((open) => !open);
-              }}
-            />
+            <TooltipAnchor label={t("task.more")}>
+              <IconButton
+                filled={false}
+                icon="dots-horizontal"
+                size="lg"
+                aria-label={t("task.more")}
+                aria-haspopup="menu"
+                aria-expanded={nodeMenuOpen}
+                onClick={() => {
+                  onMenu?.();
+                  setNodeMenuOpen((open) => !open);
+                }}
+              />
+            </TooltipAnchor>
             {nodeMenuOpen ? (
               <DropdownMenu className="kit-canvas-node-actions-menu" role="menu">
                 <DropdownMenuItem
                   icon="play"
-                  label="仅运行当前节点"
+                  label={t("task.runNodeOnly")}
                   role="menuitem"
                   onClick={() => {
                     onRunCurrentNode?.();
@@ -132,7 +142,7 @@ export function CanvasNode({
                 />
                 <DropdownMenuItem
                   icon="copy"
-                  label="复制"
+                  label={t("task.copy")}
                   role="menuitem"
                   onClick={() => {
                     onCopy?.();
@@ -141,7 +151,7 @@ export function CanvasNode({
                 />
                 <DropdownMenuItem
                   icon="trash"
-                  label="删除"
+                  label={t("task.delete")}
                   role="menuitem"
                   onClick={() => {
                     onDelete?.();
@@ -155,7 +165,7 @@ export function CanvasNode({
       </div>
 
       <div className="kit-canvas-node-body">
-        <div className="kit-canvas-node-prompt">{prompt}</div>
+        <div className="kit-canvas-node-prompt">{prompt ?? t("task.bodyPlaceholder")}</div>
         {hasUploads ? (
           <div className="kit-canvas-node-uploads">
             {uploads.map((upload) => (
@@ -167,25 +177,27 @@ export function CanvasNode({
           <div className="kit-canvas-node-divider" />
           <div className="kit-canvas-node-footer-row">
             <input ref={fileInputRef} className="kit-canvas-node-file-input" type="file" accept={uploadAccept} multiple={uploadMultiple} tabIndex={-1} onChange={handleUploadChange} />
-            <IconButton
-              filled={false}
-              icon="plus-lg"
-              size="lg"
-              aria-label="上传附件"
-              onClick={() => {
-                onAddInput?.();
-                fileInputRef.current?.click();
-              }}
-            />
+            <TooltipAnchor label={t("task.uploadAttachment")}>
+              <IconButton
+                filled={false}
+                icon="plus-lg"
+                size="lg"
+                aria-label={t("task.uploadAttachment")}
+                onClick={() => {
+                  onAddInput?.();
+                  fileInputRef.current?.click();
+                }}
+              />
+            </TooltipAnchor>
             <div className="kit-canvas-node-settings">
               <div className="kit-canvas-node-effort-picker">
-                <DropdownTrigger label={currentEffort} size="lg" aria-haspopup="menu" aria-expanded={effortMenuOpen} onClick={() => setEffortMenuOpen((open) => !open)} />
+                <DropdownTrigger label={t(effortLabelKey(currentEffort))} size="lg" aria-haspopup="menu" aria-expanded={effortMenuOpen} onClick={() => setEffortMenuOpen((open) => !open)} />
                 {effortMenuOpen ? (
                   <DropdownMenu className="kit-canvas-node-effort-menu" role="menu">
                     {effortOptions.map((option) => (
                       <DropdownMenuItem
                         key={option}
-                        label={option}
+                        label={t(effortLabelKey(option))}
                         selected={option === currentEffort}
                         role="menuitemradio"
                         aria-checked={option === currentEffort}
@@ -199,19 +211,19 @@ export function CanvasNode({
                   </DropdownMenu>
                 ) : null}
               </div>
-              <span className="kit-canvas-node-plan-label">计划模式</span>
-              <Toggle checked={planMode} onCheckedChange={onPlanModeChange} aria-label="切换计划模式" />
+              <span className="kit-canvas-node-plan-label">{t("task.planMode")}</span>
+              <Toggle checked={planMode} onCheckedChange={onPlanModeChange} aria-label={t("task.togglePlanMode")} />
             </div>
           </div>
         </div>
       </div>
 
       {unconnected ? (
-        <button className="kit-canvas-node-side kit-canvas-node-side-left" type="button" aria-label="连接左侧节点" onClick={onAddLeft}>
+        <button className="kit-canvas-node-side kit-canvas-node-side-left" type="button" aria-label={t("task.connectLeft")} onClick={onAddLeft}>
           <Icon name="plus-lg" size={16} />
         </button>
       ) : null}
-      <button className="kit-canvas-node-side kit-canvas-node-side-right" type="button" aria-label="连接右侧节点" onClick={onAddRight}>
+      <button className="kit-canvas-node-side kit-canvas-node-side-right" type="button" aria-label={t("task.connectRight")} onClick={onAddRight}>
         <Icon name="plus-lg" size={16} />
       </button>
     </div>

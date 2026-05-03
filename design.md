@@ -19,26 +19,28 @@ Scatter 是一个本地优先的多模态任务画布，用来把零散任务节
 
 ## 当前用户流程
 
-应用启动时会先显示一个独立无边框启动窗口，展示 Scatter 品牌、启动状态和工具箱视觉图。主窗口隐藏加载；主窗口 ready 且启动窗口至少显示 5 秒后，关闭启动窗口并显示主窗口。主窗口直接进入项目列表界面：左侧显示添加项目、打开项目和最近项目列表；如果没有最近项目，列表区域保持为空。用户可以选择或创建一个本地文件夹作为 Scatter 项目，也可以从最近项目列表重新打开。
+应用启动时会先显示一个独立无边框启动窗口，展示 Scatter 品牌、启动状态和工具箱视觉图。主窗口隐藏加载；主窗口 ready 且启动窗口至少显示 5 秒后，关闭启动窗口并显示主窗口。主窗口直接进入项目列表界面：左侧显示添加项目、搜索、设置和最近项目列表；如果没有最近项目，列表区域保持为空。用户可以选择或创建一个本地文件夹作为 Scatter 项目，也可以从最近项目列表重新打开；`⌘⇧N` 打开添加项目流程。
 
 启动窗口和主窗口使用透明 Electron 窗口配合 macOS 背景模糊。应用外层、启动页面板和画布区域都使用带透明度的背景色，不要改回完全不透明的窗口底色。
 
 最近项目列表项在悬停或聚焦时显示“移出项目”图标按钮。这个操作只会从 Electron `userData` 的最近项目列表中移除记录，不删除用户本地项目文件夹。
 
+点击左侧栏“搜索”或按 `⌘F` 会打开居中的搜索项目弹窗。弹窗只搜索左侧最近项目列表中的项目，支持按项目名称或路径过滤；点击结果会关闭弹窗并打开对应项目。搜索弹窗使用和设置弹窗一致的 Radix Dialog 居中层，输入框打开后自动聚焦。
+
 打开项目后，主界面包含四块：
 
-- 左侧栏：新建项目、打开项目、最近项目列表、设置入口。
+- 左侧栏：添加项目、搜索项目、最近项目列表、设置入口。
 - 顶部栏：项目名、任务数量、保存状态、新建节点、任务清单、Markdown 预览、导出。
 - 画布：基于 React Flow 的任务节点画布，支持拖拽节点、连线、缩放、定位画布以及撤销/重做。
 - 右侧侧边栏：任务清单或 Markdown 预览。
 
-点击左侧栏“设置”会打开居中的设置弹窗。弹窗包含主题、语言和半透明背景三项设置，底部提供恢复默认和保存设置。设置项切换后会实时预览；如果关闭弹窗而没有点击保存设置，会回退到打开弹窗前的设置。设置状态只保存在 renderer 内存中，不写入项目文件；主题支持跟随系统、浅色和深色，半透明背景默认开启。
+点击左侧栏“设置”或按 `⌘,` 会打开居中的设置弹窗。弹窗包含主题、语言和半透明背景三项设置，底部提供恢复默认和保存设置。设置项切换后会实时预览；如果关闭弹窗而没有点击保存设置，会回退到打开弹窗前的设置。设置保存到 Electron `userData/settings.json`，不写入项目文件；主题支持跟随系统、浅色和深色，语言支持中文和英文，半透明背景默认开启。语言切换覆盖应用 UI、状态提示、无障碍标签和 Scatter 生成的 Markdown 模板；用户输入的项目名、节点标题、节点正文、附件名和路径不会被自动翻译。
 
-顶部栏左侧的侧栏按钮可以收起或展开左侧栏。左侧栏收起后，项目列表区域隐藏，工作区铺满窗口宽度并保留左右 12px 边距；顶部栏左侧显示侧栏按钮和添加项目按钮。侧栏展开和收起带短过渡动画，这个折叠状态只保存在 renderer 内存中，不写入项目文件。
+顶部栏左侧的侧栏按钮或 `⌘B` 可以收起或展开左侧栏。左侧栏收起后，项目列表区域隐藏，工作区铺满窗口宽度并保留左右 12px 边距；顶部栏左侧显示侧栏按钮和添加项目按钮。侧栏展开和收起带短过渡动画，这个折叠状态只保存在 renderer 内存中，不写入项目文件。
 
-顶部栏右侧的任务清单和 Markdown 预览按钮会在工作区右侧打开侧边栏，不是悬浮弹出层。右侧侧边栏展开和收起带短过渡动画。任务清单侧栏宽度为 288px，复用任务列表项组件；清单包含没有入边且有出边的流程起始节点任务，以及没有任何连线的落单节点任务。落单节点有正文时显示可发送给 Codex，没有正文时显示暂未编辑；已经接入流程的子节点不单独出现在任务清单里。Markdown 预览侧栏与画布并排分配剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮。打开任一右侧侧栏时，画布在同一行内收缩，顶部栏对应按钮显示选中态。Markdown 预览侧栏和画布之间的分隔区域悬停时显示横向调整光标，并支持拖拽调整两侧比例。
+顶部栏右侧的任务清单和 Markdown 预览按钮会在工作区右侧打开侧边栏，不是悬浮弹出层；快捷键分别是 `⌘⇧T` 和 `⌘⇧M`。右侧侧边栏展开和收起带短过渡动画。任务清单侧栏宽度为 288px，复用任务列表项组件；清单包含没有入边且有出边的流程起始节点任务，以及没有任何连线的落单节点任务。落单节点有正文时显示可发送给 Codex，没有正文时显示暂未编辑；已经接入流程的子节点不单独出现在任务清单里。Markdown 预览侧栏与画布并排分配剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮。打开任一右侧侧栏时，画布在同一行内收缩，顶部栏对应按钮显示选中态。Markdown 预览侧栏和画布之间的分隔区域悬停时显示横向调整光标，并支持拖拽调整两侧比例。
 
-画布交互约定：普通滚轮不缩放画布；按住 `Cmd` 加滚轮缩放，右下角缩放比例下拉菜单提供 50%、75%、100%、150%、200%。手形工具进入画布平移模式，按住空格键会临时进入同一平移状态；按住 `Shift` 拖拽临时框选节点。框选完成后只保留节点选中态，不显示持续存在的群组选框。
+画布交互约定：普通滚轮不缩放画布；按住 `⌘` 加滚轮缩放，右下角缩放比例下拉菜单提供 50%、75%、100%、150%、200%。`⌘N` 在当前项目中创建节点，`⌘0` 定位画布；`V` 切到选择工具，`H` 切到手形工具。手形工具进入画布平移模式，按住空格键会临时进入同一平移状态；按住 `⇧` 拖拽临时框选节点。框选完成后只保留节点选中态，不显示持续存在的群组选框。
 
 任务节点当前包含：
 
@@ -74,13 +76,18 @@ Scatter 是一个 Electron 桌面应用，使用 Electron Vite、React、TypeScr
 - `src/main/index.ts`：Electron 窗口创建和 IPC handler 注册。
 - `src/main/projectStore.ts`：项目初始化、`.scatter` 存储、附件保存、最近项目列表。
 - `src/main/codexBridge.ts`：Codex Desktop 启动、app-server proxy 调用、URL fallback、AppleScript 粘贴 fallback。
+- `src/main/settingsStore.ts`：应用级设置的 `userData/settings.json` 读写和默认值 hydrate。
+- `src/main/i18n.ts`：main process 用户可见文案的中英文模板。
 - `src/preload/index.ts`：Renderer 可调用的安全 API。
 - `src/shared/types.ts`：跨进程数据契约。
 - `src/renderer/src/App.tsx`：Renderer 主应用编排。
 - `src/renderer/src/store/scatterStore.ts`：Zustand 状态和状态修改方法。
 - `src/renderer/src/lib/markdown.ts`：把节点和连线转换成 Codex Markdown。
+- `src/renderer/src/lib/translations.ts`：Renderer UI 的中英文词典和轻量插值函数。
+- `src/renderer/src/lib/i18n.tsx`：Renderer i18n context。
 - `src/renderer/src/components/TaskNode.tsx`：画布任务节点。
 - `src/renderer/src/components/Sidebar.tsx`：项目导航侧栏。
+- `src/renderer/src/components/SearchDialog.tsx`：居中项目搜索弹窗。
 - `src/renderer/src/components/SettingsDialog.tsx`：居中设置弹窗。
 - `src/renderer/src/components/Topbar.tsx`：工作区顶部操作栏。
 - `src/renderer/src/components/RightDrawer.tsx`：任务清单和 Markdown 预览右侧侧边栏。
@@ -127,7 +134,7 @@ Scatter 项目就是用户选择的普通本地文件夹。Scatter 自己的数�
 - Renderer 预览使用的 file URL。
 - 类型：`image` 或 `file`。
 
-最近项目列表保存在 Electron `userData/recent-projects.json` 中，最多保留 24 个。
+最近项目列表保存在 Electron `userData/recent-projects.json` 中，最多保留 24 个。应用设置保存在 Electron `userData/settings.json` 中，包含 `themePreference`、`language` 和 `translucentBackground`；缺失或损坏时回退到中文、跟随系统主题和开启半透明背景。
 
 ## 持久化逻辑
 
@@ -149,13 +156,13 @@ Renderer 在 `scatterStore.ts` 中维护非持久化的内存历史栈，最多�
 
 历史覆盖画布文档编辑：节点新增、复制、删除、移动，连线新增/删除，附件引用新增/删除，节点标题、正文、推理强度、计划模式和运行范围。历史不覆盖选中态、hover、高亮、抽屉、主题、视口、保存状态和 `data.lastRunAt`。
 
-左下角画布操作区的撤销/重做按钮由 `canUndo`、`canRedo` 控制禁用态。快捷键为 `Cmd+Z` 撤销、`Cmd+Shift+Z` 重做；输入框或文本域聚焦时不拦截快捷键，让文本编辑中的系统级逐次撤销先工作。标题和正文退出编辑时，会把本次编辑合并为画布历史中的一步。
+左下角画布操作区的撤销/重做按钮由 `canUndo`、`canRedo` 控制禁用态。快捷键为 `⌘Z` 撤销、`⌘⇧Z` 重做；输入框或文本域聚焦时不拦截快捷键，让文本编辑中的系统级逐次撤销先工作。运行当前任务的快捷键是 `⌘↩`。标题和正文退出编辑时，会把本次编辑合并为画布历史中的一步。
 
 附件撤销只移除节点里的附件引用，不删除 `.scatter/assets` 中已经复制的文件。
 
 ## Markdown 生成
 
-`buildMarkdown` 负责把当前执行范围转成 Codex 可读的 Markdown。
+`buildMarkdown` 负责把当前执行范围转成 Codex 可读的 Markdown，并根据当前应用语言生成中文或英文模板。
 
 运行模式：
 
@@ -183,6 +190,8 @@ Renderer 在 `scatterStore.ts` 中维护非持久化的内存历史栈，最多�
 - 当前范围内的连接关系。
 - 所有附件的相对路径和绝对路径。
 
+Markdown 模板中的标题、运行模式、计划模式状态、附件说明、环形警告和执行请求会随语言切换；节点标题、提示词正文、附件文件名和路径保持用户原始内容。
+
 通过 Codex desktop proxy 路径发送时，图片附件的绝对路径也会作为 local image input 一起传给 Codex。通过 UI fallback 路径发送时，附件通过 Markdown 中的相对路径和绝对路径提供给 Codex 访问。
 
 ## Codex 集成
@@ -202,11 +211,11 @@ Renderer 在 `scatterStore.ts` 中维护非持久化的内存历史栈，最多�
 第二条是 UI fallback：
 
 - 打开 `codex://threads/new?path=<projectPath>`。
-- 如果起始节点开启计划模式，先用 `Shift+Tab` 切换 Codex 输入框的真实计划模式。
+- 如果起始节点开启计划模式，先用 `⇧Tab` 切换 Codex 输入框的真实计划模式。
 - 把 Markdown 写入剪贴板。
 - 用 AppleScript 在 Codex 中粘贴并提交。
 
-计划模式会作为运行参数从起始节点传入当前 Codex 运行链路。起始节点开启计划模式时，Scatter 跳过 desktop proxy 并使用 UI fallback，以触发 Codex 的真实 `Shift+Tab` 计划模式；此时附件通过 Markdown 路径提供，不作为 proxy 的 local image input 发送。
+计划模式会作为运行参数从起始节点传入当前 Codex 运行链路。起始节点开启计划模式时，Scatter 跳过 desktop proxy 并使用 UI fallback，以触发 Codex 的真实 `⇧Tab` 计划模式；此时附件通过 Markdown 路径提供，不作为 proxy 的 local image input 发送。
 
 desktop proxy 当前使用：
 

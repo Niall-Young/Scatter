@@ -1,6 +1,8 @@
 import type { ButtonHTMLAttributes, MouseEvent, ReactElement } from "react";
+import { useI18n } from "../../lib/i18n";
 import { cn } from "../../lib/utils";
 import { Icon } from "./icon";
+import { TooltipAnchor } from "./tooltip";
 
 interface TaskItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   canRun?: boolean;
@@ -26,6 +28,8 @@ export function TaskItem({
   type = "button",
   ...props
 }: TaskItemProps): ReactElement {
+  const { t } = useI18n();
+
   function handleAction(event: MouseEvent<HTMLSpanElement>, action?: () => void, disabled = false): void {
     event.stopPropagation();
     if (disabled) return;
@@ -39,22 +43,26 @@ export function TaskItem({
       </span>
       <span className="kit-task-item-content">
         <span className="kit-task-item-name">{taskName}</span>
-        <span className="kit-task-item-meta">{meta || (flow ? `${nodeCount} 个节点` : "可发送给 Codex")}</span>
+        <span className="kit-task-item-meta">{meta || (flow ? t("drawer.nodeCount", { count: nodeCount }) : t("drawer.canSend"))}</span>
       </span>
       <span className="kit-task-item-actions">
-        <span
-          className={cn("kit-task-item-action", !canRun && "is-disabled")}
-          role="button"
-          tabIndex={-1}
-          aria-disabled={!canRun}
-          aria-label="运行任务"
-          onClick={(event) => handleAction(event, onPlay, !canRun)}
-        >
-          <Icon name="play" size={16} />
-        </span>
-        <span className="kit-task-item-action" role="button" tabIndex={-1} aria-label="定位节点" onClick={(event) => handleAction(event, onLocate)}>
-          <Icon name="map-pin" size={16} />
-        </span>
+        <TooltipAnchor label={t("topbar.runCurrentTask")}>
+          <span
+            className={cn("kit-task-item-action", !canRun && "is-disabled")}
+            role="button"
+            tabIndex={-1}
+            aria-disabled={!canRun}
+            aria-label={t("topbar.runCurrentTask")}
+            onClick={(event) => handleAction(event, onPlay, !canRun)}
+          >
+            <Icon name="play" size={16} />
+          </span>
+        </TooltipAnchor>
+        <TooltipAnchor label={t("canvas.fit")} align="end">
+          <span className="kit-task-item-action" role="button" tabIndex={-1} aria-label={t("canvas.fit")} onClick={(event) => handleAction(event, onLocate)}>
+            <Icon name="map-pin" size={16} />
+          </span>
+        </TooltipAnchor>
       </span>
     </button>
   );

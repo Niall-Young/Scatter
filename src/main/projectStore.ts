@@ -10,6 +10,8 @@ import type {
   ScatterDocument,
   ScatterProjectInfo
 } from "../shared/types";
+import { tMain } from "./i18n";
+import { getSettings } from "./settingsStore";
 
 const scatterDirName = ".scatter";
 const documentFileName = "scatter.json";
@@ -128,8 +130,12 @@ export async function getRecentProjects(): Promise<ScatterProjectInfo[]> {
 }
 
 export async function chooseProject(kind: "create" | "open"): Promise<OpenProjectResult | null> {
+  const settings = await getSettings();
   const result = await dialog.showOpenDialog({
-    title: kind === "create" ? "Choose or create a Scatter project folder" : "Open a Scatter project folder",
+    title:
+      kind === "create"
+        ? tMain(settings.language, "chooseProjectCreateTitle")
+        : tMain(settings.language, "chooseProjectOpenTitle"),
     properties: ["openDirectory", "createDirectory"]
   });
 

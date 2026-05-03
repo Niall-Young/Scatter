@@ -5,6 +5,8 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import type { CodexRunInput, CodexRunResult } from "../shared/types";
+import { tMain } from "./i18n";
+import { getSettings } from "./settingsStore";
 
 interface PendingRequest {
   resolve: (value: any) => void;
@@ -119,11 +121,10 @@ async function pasteAndSubmitInCodex(planMode: boolean): Promise<void> {
   try {
     await runCommand("osascript", ["-e", script], 8000);
   } catch (error) {
-    throw new Error(
-      `Codex 已打开新线程，但 Scatter 没有权限自动粘贴并发送。请在 macOS“系统设置 > 隐私与安全性 > 辅助功能”里允许当前终端或 Scatter 控制 Codex。原始错误：${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
+    const settings = await getSettings();
+    throw new Error(tMain(settings.language, "codexAccessibilityError", {
+      detail: error instanceof Error ? error.message : String(error)
+    }));
   }
 }
 

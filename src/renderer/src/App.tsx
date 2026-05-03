@@ -20,23 +20,32 @@ import { nanoid } from "nanoid";
 import type {
   Attachment,
   AttachmentInput,
+  LanguagePreference,
   OpenProjectResult,
   RunMode,
   ScatterDocument,
   ScatterEdge,
   ScatterNode,
   ScatterNodeData,
-  ScatterProjectInfo
+  ScatterProjectInfo,
+  ThemePreference
 } from "../../shared/types";
+import { defaultAppSettings } from "../../shared/types";
 import { buildMarkdown } from "./lib/markdown";
+import { I18nProvider } from "./lib/i18n";
+import { shortcuts } from "./lib/shortcuts";
+import { createTranslator } from "./lib/translations";
 import { Sidebar } from "./components/Sidebar";
 import { ScatterEdge as ScatterFlowEdge } from "./components/ScatterEdge";
-import { SettingsDialog, type LanguagePreference, type SettingsValues, type ThemePreference } from "./components/SettingsDialog";
+import { SearchDialog } from "./components/SearchDialog";
+import { SettingsDialog, type SettingsValues } from "./components/SettingsDialog";
 import { Topbar } from "./components/Topbar";
 import { RightDrawer } from "./components/RightDrawer";
 import { TaskNode, setTaskNodeActions } from "./components/TaskNode";
 import { DropdownMenu, DropdownMenuItem } from "./components/ui/dropdown-menu";
 import { Icon } from "./components/ui/icon";
+import { IconButton } from "./components/ui/icon-button";
+import { TooltipAnchor } from "./components/ui/tooltip";
 import { useScatterStore } from "./store/scatterStore";
 import startupToolboxImage from "./assets/startup-toolbox.png";
 import "@xyflow/react/dist/style.css";
@@ -141,22 +150,22 @@ function findOpenPositionToRight(preferred: FlowPosition, nodes: ScatterNode[]):
   return base;
 }
 
-function defaultTaskTitle(nodes: ScatterNode[]): string {
+function defaultTaskTitle(nodes: ScatterNode[], t: ReturnType<typeof createTranslator>): string {
   const nextNumber =
     nodes.reduce((max, node) => {
-      const match = /^新建任务\s+(\d+)$/.exec(node.data.title.trim());
+      const match = /^(?:新建任务|New task)\s+(\d+)$/.exec(node.data.title.trim());
       return match ? Math.max(max, Number(match[1])) : max;
     }, 0) + 1;
-  return `新建任务 ${nextNumber}`;
+  return t("task.defaultTitle", { count: nextNumber });
 }
 
-function emptyNode(position: { x: number; y: number }, existingNodes: ScatterNode[]): ScatterNode {
+function emptyNode(position: { x: number; y: number }, existingNodes: ScatterNode[], t: ReturnType<typeof createTranslator>): ScatterNode {
   return {
     id: nanoid(),
     type: "task",
     position,
     data: {
-      title: defaultTaskTitle(existingNodes),
+      title: defaultTaskTitle(existingNodes, t),
       body: "",
       attachments: [],
       effort: "xhigh",
@@ -241,11 +250,12 @@ function App(): ReactElement {
 
   const [recentProjects, setRecentProjects] = useState<ScatterProjectInfo[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [themePreference, setThemePreference] = useState<ThemePreference>("system");
+  const [themePreference, setThemePreference] = useState<ThemePreference>(defaultAppSettings.themePreference);
   const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() => systemColorTheme());
-  const [language, setLanguage] = useState<LanguagePreference>("zh");
-  const [translucentBackground, setTranslucentBackground] = useState(true);
+  const [language, setLanguage] = useState<LanguagePreference>(defaultAppSettings.language);
+  const [translucentBackground, setTranslucentBackground] = useState<boolean>(defaultAppSettings.translucentBackground);
   const [markdownPanelRatio, setMarkdownPanelRatio] = useState(MARKDOWN_PANEL_DEFAULT_RATIO);
   const [isResizingMarkdownPanel, setIsResizingMarkdownPanel] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -264,6 +274,7 @@ function App(): ReactElement {
   const settingsSnapshotRef = useRef<SettingsValues | null>(null);
   const settingsSaveRequestedRef = useRef(false);
   const [taskRunModeOverride, setTaskRunModeOverride] = useState<{ nodeId: string; mode: RunMode } | null>(null);
+  const t = useMemo(() => createTranslator(language), [language]);
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) || null,
@@ -277,7 +288,7 @@ function App(): ReactElement {
   const markdownResult = useMemo(
     () =>
       project
-        ? buildMarkdown(nodes, edges, selectedNodeId, selectedRunMode, project.name, project.path)
+        ? buildMarkdown(nodes, edges, selectedNodeId, selectedRunMode, project.name, project.path, language)
         : {
             markdown: "",
             nodes: [],
@@ -286,7 +297,7 @@ function App(): ReactElement {
             planMode: false,
             hasCycle: false
           },
-    [edges, nodes, project, selectedNodeId, selectedRunMode]
+    [edges, language, nodes, project, selectedNodeId, selectedRunMode]
   );
 
   const refreshRecentProjects = useCallback(async () => {
@@ -297,12 +308,12 @@ function App(): ReactElement {
     async (projectPath: string) => {
       try {
         setRecentProjects(await window.scatter.removeRecentProject(projectPath));
-        setStatus("已从项目列表移出");
+        setStatus(t("status.removedRecent"));
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : "移出项目失败");
+        setStatus(error instanceof Error ? error.message : t("status.removeRecentFailed"));
       }
     },
-    [setStatus]
+    [setStatus, t]
   );
 
   const applySettingsValues = useCallback((values: SettingsValues): void => {
@@ -310,6 +321,23 @@ function App(): ReactElement {
     setLanguage(values.language);
     setTranslucentBackground(values.translucentBackground);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    window.scatter
+      .getSettings()
+      .then((settings) => {
+        if (!cancelled) applySettingsValues(settings);
+      })
+      .catch(() => {
+        if (!cancelled) applySettingsValues(defaultAppSettings);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applySettingsValues]);
 
   const openSettingsDialog = useCallback((): void => {
     settingsSaveRequestedRef.current = false;
@@ -345,13 +373,20 @@ function App(): ReactElement {
   );
 
   const handleSaveSettings = useCallback(
-    (values: SettingsValues): void => {
-      settingsSaveRequestedRef.current = true;
-      settingsSnapshotRef.current = null;
-      applySettingsValues(values);
-      setStatus("设置已保存");
+    async (values: SettingsValues): Promise<void> => {
+      try {
+        const savedSettings = await window.scatter.saveSettings(values);
+        settingsSaveRequestedRef.current = true;
+        settingsSnapshotRef.current = null;
+        applySettingsValues(savedSettings);
+        setStatus(createTranslator(savedSettings.language)("settings.saved"));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : t("settings.saveFailed");
+        setStatus(message);
+        throw new Error(message);
+      }
     },
-    [applySettingsValues, setStatus]
+    [applySettingsValues, setStatus, t]
   );
 
   useEffect(() => {
@@ -383,7 +418,8 @@ function App(): ReactElement {
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.window = isSplashWindow ? "splash" : "main";
     document.documentElement.dataset.translucent = translucentBackground ? "true" : "false";
-  }, [isSplashWindow, theme, translucentBackground]);
+    document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+  }, [isSplashWindow, language, theme, translucentBackground]);
 
   useEffect(() => {
     function isSpaceKey(event: KeyboardEvent): boolean {
@@ -391,7 +427,7 @@ function App(): ReactElement {
     }
 
     function handleKeyDown(event: KeyboardEvent): void {
-      if (settingsOpen || !isSpaceKey(event) || isEditableTarget(event.target)) return;
+      if (settingsOpen || searchOpen || !isSpaceKey(event) || isEditableTarget(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setSpacePanActive(true);
@@ -416,16 +452,17 @@ function App(): ReactElement {
       window.removeEventListener("keyup", handleKeyUp, { capture: true });
       window.removeEventListener("blur", handleBlur);
     };
-  }, [settingsOpen]);
+  }, [searchOpen, settingsOpen]);
 
   const hydrateProject = useCallback(
     async (result: OpenProjectResult | null) => {
       if (!result) return;
       loadedProjectPathRef.current = result.project.path;
       setProjectDocument(result.project, result.document);
+      setStatus(t("app.openedProject", { name: result.project.name }));
       await refreshRecentProjects();
     },
-    [refreshRecentProjects, setProjectDocument]
+    [refreshRecentProjects, setProjectDocument, setStatus, t]
   );
 
   const createProject = useCallback(() => {
@@ -438,13 +475,13 @@ function App(): ReactElement {
     try {
       const document = toDocument(project.name, nodes, edges);
       await window.scatter.saveDocument(project.path, document);
-      setStatus("已保存");
+      setStatus(t("status.saved"));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "保存失败");
+      setStatus(error instanceof Error ? error.message : t("status.saveFailed"));
     } finally {
       setSaving(false);
     }
-  }, [edges, nodes, project, setSaving, setStatus]);
+  }, [edges, nodes, project, setSaving, setStatus, t]);
 
   useEffect(() => {
     if (!project || loadedProjectPathRef.current !== project.path) return;
@@ -484,10 +521,10 @@ function App(): ReactElement {
           nodes
         )
       : findOpenPositionNear(getVisibleCanvasCenterPosition(), nodes);
-    const node = emptyNode(position, nodes);
+    const node = emptyNode(position, nodes, t);
     commitCanvasChange({ nodes: [...nodes.map((item) => ({ ...item, selected: false })), { ...node, selected: true }] });
     setSelectedNodeId(node.id);
-  }, [commitCanvasChange, getVisibleCanvasCenterPosition, nodes, project, selectedNode, setSelectedNodeId]);
+  }, [commitCanvasChange, getVisibleCanvasCenterPosition, nodes, project, selectedNode, setSelectedNodeId, t]);
 
   const addFilesToNode = useCallback(
     async (nodeId: string, files: FileList | File[], source: "upload" | "drop" | "paste") => {
@@ -496,33 +533,33 @@ function App(): ReactElement {
       if (!inputs.length) return;
       const saved = await window.scatter.saveAttachments(project.path, inputs);
       appendAttachments(nodeId, saved);
-      setStatus(`已添加 ${saved.length} 个附件`);
+      setStatus(t("status.attachmentsAdded", { count: saved.length }));
     },
-    [appendAttachments, project, setStatus]
+    [appendAttachments, project, setStatus, t]
   );
 
   const ensureTargetNode = useCallback((): ScatterNode | null => {
     if (!project) return null;
     const existing = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) : null;
     if (existing) return existing;
-    const node = emptyNode(findOpenPositionNear(getVisibleCanvasCenterPosition(), nodes), nodes);
+    const node = emptyNode(findOpenPositionNear(getVisibleCanvasCenterPosition(), nodes), nodes, t);
     replaceCanvasLive({ nodes: [...nodes.map((item) => ({ ...item, selected: false })), { ...node, selected: true }] });
     setSelectedNodeId(node.id);
     return node;
-  }, [getVisibleCanvasCenterPosition, nodes, project, replaceCanvasLive, selectedNodeId, setSelectedNodeId]);
+  }, [getVisibleCanvasCenterPosition, nodes, project, replaceCanvasLive, selectedNodeId, setSelectedNodeId, t]);
 
   const runNode = useCallback(
     async (nodeId: string, mode: RunMode) => {
       if (!project) return;
       const node = nodes.find((item) => item.id === nodeId);
       if (!node) return;
-      const result = buildMarkdown(nodes, edges, nodeId, mode, project.name, project.path);
+      const result = buildMarkdown(nodes, edges, nodeId, mode, project.name, project.path, language);
       if (result.nodes.every((item) => item.data.body.trim().length === 0)) {
-        setStatus("暂未编辑，无法发送到 Codex");
+        setStatus(t("status.cannotSendEmpty"));
         return;
       }
-      const threadName = mode === "flow" ? `Scatter Flow: ${node.data.title || "Untitled"}` : `Scatter: ${node.data.title || "Untitled"}`;
-      setStatus("正在发送到 Codex...");
+      const threadName = mode === "flow" ? `Scatter Flow: ${node.data.title || t("drawer.unnamedTask")}` : `Scatter: ${node.data.title || t("drawer.unnamedTask")}`;
+      setStatus(t("status.sendingCodex"));
       try {
         await window.scatter.runCodex({
           projectPath: project.path,
@@ -533,12 +570,12 @@ function App(): ReactElement {
           planMode: result.planMode
         });
         markNodeRun(nodeId, mode);
-        setStatus("已发送到 Codex");
+        setStatus(t("status.sentCodex"));
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : "发送到 Codex 失败");
+        setStatus(error instanceof Error ? error.message : t("status.sendCodexFailed"));
       }
     },
-    [edges, markNodeRun, nodes, project, setStatus]
+    [edges, language, markNodeRun, nodes, project, setStatus, t]
   );
 
   const duplicateNode = useCallback(
@@ -555,13 +592,13 @@ function App(): ReactElement {
         },
         data: {
           ...source.data,
-          title: defaultTaskTitle(nodes)
+          title: defaultTaskTitle(nodes, t)
         }
       };
       commitCanvasChange({ nodes: [...nodes.map((node) => ({ ...node, selected: false })), duplicate] });
       setSelectedNodeId(duplicate.id);
     },
-    [commitCanvasChange, nodes, setSelectedNodeId]
+    [commitCanvasChange, nodes, setSelectedNodeId, t]
   );
 
   const deleteNode = useCallback(
@@ -576,32 +613,6 @@ function App(): ReactElement {
     },
     [commitCanvasChange, edges, nodes, selectedNodeId, setSelectedNodeId]
   );
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (settingsOpen || isEditableTarget(event.target)) {
-        return;
-      }
-
-      if (event.metaKey && event.key.toLowerCase() === "z") {
-        event.preventDefault();
-        if (event.shiftKey) {
-          redo();
-        } else {
-          undo();
-        }
-        return;
-      }
-
-      if (!selectedNodeId || (event.key !== "Backspace" && event.key !== "Delete")) return;
-
-      event.preventDefault();
-      deleteNode(selectedNodeId);
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [deleteNode, redo, selectedNodeId, settingsOpen, undo]);
 
   useEffect(() => {
     setTaskNodeActions({
@@ -726,7 +737,7 @@ function App(): ReactElement {
 
   const handlePaste = useCallback(
     async (event: React.ClipboardEvent) => {
-      if (!project || settingsOpen) return;
+      if (!project || settingsOpen || searchOpen) return;
 
       const files = event.clipboardData.files;
       if (files.length > 0) {
@@ -743,7 +754,7 @@ function App(): ReactElement {
           commitHistoryTransaction();
         } catch (error) {
           cancelHistoryTransaction();
-          setStatus(error instanceof Error ? error.message : "添加附件失败");
+          setStatus(error instanceof Error ? error.message : t("status.addAttachmentFailed"));
         }
         return;
       }
@@ -799,15 +810,17 @@ function App(): ReactElement {
       commitHistoryTransaction,
       ensureTargetNode,
       project,
+      searchOpen,
       settingsOpen,
       setStatus,
+      t,
       updateNodeData
     ]
   );
 
   const handleDrop = useCallback(
     async (event: React.DragEvent) => {
-      if (!project || settingsOpen || event.dataTransfer.files.length === 0) return;
+      if (!project || settingsOpen || searchOpen || event.dataTransfer.files.length === 0) return;
       event.preventDefault();
       beginHistoryTransaction();
       const target = ensureTargetNode();
@@ -821,10 +834,10 @@ function App(): ReactElement {
         commitHistoryTransaction();
       } catch (error) {
         cancelHistoryTransaction();
-        setStatus(error instanceof Error ? error.message : "添加附件失败");
+        setStatus(error instanceof Error ? error.message : t("status.addAttachmentFailed"));
       }
     },
-    [addFilesToNode, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, project, settingsOpen, setStatus]
+    [addFilesToNode, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, project, searchOpen, settingsOpen, setStatus, t]
   );
 
   const runActiveNode = useCallback(() => {
@@ -832,6 +845,134 @@ function App(): ReactElement {
     if (!target) return;
     void runNode(target.id, selectedNode ? selectedRunMode : target.data.runMode || "flow");
   }, [nodes, runNode, selectedNode, selectedRunMode]);
+
+  const fitCanvas = useCallback(() => {
+    flowInstanceRef.current?.fitView({ padding: 0.24 });
+  }, []);
+
+  const toggleTasksDrawer = useCallback(() => {
+    if (!project) return;
+    setDrawer(drawer === "tasks" ? null : "tasks");
+  }, [drawer, project, setDrawer]);
+
+  const toggleMarkdownDrawer = useCallback(() => {
+    if (!project) return;
+    setDrawer(drawer === "markdown" ? null : "markdown");
+  }, [drawer, project, setDrawer]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (settingsOpen || searchOpen || isEditableTarget(event.target)) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const hasPrimaryModifier = event.metaKey || event.ctrlKey;
+
+      if (hasPrimaryModifier && !event.altKey) {
+        if (key === "z") {
+          event.preventDefault();
+          if (event.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+          return;
+        }
+
+        if (!event.shiftKey && key === "f") {
+          event.preventDefault();
+          setSearchOpen(true);
+          return;
+        }
+
+        if (event.shiftKey && key === "n") {
+          event.preventDefault();
+          createProject();
+          return;
+        }
+
+        if (!event.shiftKey && event.key === ",") {
+          event.preventDefault();
+          openSettingsDialog();
+          return;
+        }
+
+        if (!event.shiftKey && key === "b") {
+          event.preventDefault();
+          setSidebarCollapsed((collapsed) => !collapsed);
+          return;
+        }
+
+        if (project && !event.shiftKey && event.key === "Enter") {
+          event.preventDefault();
+          runActiveNode();
+          return;
+        }
+
+        if (project && !event.shiftKey && key === "n") {
+          event.preventDefault();
+          addNode();
+          return;
+        }
+
+        if (project && !event.shiftKey && key === "0") {
+          event.preventDefault();
+          fitCanvas();
+          return;
+        }
+
+        if (project && event.shiftKey && key === "t") {
+          event.preventDefault();
+          toggleTasksDrawer();
+          return;
+        }
+
+        if (project && event.shiftKey && key === "m") {
+          event.preventDefault();
+          toggleMarkdownDrawer();
+          return;
+        }
+      }
+
+      if (project && !hasPrimaryModifier && !event.altKey && !event.shiftKey) {
+        if (key === "v") {
+          event.preventDefault();
+          setCanvasTool("select");
+          return;
+        }
+
+        if (key === "h") {
+          event.preventDefault();
+          setCanvasTool("pan");
+          return;
+        }
+      }
+
+      if (!selectedNodeId || (event.key !== "Backspace" && event.key !== "Delete")) return;
+
+      event.preventDefault();
+      deleteNode(selectedNodeId);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    addNode,
+    createProject,
+    deleteNode,
+    fitCanvas,
+    openSettingsDialog,
+    project,
+    redo,
+    runActiveNode,
+    searchOpen,
+    selectedNodeId,
+    settingsOpen,
+    toggleMarkdownDrawer,
+    toggleTasksDrawer,
+    undo
+  ]);
 
   const focusCanvasNode = useCallback(
     (nodeId: string, mode: RunMode) => {
@@ -888,42 +1029,45 @@ function App(): ReactElement {
 
   if (isSplashWindow) {
     return (
-      <main className="startup-shell" data-theme={theme}>
-        <section className="startup-panel" aria-label="Scatter 启动中">
-          <div className="startup-copy">
-            <div className="startup-title-group">
-              <h1>Scatter</h1>
-              <p>构建你的项目，然后再执行</p>
+      <I18nProvider language={language}>
+        <main className="startup-shell" data-theme={theme}>
+          <section className="startup-panel" aria-label={t("startup.loading")}>
+            <div className="startup-copy">
+              <div className="startup-title-group">
+                <h1>Scatter</h1>
+                <p>{t("startup.tagline")}</p>
+              </div>
+              <p className="startup-status">{t("startup.status")}</p>
             </div>
-            <p className="startup-status">启动中....</p>
-          </div>
-          <div className="startup-visual" aria-hidden="true">
-            <div className="startup-image-frame">
-              <img src={startupToolboxImage} alt="" />
+            <div className="startup-visual" aria-hidden="true">
+              <div className="startup-image-frame">
+                <img src={startupToolboxImage} alt="" />
+              </div>
             </div>
-          </div>
-        </section>
-      </main>
+          </section>
+        </main>
+      </I18nProvider>
     );
   }
 
   return (
-    <main
-      className={`app-shell ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}
-      onPaste={handlePaste}
-      onDrop={handleDrop}
-      onDragOver={(event) => event.preventDefault()}
-      onMouseMove={(event) => {
-        latestMouseRef.current = { x: event.clientX, y: event.clientY };
-      }}
-    >
+    <I18nProvider language={language}>
+      <main
+        className={`app-shell ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}
+        onPaste={handlePaste}
+        onDrop={handleDrop}
+        onDragOver={(event) => event.preventDefault()}
+        onMouseMove={(event) => {
+          latestMouseRef.current = { x: event.clientX, y: event.clientY };
+        }}
+      >
       <Sidebar
         recentProjects={recentProjects}
         activePath={project?.path}
         collapsed={sidebarCollapsed}
         onCreateProject={createProject}
-        onOpenProject={() => window.scatter.openProject().then(hydrateProject)}
         onOpenRecent={(projectPath) => window.scatter.openKnownProject(projectPath).then(hydrateProject)}
+        onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={openSettingsDialog}
         onRemoveRecent={(projectPath) => void removeRecentProject(projectPath)}
       />
@@ -935,12 +1079,8 @@ function App(): ReactElement {
           disabled={!project}
           onCreateProject={createProject}
           onRunActive={runActiveNode}
-          onOpenTasks={() => {
-            if (project) setDrawer(drawer === "tasks" ? null : "tasks");
-          }}
-          onOpenMarkdown={() => {
-            if (project) setDrawer(drawer === "markdown" ? null : "markdown");
-          }}
+          onOpenTasks={toggleTasksDrawer}
+          onOpenMarkdown={toggleMarkdownDrawer}
           onToggleSidebar={() => setSidebarCollapsed((collapsed) => !collapsed)}
         />
         <div
@@ -1015,76 +1155,82 @@ function App(): ReactElement {
                 >
                   <Background gap={200} size={0} color="transparent" />
                 </ReactFlow>
-                <div className="canvas-actions" aria-label="画布操作">
-                  <button className="canvas-tool-button" type="button" aria-label="定位画布" onClick={() => flowInstanceRef.current?.fitView({ padding: 0.24 })}>
-                    <Icon name="map-pin" size={16} />
-                  </button>
-                  <button className="canvas-tool-button" type="button" aria-label="撤销" title="撤销 (Cmd+Z)" disabled={!canUndo} onClick={undo}>
-                    <Icon name="undo" size={16} />
-                  </button>
-                  <button className="canvas-tool-button" type="button" aria-label="重做" title="重做 (Cmd+Shift+Z)" disabled={!canRedo} onClick={redo}>
-                    <Icon name="redo" size={16} />
-                  </button>
+                <div className="canvas-actions" aria-label={t("canvas.actions")}>
+                  <TooltipAnchor label={t("canvas.fit")} shortcut={shortcuts.fitCanvas} side="right">
+                    <IconButton className="canvas-tool-button" filled={false} icon="map-pin" size="lg" aria-label={t("canvas.fit")} onClick={fitCanvas} />
+                  </TooltipAnchor>
+                  <TooltipAnchor label={t("canvas.undo")} shortcut={shortcuts.undo} side="right">
+                    <IconButton className="canvas-tool-button" filled={false} icon="undo" size="lg" aria-label={t("canvas.undo")} disabled={!canUndo} onClick={undo} />
+                  </TooltipAnchor>
+                  <TooltipAnchor label={t("canvas.redo")} shortcut={shortcuts.redo} side="right">
+                    <IconButton className="canvas-tool-button" filled={false} icon="redo" size="lg" aria-label={t("canvas.redo")} disabled={!canRedo} onClick={redo} />
+                  </TooltipAnchor>
                 </div>
-                <div className="canvas-toolbar" aria-label="画布工具">
-                  <button className="canvas-toolbar-button" type="button" aria-label="新建节点" onClick={addNode}>
-                    <Icon name="plus-lg" size={20} />
-                  </button>
+                <div className="canvas-toolbar" aria-label={t("canvas.tools")}>
+                  <TooltipAnchor label={t("canvas.addNode")} shortcut={shortcuts.addNode}>
+                    <IconButton className="canvas-toolbar-button" filled={false} icon="plus-lg" size="lg" aria-label={t("canvas.addNode")} onClick={addNode} />
+                  </TooltipAnchor>
                   <span className="canvas-toolbar-divider" />
-                  <button
-                    className={`canvas-toolbar-button ${canvasTool === "select" && !spacePanActive ? "is-selected" : ""}`}
-                    type="button"
-                    aria-label="选择工具"
-                    aria-pressed={canvasTool === "select" && !spacePanActive}
-                    onClick={() => setCanvasTool("select")}
-                  >
-                    <Icon name="work-with-apps" size={20} />
-                  </button>
-                  <button
-                    className={`canvas-toolbar-button ${panModeActive ? "is-selected" : ""}`}
-                    type="button"
-                    aria-label="拖动画布"
-                    aria-pressed={panModeActive}
-                    onClick={() => setCanvasTool("pan")}
-                  >
-                    <Icon name="hand-raised" size={20} />
-                  </button>
+                  <TooltipAnchor label={t("canvas.selectTool")} shortcut={shortcuts.selectTool}>
+                    <IconButton
+                      className={`canvas-toolbar-button ${canvasTool === "select" && !spacePanActive ? "is-selected" : ""}`}
+                      filled={false}
+                      icon="work-with-apps"
+                      size="lg"
+                      aria-label={t("canvas.selectTool")}
+                      aria-pressed={canvasTool === "select" && !spacePanActive}
+                      onClick={() => setCanvasTool("select")}
+                    />
+                  </TooltipAnchor>
+                  <TooltipAnchor label={t("canvas.panTool")} shortcut={shortcuts.panTool}>
+                    <IconButton
+                      className={`canvas-toolbar-button ${panModeActive ? "is-selected" : ""}`}
+                      filled={false}
+                      icon="hand-raised"
+                      size="lg"
+                      aria-label={t("canvas.panTool")}
+                      aria-pressed={panModeActive}
+                      onClick={() => setCanvasTool("pan")}
+                    />
+                  </TooltipAnchor>
                   <span className="canvas-toolbar-divider" />
-                  <RadixDropdownMenu.Root>
-                    <RadixDropdownMenu.Trigger asChild>
-                      <button className="canvas-zoom-trigger" type="button" aria-label="缩放比例">
-                        <span>{zoomPercent}%</span>
-                        <Icon name="chevron-down" size={16} />
-                      </button>
-                    </RadixDropdownMenu.Trigger>
-                    <RadixDropdownMenu.Portal>
-                      <RadixDropdownMenu.Content className="canvas-zoom-popover" side="top" sideOffset={8} align="end">
-                        <DropdownMenu className="canvas-zoom-menu" role="menu">
-                          {zoomOptions.map((option) => (
-                            <RadixDropdownMenu.Item key={option.value} asChild>
-                              <DropdownMenuItem
-                                label={option.label}
-                                selected={Math.abs(viewportZoom - option.value) < 0.01}
-                                role="menuitemradio"
-                                aria-checked={Math.abs(viewportZoom - option.value) < 0.01}
-                                onClick={() => {
-                                  setViewportZoom(option.value);
-                                  void flowInstanceRef.current?.zoomTo(option.value);
-                                }}
-                              />
-                            </RadixDropdownMenu.Item>
-                          ))}
-                        </DropdownMenu>
-                      </RadixDropdownMenu.Content>
-                    </RadixDropdownMenu.Portal>
-                  </RadixDropdownMenu.Root>
+                  <TooltipAnchor label={t("canvas.zoom")}>
+                    <RadixDropdownMenu.Root>
+                      <RadixDropdownMenu.Trigger asChild>
+                        <button className="canvas-zoom-trigger" type="button" aria-label={t("canvas.zoom")}>
+                          <span>{zoomPercent}%</span>
+                          <Icon name="chevron-down" size={16} />
+                        </button>
+                      </RadixDropdownMenu.Trigger>
+                      <RadixDropdownMenu.Portal>
+                        <RadixDropdownMenu.Content className="canvas-zoom-popover" side="top" sideOffset={8} align="end">
+                          <DropdownMenu className="canvas-zoom-menu" role="menu">
+                            {zoomOptions.map((option) => (
+                              <RadixDropdownMenu.Item key={option.value} asChild>
+                                <DropdownMenuItem
+                                  label={option.label}
+                                  selected={Math.abs(viewportZoom - option.value) < 0.01}
+                                  role="menuitemradio"
+                                  aria-checked={Math.abs(viewportZoom - option.value) < 0.01}
+                                  onClick={() => {
+                                    setViewportZoom(option.value);
+                                    void flowInstanceRef.current?.zoomTo(option.value);
+                                  }}
+                                />
+                              </RadixDropdownMenu.Item>
+                            ))}
+                          </DropdownMenu>
+                        </RadixDropdownMenu.Content>
+                      </RadixDropdownMenu.Portal>
+                    </RadixDropdownMenu.Root>
+                  </TooltipAnchor>
                 </div>
               </div>
               <button
                 className={`workspace-resize-handle ${drawer === "markdown" ? "is-active" : ""}`}
                 type="button"
                 aria-hidden={drawer !== "markdown"}
-                aria-label="调整 Markdown 预览宽度"
+                aria-label={t("canvas.resizeMarkdown")}
                 disabled={drawer !== "markdown"}
                 tabIndex={drawer === "markdown" ? 0 : -1}
                 onPointerDown={startMarkdownResize}
@@ -1101,7 +1247,7 @@ function App(): ReactElement {
               />
             </>
           ) : (
-            <div className="empty-workspace" aria-label="未打开项目" />
+            <div className="empty-workspace" aria-label={t("canvas.emptyWorkspace")} />
           )}
         </div>
       </section>
@@ -1114,7 +1260,14 @@ function App(): ReactElement {
         onPreview={applySettingsValues}
         onSave={handleSaveSettings}
       />
-    </main>
+      <SearchDialog
+        open={searchOpen}
+        projects={recentProjects}
+        onOpenChange={setSearchOpen}
+        onOpenProject={(projectPath) => window.scatter.openKnownProject(projectPath).then(hydrateProject)}
+      />
+      </main>
+    </I18nProvider>
   );
 }
 

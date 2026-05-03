@@ -39,11 +39,16 @@ npm run preview
 - `src/main/index.ts`：Electron 启动和 IPC 注册。
 - `src/main/projectStore.ts`：项目文档、最近项目、附件持久化。
 - `src/main/codexBridge.ts`：Codex Desktop 集成。
+- `src/main/settingsStore.ts`：应用级设置持久化。
+- `src/main/i18n.ts`：main process 用户可见文案。
 - `src/preload/index.ts`：类型化的 `window.scatter` API。
 - `src/renderer/src/App.tsx`：renderer 顶层逻辑。
 - `src/renderer/src/store/scatterStore.ts`：Zustand 状态和 mutator。
 - `src/renderer/src/lib/markdown.ts`：执行范围遍历和 Markdown 生成。
+- `src/renderer/src/lib/translations.ts`：renderer 中英文词典。
+- `src/renderer/src/lib/i18n.tsx`：renderer i18n context。
 - `src/renderer/src/components`：业务组件。
+- `src/renderer/src/components/SearchDialog.tsx`：居中项目搜索弹窗。
 - `src/renderer/src/components/SettingsDialog.tsx`：居中设置弹窗。
 - `src/renderer/src/components/ui`：共享 UI primitive。
 - `src/renderer/src/styles/app.css`：设计 token 和样式。
@@ -57,9 +62,9 @@ npm run preview
 - 项目数据默认保留在用户选择的本地项目文件夹里。
 - 持久化 schema 尽量保持向后兼容；缺失字段在 `projectStore.ts` hydrate 时补齐。
 - 新 UI 样式优先复用现有 CSS 变量和组件 primitive。
-- UI 文案保持中文优先。
+- UI 文案默认中文优先；新增或修改 Scatter 生成的 UI、状态、aria、title 或 Markdown 模板文案时，必须同步维护 `src/renderer/src/lib/translations.ts` 的中英文词条。
 - 图标优先使用现有 `Icon` 名称；需要新增时放到 `src/renderer/src/assets/icons`。
-- 图标按钮必须复用 `src/renderer/src/components/ui/icon-button.tsx` 的 `IconButton`，不要在业务组件里手写 icon-only `<button>`。
+- 图标按钮必须复用 `src/renderer/src/components/ui/icon-button.tsx` 的 `IconButton`，不要在业务组件里手写 icon-only `<button>`；需要悬停说明或快捷键时复用 `src/renderer/src/components/ui/tooltip.tsx` 的 `TooltipAnchor`/`Tooltip`。
 
 ## 常见改动路径
 
@@ -80,12 +85,21 @@ npm run preview
 - 必要时更新 renderer 全局类型声明。
 - Renderer 只能通过 `window.scatter` 调用。
 
+应用设置变化：
+
+- 更新 `src/shared/types.ts` 的 `AppSettings`、`LanguagePreference` 或 `ThemePreference`。
+- 更新 `src/main/settingsStore.ts` 的默认值和 hydrate 逻辑。
+- 更新 `src/main/index.ts` 和 `src/preload/index.ts` 的设置 IPC。
+- 更新 `src/renderer/src/lib/translations.ts`、`src/renderer/src/lib/i18n.tsx` 和相关组件。
+- 同步更新 `design.md` 和 `agents.md`。
+
 Markdown 或执行范围变化：
 
 - 从 `src/renderer/src/lib/markdown.ts` 开始。
 - 同时验证 `flow` 和 `node` 两种模式。
 - 检查环形 flow 的行为。
 - 确保附件路径对 Codex 仍然明确可用。
+- Markdown 模板文案属于语言切换范围；修改模板标题、说明、警告或状态时要同时覆盖中英文。
 
 画布撤销/重做变化：
 
@@ -93,7 +107,7 @@ Markdown 或执行范围变化：
 - 文档编辑使用 `commitCanvasChange`；选中态、hover 等 UI 状态使用 `replaceCanvasLive` 或普通 UI setter。
 - 拖拽、文本编辑、粘贴/拖拽自动创建节点这类组合操作用 `beginHistoryTransaction` 和 `commitHistoryTransaction` 合并为一步。
 - 不要把 `selected`、抽屉、主题、视口、保存状态或 `data.lastRunAt` 做成撤销历史。
-- 左下角撤销/重做按钮必须由 `canUndo`、`canRedo` 控制禁用态；快捷键保持 `Cmd+Z` 和 `Cmd+Shift+Z`。
+- 左下角撤销/重做按钮必须由 `canUndo`、`canRedo` 控制禁用态；快捷键保持 `⌘Z` 和 `⌘⇧Z`。新增或调整全局快捷键时同步更新 `src/renderer/src/lib/shortcuts.ts`、相关 tooltip 和 `design.md`。快捷键展示必须使用 macOS 符号：`⌘`、`⇧`、`⌥`、`⌃`，不要写成英文按键名称。
 
 Codex 启动行为变化：
 
@@ -107,17 +121,18 @@ Codex 启动行为变化：
 - 优先从 `src/renderer/src/styles/app.css` 调整。
 - 复用 `Button`、`Switch`、`Icon`。
 - 保持界面紧凑、工具型。
+- 左侧栏“搜索”按钮打开居中搜索项目弹窗，只搜索左侧最近项目列表；不要恢复成系统文件夹选择器。
 - 左侧栏“设置”按钮打开居中设置弹窗，不要恢复成直接切换主题。
 - 验证启动页、欢迎页、画布、任务节点、右侧侧边栏和深色模式。
-- 顶部栏左侧的侧栏按钮使用 `IconButton`；展开态显示侧栏收起按钮，收起态显示侧栏展开按钮和添加项目按钮。
+- 顶部栏左侧的侧栏按钮使用 `IconButton`；展开态显示侧栏收起按钮，收起态显示侧栏展开按钮和添加项目按钮。侧栏切换快捷键是 `⌘B`，任务清单是 `⌘⇧T`，Markdown 预览是 `⌘⇧M`，运行当前任务是 `⌘↩`。
 
 画布交互变化：
 
 - 从 `src/renderer/src/App.tsx` 的 React Flow props 开始。
-- 缩放必须按住 `Cmd` 加滚轮；不要恢复普通滚轮缩放。
+- 缩放必须按住 `⌘` 加滚轮；不要恢复普通滚轮缩放。
 - 手形工具进入画布平移模式；按住空格键临时进入同一平移状态。
 - 缩放比例按钮必须打开下拉菜单，提供 50%、75%、100%、150%、200%。
-- `Shift` 框选只在框选过程中显示选框；结束后只保留节点选中态，不显示持续存在的群组选框。
+- `⇧` 框选只在框选过程中显示选框；结束后只保留节点选中态，不显示持续存在的群组选框。
 
 ## 需要保留的当前行为
 
@@ -127,7 +142,9 @@ Codex 启动行为变化：
 - 启动窗口和主窗口都保留透明 Electron 窗口、macOS 背景模糊和带透明度的应用/画布背景色。
 - 主窗口未打开项目时仍显示主应用壳和左侧项目列表；没有最近项目时列表为空，不显示居中欢迎卡片或空状态文案。
 - 最近项目列表项悬停或聚焦时显示“移出项目”图标按钮，只移出最近项目记录，不删除用户项目文件夹。
-- 左侧栏“设置”打开居中弹窗，包含主题、语言、半透明背景、恢复默认和保存设置；设置项切换后实时预览，未保存关闭时回退到打开弹窗前的设置；设置状态只保存在 renderer 内存中，不写入项目文件。
+- 左侧栏“添加项目”或 `⌘⇧N` 打开添加项目流程。
+- 左侧栏“搜索”或 `⌘F` 打开居中项目搜索弹窗，输入框默认聚焦，按项目名称或路径过滤最近项目；点击结果关闭弹窗并打开对应项目。
+- 左侧栏“设置”或 `⌘,` 打开居中弹窗，包含主题、语言、半透明背景、恢复默认和保存设置；设置项切换后实时预览，未保存关闭时回退到打开弹窗前的设置；保存后的设置写入 Electron `userData/settings.json`，不写入项目文件。
 - 左侧栏可以通过顶部栏按钮收起；收起状态只保存在 renderer 内存中，不写入项目文件。收起后工作区铺满窗口宽度并保留左右 12px 边距，顶部栏左侧保留侧栏按钮和添加项目按钮，展开/收起需要有短过渡动画。
 - 顶部栏右侧的任务清单和 Markdown 预览按钮打开工作区右侧侧边栏，不使用浮层。右侧侧边栏展开和收起需要有短过渡动画。任务清单侧栏固定 288px 并复用 `TaskItem`；清单只展示没有入边且有出边的 `flow` 流程起始节点任务，以及没有任何连线的 `node` 落单节点任务。被连接的子节点不要单独显示；落单节点有正文时显示可发送给 Codex，没有正文时显示暂未编辑。Markdown 预览侧栏和画布并排占用剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮；对应顶部栏按钮要显示选中态。
 - Markdown 预览侧栏和画布之间需要有可拖拽分隔条；悬停和拖拽时使用横向 resize 光标，比例状态只保存在 renderer 内存中。
@@ -135,11 +152,11 @@ Codex 启动行为变化：
 - 附件先复制到项目目录，再挂到节点上。
 - 双击附件项会在 Finder 中显示文件。
 - 节点保存推理强度 `data.effort`，旧文档缺失时 hydrate 为 `xhigh`。
-- 画布缩放使用 `Cmd` + 滚轮或缩放比例下拉菜单，画布平移使用手形工具或空格键临时进入，框选使用 `Shift` + 拖拽。
+- 画布缩放使用 `⌘` + 滚轮或缩放比例下拉菜单，画布平移使用手形工具或空格键临时进入，框选使用 `⇧` + 拖拽。画布快捷键包括 `⌘N` 新建节点、`⌘0` 定位画布、`V` 选择工具、`H` 手形工具。
 - 画布撤销/重做历史不写入项目文件；打开或切换项目时清空。
 - 撤销附件操作只移除节点引用，不删除 `.scatter/assets` 中的文件。
 - 运行 Codex 时，计划模式和推理强度只读取本次运行起始节点的配置。`flow` 模式的下游节点只提供上下文，下游节点自己的计划模式和推理强度不影响本次运行。
-- 起始节点开启计划模式时，必须使用 Codex UI fallback 触发真实 `Shift+Tab` 计划模式，不要用 prompt 前缀模拟计划模式。该路径下附件通过 Markdown 中的 `.scatter/assets` 路径提供给 Codex 访问。
+- 起始节点开启计划模式时，必须使用 Codex UI fallback 触发真实 `⇧Tab` 计划模式，不要用 prompt 前缀模拟计划模式。该路径下附件通过 Markdown 中的 `.scatter/assets` 路径提供给 Codex 访问。
 - `flow` 模式包含下游节点；`node` 模式只包含当前节点。
 - Markdown 导出会复制当前生成结果到剪贴板。
 

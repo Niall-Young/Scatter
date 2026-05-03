@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type {
+  AppSettings,
   Attachment,
   AttachmentInput,
   CodexRunInput,
@@ -10,6 +11,8 @@ import type {
 } from "../shared/types";
 
 const api = {
+  getSettings: (): Promise<AppSettings> => ipcRenderer.invoke("scatter:get-settings"),
+  saveSettings: (settings: AppSettings): Promise<AppSettings> => ipcRenderer.invoke("scatter:save-settings", settings),
   getRecentProjects: (): Promise<ScatterProjectInfo[]> => ipcRenderer.invoke("scatter:get-recent-projects"),
   removeRecentProject: (projectPath: string): Promise<ScatterProjectInfo[]> =>
     ipcRenderer.invoke("scatter:remove-recent-project", projectPath),

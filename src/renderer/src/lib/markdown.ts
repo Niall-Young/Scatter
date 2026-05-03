@@ -1,4 +1,4 @@
-import type { Attachment, RunMode, ScatterEdge, ScatterNode } from "../../../shared/types";
+import type { Attachment, LanguagePreference, RunMode, ScatterEdge, ScatterNode } from "../../../shared/types";
 
 export interface MarkdownResult {
   markdown: string;
@@ -64,29 +64,133 @@ function sortFlow(nodes: ScatterNode[], edges: ScatterEdge[], startId: string): 
   return [...ordered, ...remaining];
 }
 
-function attachmentLine(attachment: Attachment): string {
-  return `- ${attachment.kind === "image" ? "Image" : "File"}: ${attachment.originalName}
-  - Relative path: \`${attachment.relativePath}\`
-  - Absolute path: \`${attachment.storedPath}\`
-  - Source: ${attachment.source}`;
+interface MarkdownText {
+  absolutePath: string;
+  allAttachments: string;
+  attachmentFile: string;
+  attachmentImage: string;
+  attachments: string;
+  connectionMap: string;
+  executionRequest: string;
+  executionRequestBody: string;
+  includedNodes: string;
+  noConnections: string;
+  noPrompt: string;
+  none: string;
+  nodeId: string;
+  planMode: string;
+  planModeDisabled: string;
+  planModeEnabled: string;
+  planModeRequested: string;
+  planModeRequestedNo: string;
+  planModeRequestedYes: string;
+  project: string;
+  projectPath: string;
+  prompt: string;
+  relativePath: string;
+  runMode: string;
+  runModeFlow: string;
+  runModeNode: string;
+  source: string;
+  taskTitle: string;
+  untitledTask: (index: number) => string;
+  warningCycle: string;
 }
 
-function nodeBlock(node: ScatterNode, index: number): string {
-  const title = node.data.title?.trim() || `Untitled task ${index + 1}`;
-  const body = node.data.body?.trim() || "_No prompt text provided._";
+const markdownTexts: Record<LanguagePreference, MarkdownText> = {
+  zh: {
+    absolutePath: "绝对路径",
+    allAttachments: "所有附件",
+    attachmentFile: "文件",
+    attachmentImage: "图片",
+    attachments: "附件",
+    connectionMap: "连接关系",
+    executionRequest: "执行请求",
+    executionRequestBody: "请把以下 Scatter 画布上下文作为事实来源。需要时检查引用文件，并在这个项目中执行请求的工作。",
+    includedNodes: "包含的节点",
+    noConnections: "- 当前范围内没有下游连接。",
+    noPrompt: "_未提供提示词正文。_",
+    none: "- 无",
+    nodeId: "节点 ID",
+    planMode: "计划模式",
+    planModeDisabled: "关闭",
+    planModeEnabled: "开启",
+    planModeRequested: "请求计划模式",
+    planModeRequestedNo: "否",
+    planModeRequestedYes: "是",
+    project: "项目",
+    projectPath: "项目路径",
+    prompt: "提示词",
+    relativePath: "相对路径",
+    runMode: "运行模式",
+    runModeFlow: "当前节点及下游流程",
+    runModeNode: "仅当前节点",
+    source: "来源",
+    taskTitle: "Scatter 任务",
+    untitledTask: (index) => `未命名任务 ${index + 1}`,
+    warningCycle: "> 警告：这个流程包含环。节点已按遍历顺序和画布位置排序。\n"
+  },
+  en: {
+    absolutePath: "Absolute path",
+    allAttachments: "All Attachments",
+    attachmentFile: "File",
+    attachmentImage: "Image",
+    attachments: "Attachments",
+    connectionMap: "Connection Map",
+    executionRequest: "Execution Request",
+    executionRequestBody: "Use the following Scatter canvas context as the source of truth. Analyze the task structure, inspect referenced files when needed, and execute the requested work in this project.",
+    includedNodes: "Included Nodes",
+    noConnections: "- No downstream connections included.",
+    noPrompt: "_No prompt text provided._",
+    none: "- None",
+    nodeId: "Node ID",
+    planMode: "Plan mode",
+    planModeDisabled: "disabled",
+    planModeEnabled: "enabled",
+    planModeRequested: "Plan mode requested",
+    planModeRequestedNo: "no",
+    planModeRequestedYes: "yes",
+    project: "Project",
+    projectPath: "Project path",
+    prompt: "Prompt",
+    relativePath: "Relative path",
+    runMode: "Run mode",
+    runModeFlow: "Current node and downstream flow",
+    runModeNode: "Current node only",
+    source: "Source",
+    taskTitle: "Scatter Task",
+    untitledTask: (index) => `Untitled task ${index + 1}`,
+    warningCycle: "> Warning: This flow contains a cycle. Nodes were ordered by traversal and canvas position.\n"
+  }
+};
+
+function markdownText(language: LanguagePreference): MarkdownText {
+  return markdownTexts[language] ?? markdownTexts.zh;
+}
+
+function attachmentLine(attachment: Attachment, text: MarkdownText): string {
+  return `- ${attachment.kind === "image" ? text.attachmentImage : text.attachmentFile}: ${attachment.originalName}
+  - ${text.relativePath}: \`${attachment.relativePath}\`
+  - ${text.absolutePath}: \`${attachment.storedPath}\`
+  - ${text.source}: ${attachment.source}`;
+}
+
+function nodeBlock(node: ScatterNode, index: number, text: MarkdownText): string {
+  const title = node.data.title?.trim() || text.untitledTask(index);
+  const body = node.data.body?.trim() || text.noPrompt;
   const attachments = node.data.attachments.length
-    ? node.data.attachments.map(attachmentLine).join("\n")
-    : "- None";
+    ? node.data.attachments.map((attachment) => attachmentLine(attachment, text)).join("\n")
+    : text.none;
 
   return `## ${index + 1}. ${title}
 
-Node ID: \`${node.id}\`
-Plan mode: ${node.data.planMode ? "enabled" : "disabled"}
+${text.nodeId}: \`${node.id}\`
+${text.planMode}: ${node.data.planMode ? text.planModeEnabled : text.planModeDisabled}
 
-### Prompt
+### ${text.prompt}
 ${body}
 
-### Attachments
+### ${text.attachments}
 ${attachments}`;
 }
 
@@ -96,8 +200,10 @@ export function buildMarkdown(
   startNodeId: string | null,
   runMode: RunMode,
   projectName: string,
-  projectPath: string
+  projectPath: string,
+  language: LanguagePreference = "zh"
 ): MarkdownResult {
+  const text = markdownText(language);
   const startNode = startNodeId ? allNodes.find((node) => node.id === startNodeId) : null;
   const nodeIds =
     startNode && runMode === "flow"
@@ -112,7 +218,7 @@ export function buildMarkdown(
   const imagePaths = attachments.filter((attachment) => attachment.kind === "image").map((attachment) => attachment.storedPath);
   const planMode = startNode?.data.planMode || false;
   const title = startNode?.data.title?.trim() || projectName || "Scatter Flow";
-  const modeLabel = runMode === "flow" ? "Current node and downstream flow" : "Current node only";
+  const modeLabel = runMode === "flow" ? text.runModeFlow : text.runModeNode;
 
   const connectionMap = selectedEdges.length
     ? selectedEdges
@@ -122,26 +228,26 @@ export function buildMarkdown(
           return `- ${source?.data.title || edge.source} -> ${target?.data.title || edge.target}`;
         })
         .join("\n")
-    : "- No downstream connections included.";
+    : text.noConnections;
 
-  const markdown = `# Scatter Task: ${title}
+  const markdown = `# ${text.taskTitle}: ${title}
 
-Project: ${projectName}
-Project path: \`${projectPath}\`
-Run mode: ${modeLabel}
-Plan mode requested: ${planMode ? "yes" : "no"}
+${text.project}: ${projectName}
+${text.projectPath}: \`${projectPath}\`
+${text.runMode}: ${modeLabel}
+${text.planModeRequested}: ${planMode ? text.planModeRequestedYes : text.planModeRequestedNo}
 
-${nodeIds.hasCycle ? "> Warning: This flow contains a cycle. Nodes were ordered by traversal and canvas position.\n" : ""}## Execution Request
-Use the following Scatter canvas context as the source of truth. Analyze the task structure, inspect referenced files when needed, and execute the requested work in this project.
+${nodeIds.hasCycle ? text.warningCycle : ""}## ${text.executionRequest}
+${text.executionRequestBody}
 
-## Included Nodes
-${orderedNodes.map(nodeBlock).join("\n\n")}
+## ${text.includedNodes}
+${orderedNodes.map((node, index) => nodeBlock(node, index, text)).join("\n\n")}
 
-## Connection Map
+## ${text.connectionMap}
 ${connectionMap}
 
-## All Attachments
-${attachments.length ? attachments.map(attachmentLine).join("\n") : "- None"}
+## ${text.allAttachments}
+${attachments.length ? attachments.map((attachment) => attachmentLine(attachment, text)).join("\n") : text.none}
 `;
 
   return {

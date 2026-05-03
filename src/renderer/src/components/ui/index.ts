@@ -5,7 +5,7 @@ export { KitButton } from "./kit-button";
 export { IconButton } from "./icon-button";
 export { Checkbox } from "./checkbox";
 export { ProjectItem } from "./project-item";
-export { Tooltip } from "./tooltip";
+export { Tooltip, TooltipAnchor } from "./tooltip";
 export { DropdownMenu, DropdownMenuItem } from "./dropdown-menu";
 export { DropdownTrigger } from "./dropdown-trigger";
 export { SelectTrigger } from "./select";

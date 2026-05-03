@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactElement, ReactPortal } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "../../lib/i18n";
 import { cn } from "../../lib/utils";
 import { Icon } from "./icon";
 
@@ -18,11 +19,13 @@ function toastIcon(tone: ToastTone): ReactElement {
 }
 
 export function Toast({ className, message, onClose, tone = "information", ...props }: ToastProps): ReactElement {
+  const { t } = useI18n();
+
   return (
     <div className={cn("kit-toast", `kit-toast-${tone}`, className)} role="status" {...props}>
       {toastIcon(tone)}
       <span className="kit-toast-message">{message}</span>
-      <button className="kit-toast-close" type="button" aria-label="关闭提示" onClick={onClose}>
+      <button className="kit-toast-close" type="button" aria-label={t("toast.close")} onClick={onClose}>
         <Icon name="x" size={16} />
       </button>
     </div>

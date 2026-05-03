@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type KeyboardEvent, type ReactElement } from "react";
+import { useI18n } from "../../lib/i18n";
 import { cn } from "../../lib/utils";
 import { Icon } from "./icon";
 
@@ -12,6 +13,7 @@ interface UploadChipProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export function UploadChip({ className, fileName, imageAlt = "", imageSrc, kind = "file", onOpen, onRemove, ...props }: UploadChipProps): ReactElement {
+  const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
   const [lockedWidth, setLockedWidth] = useState<number | null>(null);
 
@@ -66,7 +68,7 @@ export function UploadChip({ className, fileName, imageAlt = "", imageSrc, kind 
         <button
           className="kit-upload-chip-remove"
           type="button"
-          aria-label="移除文件"
+          aria-label={t("task.removeAttachment")}
           onClick={(event) => {
             event.stopPropagation();
             onRemove();

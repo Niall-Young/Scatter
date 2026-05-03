@@ -2,6 +2,20 @@ export type AttachmentKind = "image" | "file";
 export type AttachmentSource = "upload" | "drop" | "paste" | "clipboard";
 export type RunMode = "flow" | "node";
 export type EffortLevel = "low" | "medium" | "high" | "xhigh";
+export type LanguagePreference = "zh" | "en";
+export type ThemePreference = "system" | "light" | "dark";
+
+export interface AppSettings {
+  themePreference: ThemePreference;
+  language: LanguagePreference;
+  translucentBackground: boolean;
+}
+
+export const defaultAppSettings = {
+  themePreference: "system",
+  language: "zh",
+  translucentBackground: true
+} satisfies AppSettings;
 
 export interface ScatterProjectInfo {
   name: string;
