@@ -5,6 +5,7 @@ import { Icon } from "./icon";
 interface TaskItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   flow?: boolean;
   loading?: boolean;
+  meta?: string;
   nodeCount?: number;
   onMessage?: () => void;
   onPlay?: () => void;
@@ -15,6 +16,7 @@ export function TaskItem({
   className,
   flow = false,
   loading = false,
+  meta,
   nodeCount = 3,
   onMessage,
   onPlay,
@@ -34,7 +36,7 @@ export function TaskItem({
       </span>
       <span className="kit-task-item-content">
         <span className="kit-task-item-name">{taskName}</span>
-        <span className="kit-task-item-meta">{flow ? `${nodeCount} nodes` : "Ready for play"}</span>
+        <span className="kit-task-item-meta">{meta || (flow ? `${nodeCount} nodes` : "Ready for play")}</span>
       </span>
       <span className="kit-task-item-actions">
         <span className="kit-task-item-action" role="button" tabIndex={-1} aria-label="运行任务" onClick={(event) => handleAction(event, onPlay)}>

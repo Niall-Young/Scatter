@@ -232,6 +232,7 @@ function App(): ReactElement {
   } = useScatterStore();
 
   const [recentProjects, setRecentProjects] = useState<ScatterProjectInfo[]>([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [canvasTool, setCanvasTool] = useState<CanvasTool>("select");
@@ -325,6 +326,10 @@ function App(): ReactElement {
     },
     [refreshRecentProjects, setProjectDocument]
   );
+
+  const createProject = useCallback(() => {
+    void window.scatter.createProject().then(hydrateProject);
+  }, [hydrateProject]);
 
   const saveCurrentDocument = useCallback(async () => {
     if (!project) return;
@@ -745,7 +750,7 @@ function App(): ReactElement {
 
   return (
     <main
-      className="app-shell"
+      className={`app-shell ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}
       onPaste={handlePaste}
       onDrop={handleDrop}
       onDragOver={(event) => event.preventDefault()}
@@ -756,16 +761,20 @@ function App(): ReactElement {
       <Sidebar
         recentProjects={recentProjects}
         activePath={project?.path}
+        collapsed={sidebarCollapsed}
         theme={theme}
-        onCreateProject={() => window.scatter.createProject().then(hydrateProject)}
+        onCreateProject={createProject}
         onOpenProject={() => window.scatter.openProject().then(hydrateProject)}
         onOpenRecent={(projectPath) => window.scatter.openKnownProject(projectPath).then(hydrateProject)}
         onToggleTheme={() => setTheme(theme === "light" ? "dark" : "light")}
       />
       <section className="workspace">
         <Topbar
+          activeDrawer={drawer}
           canRun={nodes.length > 0}
+          sidebarCollapsed={sidebarCollapsed}
           disabled={!project}
+          onCreateProject={createProject}
           onRunActive={runActiveNode}
           onOpenTasks={() => {
             if (project) setDrawer(drawer === "tasks" ? null : "tasks");
@@ -773,152 +782,158 @@ function App(): ReactElement {
           onOpenMarkdown={() => {
             if (project) setDrawer(drawer === "markdown" ? null : "markdown");
           }}
+          onToggleSidebar={() => setSidebarCollapsed((collapsed) => !collapsed)}
         />
-        {project ? (
-          <div className="canvas-shell" ref={canvasShellRef}>
-            <ReactFlow
-              nodes={nodes as Node[]}
-              edges={
-                edges.map((edge) => ({
-                  ...edge,
-                  type: "scatter",
-                  data: {
-                    active:
-                      edge.source === selectedNodeId ||
-                      edge.target === selectedNodeId ||
-                      edge.source === hoveredNodeId ||
-                      edge.target === hoveredNodeId
+        <div className={`workspace-content ${drawer ? "has-right-sidebar" : ""}`}>
+          {project ? (
+            <>
+              <div className="canvas-shell" ref={canvasShellRef}>
+                <ReactFlow
+                  nodes={nodes as Node[]}
+                  edges={
+                    edges.map((edge) => ({
+                      ...edge,
+                      type: "scatter",
+                      data: {
+                        active:
+                          edge.source === selectedNodeId ||
+                          edge.target === selectedNodeId ||
+                          edge.source === hoveredNodeId ||
+                          edge.target === hoveredNodeId
+                      }
+                    })) as Edge[]
                   }
-                })) as Edge[]
-              }
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              onNodesChange={onNodesChange as any}
-              onEdgesChange={onEdgesChange as any}
-              onConnect={onConnect}
-              onSelectionChange={onSelectionChange}
-              selectionKeyCode={panModeActive ? null : "Shift"}
-              selectionOnDrag={false}
-              panOnDrag={panModeActive}
-              panActivationKeyCode="Space"
-              zoomOnScroll={false}
-              zoomOnPinch={false}
-              zoomOnDoubleClick={false}
-              zoomActivationKeyCode="Meta"
-              nodesDraggable={!panModeActive}
-              onConnectStart={() => setIsConnecting(true)}
-              onConnectEnd={() => setIsConnecting(false)}
-              onNodeMouseEnter={handleNodeMouseEnter}
-              onNodeMouseLeave={() => setHoveredNodeId(null)}
-              onNodeDragStop={() => {
-                window.setTimeout(() => {
-                  if (!nodeDragHistoryOpenRef.current) return;
-                  commitHistoryTransaction();
-                  nodeDragHistoryOpenRef.current = false;
-                }, 0);
-              }}
-              onInit={(instance) => {
-                flowInstanceRef.current = instance;
-              }}
-              onMove={(_, viewport) => {
-                setViewportZoom(viewport.zoom);
-              }}
-              fitView
-              minZoom={0.2}
-              maxZoom={2}
-              proOptions={{ hideAttribution: true }}
-              defaultEdgeOptions={{
-                type: "scatter"
-              }}
-            >
-              <Background gap={200} size={0} color="transparent" />
-            </ReactFlow>
-            <div className="canvas-actions" aria-label="画布操作">
-              <button className="canvas-tool-button" type="button" aria-label="定位画布" onClick={() => flowInstanceRef.current?.fitView({ padding: 0.24 })}>
-                <Icon name="map-pin" size={16} />
-              </button>
-              <button className="canvas-tool-button" type="button" aria-label="撤销" title="撤销 (Cmd+Z)" disabled={!canUndo} onClick={undo}>
-                <Icon name="undo" size={16} />
-              </button>
-              <button className="canvas-tool-button" type="button" aria-label="重做" title="重做 (Cmd+Shift+Z)" disabled={!canRedo} onClick={redo}>
-                <Icon name="redo" size={16} />
-              </button>
-            </div>
-            <div className="canvas-toolbar" aria-label="画布工具">
-              <button className="canvas-toolbar-button" type="button" aria-label="新建节点" onClick={addNode}>
-                <Icon name="plus-lg" size={20} />
-              </button>
-              <span className="canvas-toolbar-divider" />
-              <button
-                className={`canvas-toolbar-button ${canvasTool === "select" && !spacePanActive ? "is-selected" : ""}`}
-                type="button"
-                aria-label="选择工具"
-                aria-pressed={canvasTool === "select" && !spacePanActive}
-                onClick={() => setCanvasTool("select")}
-              >
-                <Icon name="work-with-apps" size={20} />
-              </button>
-              <button
-                className={`canvas-toolbar-button ${panModeActive ? "is-selected" : ""}`}
-                type="button"
-                aria-label="拖动画布"
-                aria-pressed={panModeActive}
-                onClick={() => setCanvasTool("pan")}
-              >
-                <Icon name="hand-raised" size={20} />
-              </button>
-              <span className="canvas-toolbar-divider" />
-              <RadixDropdownMenu.Root>
-                <RadixDropdownMenu.Trigger asChild>
-                  <button className="canvas-zoom-trigger" type="button" aria-label="缩放比例">
-                    <span>{zoomPercent}%</span>
-                    <Icon name="chevron-down" size={16} />
+                  nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
+                  onNodesChange={onNodesChange as any}
+                  onEdgesChange={onEdgesChange as any}
+                  onConnect={onConnect}
+                  onSelectionChange={onSelectionChange}
+                  selectionKeyCode={panModeActive ? null : "Shift"}
+                  selectionOnDrag={false}
+                  panOnDrag={panModeActive}
+                  panActivationKeyCode="Space"
+                  zoomOnScroll={false}
+                  zoomOnPinch={false}
+                  zoomOnDoubleClick={false}
+                  zoomActivationKeyCode="Meta"
+                  nodesDraggable={!panModeActive}
+                  onConnectStart={() => setIsConnecting(true)}
+                  onConnectEnd={() => setIsConnecting(false)}
+                  onNodeMouseEnter={handleNodeMouseEnter}
+                  onNodeMouseLeave={() => setHoveredNodeId(null)}
+                  onNodeDragStop={() => {
+                    window.setTimeout(() => {
+                      if (!nodeDragHistoryOpenRef.current) return;
+                      commitHistoryTransaction();
+                      nodeDragHistoryOpenRef.current = false;
+                    }, 0);
+                  }}
+                  onInit={(instance) => {
+                    flowInstanceRef.current = instance;
+                  }}
+                  onMove={(_, viewport) => {
+                    setViewportZoom(viewport.zoom);
+                  }}
+                  fitView
+                  minZoom={0.2}
+                  maxZoom={2}
+                  proOptions={{ hideAttribution: true }}
+                  defaultEdgeOptions={{
+                    type: "scatter"
+                  }}
+                >
+                  <Background gap={200} size={0} color="transparent" />
+                </ReactFlow>
+                <div className="canvas-actions" aria-label="画布操作">
+                  <button className="canvas-tool-button" type="button" aria-label="定位画布" onClick={() => flowInstanceRef.current?.fitView({ padding: 0.24 })}>
+                    <Icon name="map-pin" size={16} />
                   </button>
-                </RadixDropdownMenu.Trigger>
-                <RadixDropdownMenu.Portal>
-                  <RadixDropdownMenu.Content className="canvas-zoom-popover" side="top" sideOffset={8} align="end">
-                    <DropdownMenu className="canvas-zoom-menu" role="menu">
-                      {zoomOptions.map((option) => (
-                        <RadixDropdownMenu.Item key={option.value} asChild>
-                          <DropdownMenuItem
-                            label={option.label}
-                            selected={Math.abs(viewportZoom - option.value) < 0.01}
-                            role="menuitemradio"
-                            aria-checked={Math.abs(viewportZoom - option.value) < 0.01}
-                            onClick={() => {
-                              setViewportZoom(option.value);
-                              void flowInstanceRef.current?.zoomTo(option.value);
-                            }}
-                          />
-                        </RadixDropdownMenu.Item>
-                      ))}
-                    </DropdownMenu>
-                  </RadixDropdownMenu.Content>
-                </RadixDropdownMenu.Portal>
-              </RadixDropdownMenu.Root>
-            </div>
-          </div>
-        ) : (
-          <div className="empty-workspace" aria-label="未打开项目" />
-        )}
+                  <button className="canvas-tool-button" type="button" aria-label="撤销" title="撤销 (Cmd+Z)" disabled={!canUndo} onClick={undo}>
+                    <Icon name="undo" size={16} />
+                  </button>
+                  <button className="canvas-tool-button" type="button" aria-label="重做" title="重做 (Cmd+Shift+Z)" disabled={!canRedo} onClick={redo}>
+                    <Icon name="redo" size={16} />
+                  </button>
+                </div>
+                <div className="canvas-toolbar" aria-label="画布工具">
+                  <button className="canvas-toolbar-button" type="button" aria-label="新建节点" onClick={addNode}>
+                    <Icon name="plus-lg" size={20} />
+                  </button>
+                  <span className="canvas-toolbar-divider" />
+                  <button
+                    className={`canvas-toolbar-button ${canvasTool === "select" && !spacePanActive ? "is-selected" : ""}`}
+                    type="button"
+                    aria-label="选择工具"
+                    aria-pressed={canvasTool === "select" && !spacePanActive}
+                    onClick={() => setCanvasTool("select")}
+                  >
+                    <Icon name="work-with-apps" size={20} />
+                  </button>
+                  <button
+                    className={`canvas-toolbar-button ${panModeActive ? "is-selected" : ""}`}
+                    type="button"
+                    aria-label="拖动画布"
+                    aria-pressed={panModeActive}
+                    onClick={() => setCanvasTool("pan")}
+                  >
+                    <Icon name="hand-raised" size={20} />
+                  </button>
+                  <span className="canvas-toolbar-divider" />
+                  <RadixDropdownMenu.Root>
+                    <RadixDropdownMenu.Trigger asChild>
+                      <button className="canvas-zoom-trigger" type="button" aria-label="缩放比例">
+                        <span>{zoomPercent}%</span>
+                        <Icon name="chevron-down" size={16} />
+                      </button>
+                    </RadixDropdownMenu.Trigger>
+                    <RadixDropdownMenu.Portal>
+                      <RadixDropdownMenu.Content className="canvas-zoom-popover" side="top" sideOffset={8} align="end">
+                        <DropdownMenu className="canvas-zoom-menu" role="menu">
+                          {zoomOptions.map((option) => (
+                            <RadixDropdownMenu.Item key={option.value} asChild>
+                              <DropdownMenuItem
+                                label={option.label}
+                                selected={Math.abs(viewportZoom - option.value) < 0.01}
+                                role="menuitemradio"
+                                aria-checked={Math.abs(viewportZoom - option.value) < 0.01}
+                                onClick={() => {
+                                  setViewportZoom(option.value);
+                                  void flowInstanceRef.current?.zoomTo(option.value);
+                                }}
+                              />
+                            </RadixDropdownMenu.Item>
+                          ))}
+                        </DropdownMenu>
+                      </RadixDropdownMenu.Content>
+                    </RadixDropdownMenu.Portal>
+                  </RadixDropdownMenu.Root>
+                </div>
+              </div>
+              <RightDrawer
+                drawer={drawer}
+                nodes={nodes}
+                edges={edges}
+                selectedNodeId={selectedNodeId}
+                markdown={markdownResult.markdown}
+                currentRunMode={selectedRunMode}
+                onPreviewNode={(nodeId) => {
+                  setSelectedNodeId(nodeId);
+                  replaceCanvasLive({ nodes: nodes.map((node) => ({ ...node, selected: node.id === nodeId })) });
+                  setDrawer("markdown");
+                }}
+                onSelectNode={(nodeId) => {
+                  setSelectedNodeId(nodeId);
+                  replaceCanvasLive({ nodes: nodes.map((node) => ({ ...node, selected: node.id === nodeId })) });
+                }}
+                onRunNode={runNode}
+              />
+            </>
+          ) : (
+            <div className="empty-workspace" aria-label="未打开项目" />
+          )}
+        </div>
       </section>
-      {project ? (
-        <RightDrawer
-          drawer={drawer}
-          nodes={nodes}
-          edges={edges}
-          selectedNodeId={selectedNodeId}
-          markdown={markdownResult.markdown}
-          currentRunMode={selectedRunMode}
-          onClose={() => setDrawer(null)}
-          onSelectNode={(nodeId) => {
-            setSelectedNodeId(nodeId);
-            replaceCanvasLive({ nodes: nodes.map((node) => ({ ...node, selected: node.id === nodeId })) });
-            setDrawer("markdown");
-          }}
-          onRunNode={runNode}
-        />
-      ) : null}
     </main>
   );
 }

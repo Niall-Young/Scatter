@@ -110,7 +110,7 @@ export function buildMarkdown(
   const selectedEdges = allEdges.filter((edge) => selectedIds.has(edge.source) && selectedIds.has(edge.target));
   const attachments = orderedNodes.flatMap((node) => node.data.attachments);
   const imagePaths = attachments.filter((attachment) => attachment.kind === "image").map((attachment) => attachment.storedPath);
-  const planMode = orderedNodes.some((node) => node.data.planMode);
+  const planMode = startNode?.data.planMode || false;
   const title = startNode?.data.title?.trim() || projectName || "Scatter Flow";
   const modeLabel = runMode === "flow" ? "Current node and downstream flow" : "Current node only";
 

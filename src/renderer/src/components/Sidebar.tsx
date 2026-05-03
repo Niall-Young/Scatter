@@ -7,6 +7,7 @@ import { ProjectItem } from "./ui/project-item";
 interface SidebarProps {
   recentProjects: ScatterProjectInfo[];
   activePath?: string;
+  collapsed?: boolean;
   theme: "light" | "dark";
   onCreateProject: () => void;
   onOpenProject: () => void;
@@ -17,6 +18,7 @@ interface SidebarProps {
 export function Sidebar({
   recentProjects,
   activePath,
+  collapsed = false,
   theme,
   onCreateProject,
   onOpenProject,
@@ -24,7 +26,7 @@ export function Sidebar({
   onToggleTheme
 }: SidebarProps): ReactElement {
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" aria-hidden={collapsed} inert={collapsed}>
       <div className="sidebar-actions">
         <button className="sidebar-action-item" type="button" onClick={onCreateProject}>
           <Icon name="folder-plus" size={16} />
