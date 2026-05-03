@@ -47,7 +47,7 @@ import { Icon } from "./components/ui/icon";
 import { IconButton } from "./components/ui/icon-button";
 import { TooltipAnchor } from "./components/ui/tooltip";
 import { useScatterStore } from "./store/scatterStore";
-import startupToolboxImage from "./assets/startup-toolbox.png";
+import startupBulbImage from "./assets/startup-bulb.jpg";
 import "@xyflow/react/dist/style.css";
 import "./styles/app.css";
 
@@ -230,6 +230,7 @@ function App(): ReactElement {
     canUndo,
     canRedo,
     setProjectDocument,
+    clearProject,
     replaceCanvasLive,
     commitCanvasChange,
     beginHistoryTransaction,
@@ -263,6 +264,7 @@ function App(): ReactElement {
   const [canvasTool, setCanvasTool] = useState<CanvasTool>("select");
   const [spacePanActive, setSpacePanActive] = useState(false);
   const [viewportZoom, setViewportZoom] = useState(1);
+  const [canvasRevealActive, setCanvasRevealActive] = useState(false);
   const isSplashWindow = new URLSearchParams(window.location.search).get("window") === "splash";
   const saveTimerRef = useRef<number | null>(null);
   const loadedProjectPathRef = useRef<string | null>(null);
@@ -300,6 +302,12 @@ function App(): ReactElement {
     [edges, language, nodes, project, selectedNodeId, selectedRunMode]
   );
 
+  useEffect(() => {
+    if (!canvasRevealActive) return;
+    const timer = window.setTimeout(() => setCanvasRevealActive(false), 520);
+    return () => window.clearTimeout(timer);
+  }, [canvasRevealActive]);
+
   const refreshRecentProjects = useCallback(async () => {
     setRecentProjects(await window.scatter.getRecentProjects());
   }, []);
@@ -308,12 +316,17 @@ function App(): ReactElement {
     async (projectPath: string) => {
       try {
         setRecentProjects(await window.scatter.removeRecentProject(projectPath));
+        if (project?.path === projectPath) {
+          loadedProjectPathRef.current = null;
+          clearProject();
+          setCanvasRevealActive(false);
+        }
         setStatus(t("status.removedRecent"));
       } catch (error) {
         setStatus(error instanceof Error ? error.message : t("status.removeRecentFailed"));
       }
     },
-    [setStatus, t]
+    [clearProject, project?.path, setStatus, t]
   );
 
   const applySettingsValues = useCallback((values: SettingsValues): void => {
@@ -457,7 +470,9 @@ function App(): ReactElement {
   const hydrateProject = useCallback(
     async (result: OpenProjectResult | null) => {
       if (!result) return;
+      const shouldRevealCanvas = useScatterStore.getState().project === null;
       loadedProjectPathRef.current = result.project.path;
+      setCanvasRevealActive(shouldRevealCanvas);
       setProjectDocument(result.project, result.document);
       setStatus(t("app.openedProject", { name: result.project.name }));
       await refreshRecentProjects();
@@ -1041,7 +1056,7 @@ function App(): ReactElement {
             </div>
             <div className="startup-visual" aria-hidden="true">
               <div className="startup-image-frame">
-                <img src={startupToolboxImage} alt="" />
+                <img src={startupBulbImage} alt="" />
               </div>
             </div>
           </section>
@@ -1097,7 +1112,13 @@ function App(): ReactElement {
         >
           {project ? (
             <>
-              <div className="canvas-shell" ref={canvasShellRef}>
+              <div
+                className={`canvas-shell ${canvasRevealActive ? "is-revealing" : ""}`}
+                ref={canvasShellRef}
+                onAnimationEnd={(event) => {
+                  if (event.animationName === "canvas-project-reveal") setCanvasRevealActive(false);
+                }}
+              >
                 <ReactFlow
                   nodes={nodes as Node[]}
                   edges={
@@ -1247,7 +1268,10 @@ function App(): ReactElement {
               />
             </>
           ) : (
-            <div className="empty-workspace" aria-label={t("canvas.emptyWorkspace")} />
+            <div className="empty-workspace" aria-label={t("canvas.emptyWorkspace")}>
+              <Icon name="folder-stuffed" size={32} />
+              <p>{t("canvas.emptyWorkspace")}</p>
+            </div>
           )}
         </div>
       </section>

@@ -52,14 +52,14 @@ export function Topbar({
       </div>
       <div className="topbar-actions">
         <TooltipAnchor label={t("topbar.runCurrentTask")} shortcut={shortcuts.runCurrentTask} side="bottom">
-          <IconButton className="topbar-icon-button" filled={false} icon="topbar-play" size="md" aria-label={t("topbar.runCurrentTask")} disabled={!canRun || disabled} onClick={onRunActive} />
+          <IconButton className="topbar-icon-button" filled={false} icon="topbar-play" size="lg" aria-label={t("topbar.runCurrentTask")} disabled={!canRun || disabled} onClick={onRunActive} />
         </TooltipAnchor>
         <TooltipAnchor label={t("topbar.taskList")} shortcut={shortcuts.taskList} side="bottom">
           <IconButton
             className={`topbar-icon-button ${activeDrawer === "tasks" ? "is-selected" : ""}`}
             filled={false}
             icon="topbar-tasks"
-            size="md"
+            size="lg"
             aria-label={t("topbar.taskList")}
             aria-pressed={activeDrawer === "tasks"}
             disabled={disabled}
@@ -71,7 +71,7 @@ export function Topbar({
             className={`topbar-icon-button ${activeDrawer === "markdown" ? "is-selected" : ""}`}
             filled={false}
             icon="topbar-sidebar-right-expand"
-            size="md"
+            size="lg"
             aria-label={t("topbar.openMarkdown")}
             aria-pressed={activeDrawer === "markdown"}
             disabled={disabled}

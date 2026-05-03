@@ -35,6 +35,7 @@ npm run preview
 - `package.json`：脚本和依赖。
 - `electron.vite.config.ts`：main、preload、renderer 构建入口。
 - `tsconfig.json`：严格 TypeScript 配置。
+- `resources/app-icon.png`、`resources/app-icon.icns`、`resources/app-icon.iconset`：macOS 应用图标资源。
 - `src/shared/types.ts`：main、preload、renderer 共享的数据契约。
 - `src/main/index.ts`：Electron 启动和 IPC 注册。
 - `src/main/projectStore.ts`：项目文档、最近项目、附件持久化。
@@ -62,7 +63,7 @@ npm run preview
 - 项目数据默认保留在用户选择的本地项目文件夹里。
 - 持久化 schema 尽量保持向后兼容；缺失字段在 `projectStore.ts` hydrate 时补齐。
 - 新 UI 样式优先复用现有 CSS 变量和组件 primitive。
-- UI 文案默认中文优先；新增或修改 Scatter 生成的 UI、状态、aria、title 或 Markdown 模板文案时，必须同步维护 `src/renderer/src/lib/translations.ts` 的中英文词条。
+- UI 文案默认中文优先；新增或修改 Scatter 生成的 UI、空状态、状态、aria、title 或 Markdown 模板文案时，必须同步维护 `src/renderer/src/lib/translations.ts` 的中英文词条，不能在组件里写死单一语言。
 - 图标优先使用现有 `Icon` 名称；需要新增时放到 `src/renderer/src/assets/icons`。
 - 图标按钮必须复用 `src/renderer/src/components/ui/icon-button.tsx` 的 `IconButton`，不要在业务组件里手写 icon-only `<button>`；需要悬停说明或快捷键时复用 `src/renderer/src/components/ui/tooltip.tsx` 的 `TooltipAnchor`/`Tooltip`。
 
@@ -123,7 +124,7 @@ Codex 启动行为变化：
 - 保持界面紧凑、工具型。
 - 左侧栏“搜索”按钮打开居中搜索项目弹窗，只搜索左侧最近项目列表；不要恢复成系统文件夹选择器。
 - 左侧栏“设置”按钮打开居中设置弹窗，不要恢复成直接切换主题。
-- 验证启动页、欢迎页、画布、任务节点、右侧侧边栏和深色模式。
+- 验证启动页、无项目空状态、画布、任务节点、右侧侧边栏和深色模式。
 - 顶部栏左侧的侧栏按钮使用 `IconButton`；展开态显示侧栏收起按钮，收起态显示侧栏展开按钮和添加项目按钮。侧栏切换快捷键是 `⌘B`，任务清单是 `⌘⇧T`，Markdown 预览是 `⌘⇧M`，运行当前任务是 `⌘↩`。
 
 画布交互变化：
@@ -140,7 +141,7 @@ Codex 启动行为变化：
 - 最近项目保存在 Electron `userData`，不是每个项目里。
 - 应用启动先显示独立无边框启动窗口；主窗口隐藏加载，ready 后也要等启动窗口至少显示 5 秒再打开。
 - 启动窗口和主窗口都保留透明 Electron 窗口、macOS 背景模糊和带透明度的应用/画布背景色。
-- 主窗口未打开项目时仍显示主应用壳和左侧项目列表；没有最近项目时列表为空，不显示居中欢迎卡片或空状态文案。
+- 主窗口未打开项目时仍显示主应用壳和左侧项目列表；工作区中间显示文件夹图标和随语言切换的“选择或新建你的项目”/“Select or create your project”；没有最近项目时左侧列表为空。从无项目状态打开或创建项目时，画布需要从左到右展开出现；已打开项目之间切换时不要触发这个进入动画。
 - 最近项目列表项悬停或聚焦时显示“移出项目”图标按钮，只移出最近项目记录，不删除用户项目文件夹。
 - 左侧栏“添加项目”或 `⌘⇧N` 打开添加项目流程。
 - 左侧栏“搜索”或 `⌘F` 打开居中项目搜索弹窗，输入框默认聚焦，按项目名称或路径过滤最近项目；点击结果关闭弹窗并打开对应项目。

@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, net, protocol, shell } from "electron";
+import { app, BrowserWindow, ipcMain, nativeImage, net, protocol, shell } from "electron";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -66,7 +67,23 @@ function loadRenderer(window: BrowserWindow, query?: Record<string, string>): vo
   void window.loadFile(path.join(__dirname, "../renderer/index.html"), query ? { query } : undefined);
 }
 
-function createSplashWindow(): BrowserWindow {
+function appIconPath(): string {
+  const candidates = [
+    path.join(process.cwd(), "resources", "app-icon.png"),
+    path.join(app.getAppPath(), "resources", "app-icon.png"),
+    path.join(process.resourcesPath, "app-icon.png"),
+    path.join(process.resourcesPath, "resources", "app-icon.png")
+  ];
+
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+}
+
+function setAppIcon(iconPath: string): void {
+  if (process.platform !== "darwin" || !existsSync(iconPath)) return;
+  app.dock?.setIcon(nativeImage.createFromPath(iconPath));
+}
+
+function createSplashWindow(iconPath: string): BrowserWindow {
   const splashWindow = new BrowserWindow({
     width: 936,
     height: 528,
@@ -79,6 +96,7 @@ function createSplashWindow(): BrowserWindow {
     backgroundColor: "#00000000",
     vibrancy: "fullscreen-ui",
     visualEffectState: "active",
+    icon: iconPath,
     title: "Scatter",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.mjs"),
@@ -98,7 +116,7 @@ function createSplashWindow(): BrowserWindow {
   return splashWindow;
 }
 
-function createWindow(showWhenReady = false): BrowserWindow {
+function createWindow(showWhenReady = false, iconPath = appIconPath()): BrowserWindow {
   const mainWindow = new BrowserWindow({
     width: 1440,
     height: 920,
@@ -110,6 +128,7 @@ function createWindow(showWhenReady = false): BrowserWindow {
     backgroundColor: "#00000000",
     vibrancy: "fullscreen-ui",
     visualEffectState: "active",
+    icon: iconPath,
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 20, y: 16 },
     webPreferences: {
@@ -151,6 +170,8 @@ function createWindow(showWhenReady = false): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  const iconPath = appIconPath();
+  setAppIcon(iconPath);
   registerAssetProtocol();
   ipcMain.handle("scatter:get-settings", () => getSettings());
   ipcMain.handle("scatter:save-settings", (_event, settings: AppSettings) => saveSettings(settings));
@@ -170,8 +191,8 @@ app.whenReady().then(() => {
   ipcMain.handle("scatter:show-in-folder", (_event, targetPath: string) => shell.showItemInFolder(targetPath));
   ipcMain.handle("scatter:run-codex", (_event, input: CodexRunInput) => runInCodex(input));
 
-  const splashWindow = createSplashWindow();
-  const mainWindow = createWindow();
+  const splashWindow = createSplashWindow(iconPath);
+  const mainWindow = createWindow(false, iconPath);
   const splashDelay = new Promise((resolve) => {
     setTimeout(resolve, SPLASH_MIN_DURATION_MS);
   });
@@ -190,7 +211,7 @@ app.whenReady().then(() => {
   });
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(true);
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(true, iconPath);
   });
 });
 

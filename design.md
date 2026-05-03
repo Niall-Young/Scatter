@@ -19,7 +19,7 @@ Scatter 是一个本地优先的多模态任务画布，用来把零散任务节
 
 ## 当前用户流程
 
-应用启动时会先显示一个独立无边框启动窗口，展示 Scatter 品牌、启动状态和工具箱视觉图。主窗口隐藏加载；主窗口 ready 且启动窗口至少显示 5 秒后，关闭启动窗口并显示主窗口。主窗口直接进入项目列表界面：左侧显示添加项目、搜索、设置和最近项目列表；如果没有最近项目，列表区域保持为空。用户可以选择或创建一个本地文件夹作为 Scatter 项目，也可以从最近项目列表重新打开；`⌘⇧N` 打开添加项目流程。
+应用启动时会先显示一个独立无边框启动窗口，展示 Scatter 品牌、启动状态和工具箱视觉图。主窗口隐藏加载；主窗口 ready 且启动窗口至少显示 5 秒后，关闭启动窗口并显示主窗口。主窗口直接进入项目列表界面：左侧显示添加项目、搜索、设置和最近项目列表；右侧工作区在未打开项目时居中显示文件夹图标和“选择或新建你的项目”（英文为“Select or create your project”）；如果没有最近项目，列表区域保持为空。用户可以选择或创建一个本地文件夹作为 Scatter 项目，也可以从最近项目列表重新打开；`⌘⇧N` 打开添加项目流程。从无项目状态首次打开或创建项目时，画布会从左到右展开出现；已经打开项目后再切换项目不触发这个进入动画。
 
 启动窗口和主窗口使用透明 Electron 窗口配合 macOS 背景模糊。应用外层、启动页面板和画布区域都使用带透明度的背景色，不要改回完全不透明的窗口底色。
 
@@ -74,6 +74,7 @@ Scatter 是一个 Electron 桌面应用，使用 Electron Vite、React、TypeScr
 关键文件：
 
 - `src/main/index.ts`：Electron 窗口创建和 IPC handler 注册。
+- `resources/app-icon.png`、`resources/app-icon.icns`、`resources/app-icon.iconset`：macOS 应用图标源和导出尺寸。
 - `src/main/projectStore.ts`：项目初始化、`.scatter` 存储、附件保存、最近项目列表。
 - `src/main/codexBridge.ts`：Codex Desktop 启动、app-server proxy 调用、URL fallback、AppleScript 粘贴 fallback。
 - `src/main/settingsStore.ts`：应用级设置的 `userData/settings.json` 读写和默认值 hydrate。

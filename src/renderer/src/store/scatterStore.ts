@@ -40,6 +40,7 @@ interface ScatterState {
   canRedo: boolean;
   history: CanvasHistory;
   setProjectDocument: (project: ScatterProjectInfo, document: ScatterDocument) => void;
+  clearProject: () => void;
   setNodes: (nodes: ScatterNode[]) => void;
   setEdges: (edges: ScatterEdge[]) => void;
   replaceCanvasLive: (change: CanvasChange) => void;
@@ -192,6 +193,23 @@ export const useScatterStore = create<ScatterState>((set, get) => {
         edges: document.edges,
         selectedNodeId: null,
         status: `Opened ${project.name}`,
+        canUndo: false,
+        canRedo: false,
+        history: {
+          past: [],
+          future: [],
+          transactionStart: null
+        }
+      }),
+    clearProject: () =>
+      set({
+        project: null,
+        document: null,
+        nodes: [],
+        edges: [],
+        selectedNodeId: null,
+        drawer: null,
+        isSaving: false,
         canUndo: false,
         canRedo: false,
         history: {
