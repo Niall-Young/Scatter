@@ -1,12 +1,62 @@
 {
   "version": 1,
   "projectName": "Scatter",
-  "updatedAt": "2026-05-03T12:10:21.548Z",
+  "updatedAt": "2026-05-03T12:33:59.106Z",
   "viewport": {
     "x": 0,
     "y": 0,
     "zoom": 1
   },
-  "nodes": [],
-  "edges": []
+  "nodes": [
+    {
+      "id": "W4AlhRYYR-AOP0-YJ4esn",
+      "type": "task",
+      "position": {
+        "x": 369,
+        "y": 284
+      },
+      "measured": {
+        "width": 400,
+        "height": 227
+      },
+      "data": {
+        "title": "新建任务 1",
+        "body": "",
+        "effort": "xhigh",
+        "planMode": false,
+        "runMode": "flow",
+        "attachments": []
+      },
+      "selected": false
+    },
+    {
+      "id": "KzNdA6K6SojlxIlrX1kWF",
+      "type": "task",
+      "position": {
+        "x": 956.614500321129,
+        "y": 598.8338828249049
+      },
+      "measured": {
+        "width": 400,
+        "height": 227
+      },
+      "dragging": false,
+      "data": {
+        "title": "新建任务 2",
+        "body": "",
+        "effort": "xhigh",
+        "planMode": false,
+        "runMode": "flow",
+        "attachments": []
+      },
+      "selected": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "IqJVslFwuZ_Ui6gGlxc_J",
+      "source": "W4AlhRYYR-AOP0-YJ4esn",
+      "target": "KzNdA6K6SojlxIlrX1kWF"
+    }
+  ]
 }

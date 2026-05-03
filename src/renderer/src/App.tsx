@@ -804,8 +804,7 @@ function App(): ReactElement {
     (event, node) => {
       nodeDragActiveRef.current = true;
 
-      const isSelectedNode = selectedNodeId === node.id;
-      if (!event.altKey || !isSelectedNode) return;
+      if (!event.altKey) return;
       const source = nodes.find((item) => item.id === node.id);
       if (!source) return;
 
@@ -818,7 +817,7 @@ function App(): ReactElement {
       };
       beginHistoryTransaction();
     },
-    [beginHistoryTransaction, nodes, selectedNodeId]
+    [beginHistoryTransaction, nodes]
   );
 
   const handleNodeDragStop = useCallback<OnNodeDrag<Node>>(
