@@ -26,13 +26,16 @@ npm run dev
 npm run typecheck
 npm run build
 npm run preview
+npm run pack
+npm run dist:mac
 ```
 
-代码改动至少运行 `npm run typecheck`。涉及 UI 或交互时，运行 `npm run dev` 并手动验证相关流程。
+代码改动至少运行 `npm run typecheck`。涉及 UI 或交互时，运行 `npm run dev` 并手动验证相关流程。需要生成 macOS 可安装包时运行 `npm run dist:mac`，产物输出到 `release/`。
 
 ## 目录地图
 
 - `package.json`：脚本和依赖。
+- `release/`：Electron Builder 输出目录，包含本地打包出的 `.dmg`、`.zip` 和 unpacked app。
 - `electron.vite.config.ts`：main、preload、renderer 构建入口。
 - `tsconfig.json`：严格 TypeScript 配置。
 - `resources/app-icon.png`、`resources/app-icon.icns`、`resources/app-icon.iconset`：macOS 应用图标资源。

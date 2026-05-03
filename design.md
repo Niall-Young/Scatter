@@ -244,9 +244,13 @@ npm run dev
 npm run typecheck
 npm run build
 npm run preview
+npm run pack
+npm run dist:mac
 ```
 
 `npm run build` 会先运行 TypeScript 检查，再执行 Electron Vite build。
+
+`npm run dist:mac` 会先构建应用，再通过 Electron Builder 生成 macOS universal `.dmg` 和 `.zip` 安装产物，输出目录为 `release/`。当前本地打包配置不做代码签名和 notarization，适合内部试用分发；正式公开分发前需要接入 Apple Developer ID 签名和公证。
 
 ## 已知后续项
 
