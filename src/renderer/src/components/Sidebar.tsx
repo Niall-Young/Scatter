@@ -42,20 +42,16 @@ export function Sidebar({
 
       <div className="sidebar-section-title">项目列表</div>
       <div className="project-list">
-        {recentProjects.length === 0 ? (
-          <p className="empty-copy">还没有打开过的 Scatter 项目。</p>
-        ) : (
-          recentProjects.map((project, index) => (
-            <ProjectItem
-              key={project.path}
-              path={shortPath(project.path)}
-              projectName={project.name}
-              selected={project.path === activePath}
-              unread={project.path !== activePath && index === 2}
-              onClick={() => onOpenRecent(project.path)}
-            />
-          ))
-        )}
+        {recentProjects.map((project, index) => (
+          <ProjectItem
+            key={project.path}
+            path={shortPath(project.path)}
+            projectName={project.name}
+            selected={project.path === activePath}
+            unread={project.path !== activePath && index === 2}
+            onClick={() => onOpenRecent(project.path)}
+          />
+        ))}
       </div>
     </aside>
   );

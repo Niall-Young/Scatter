@@ -24,6 +24,8 @@ const effortOptions: Array<{ label: string; value: EffortLevel }> = [
 
 interface RuntimeActions {
   updateNodeData: (nodeId: string, patch: Partial<ScatterNodeData>) => void;
+  beginNodeEdit: () => void;
+  commitNodeEdit: () => void;
   addFilesToNode: (nodeId: string, files: FileList | File[], source: "upload" | "drop" | "paste") => Promise<void>;
   removeAttachment: (nodeId: string, attachmentId: string) => void;
   duplicateNode: (nodeId: string) => void;
@@ -62,8 +64,11 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
   const hasParent = useScatterStore((state) => state.edges.some((edge) => edge.target === id));
 
   useEffect(() => {
-    if (!selected) setEditingField(null);
-  }, [selected]);
+    if (!selected && editingField) {
+      taskNodeActions?.commitNodeEdit();
+      setEditingField(null);
+    }
+  }, [editingField, selected]);
 
   useEffect(() => {
     if (editingField === "title") {
@@ -96,10 +101,14 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
     pointerStartedSelectedRef.current = selected;
   }, [selected]);
 
-  const startEditing = useCallback((field: EditableField) => {
-    if (!pointerStartedSelectedRef.current) return;
-    setEditingField(field);
-  }, []);
+  const startEditing = useCallback(
+    (field: EditableField) => {
+      if (!pointerStartedSelectedRef.current) return;
+      taskNodeActions?.beginNodeEdit();
+      setEditingField(field);
+    },
+    []
+  );
 
   const handleEditableFocus = useCallback((event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>, field: EditableField) => {
     if (editingField !== field) {
@@ -107,9 +116,14 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
     }
   }, [editingField]);
 
-  const handleEditableBlur = useCallback((field: EditableField) => {
-    setEditingField((current) => (current === field ? null : current));
-  }, []);
+  const handleEditableBlur = useCallback(
+    (field: EditableField) => {
+      if (editingField !== field) return;
+      taskNodeActions?.commitNodeEdit();
+      setEditingField(null);
+    },
+    [editingField]
+  );
 
   const handleEditableKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (event.key === "Escape") {

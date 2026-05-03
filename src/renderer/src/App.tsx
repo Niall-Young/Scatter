@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   addEdge,
   Background,
@@ -33,9 +34,10 @@ import { ScatterEdge as ScatterFlowEdge } from "./components/ScatterEdge";
 import { Topbar } from "./components/Topbar";
 import { RightDrawer } from "./components/RightDrawer";
 import { TaskNode, setTaskNodeActions } from "./components/TaskNode";
-import { Button } from "./components/ui/button";
+import { DropdownMenu, DropdownMenuItem } from "./components/ui/dropdown-menu";
 import { Icon } from "./components/ui/icon";
 import { useScatterStore } from "./store/scatterStore";
+import startupToolboxImage from "./assets/startup-toolbox.png";
 import "@xyflow/react/dist/style.css";
 import "./styles/app.css";
 
@@ -45,8 +47,16 @@ const TASK_NODE_WIDTH = 400;
 const TASK_NODE_HEIGHT = 220;
 const TASK_NODE_HORIZONTAL_GAP = 180;
 const TASK_NODE_VERTICAL_GAP = 72;
+const zoomOptions = [
+  { label: "50%", value: 0.5 },
+  { label: "75%", value: 0.75 },
+  { label: "100%", value: 1 },
+  { label: "150%", value: 1.5 },
+  { label: "200%", value: 2 }
+];
 
 type FlowPosition = { x: number; y: number };
+type CanvasTool = "select" | "pan";
 
 function roundPosition(position: FlowPosition): FlowPosition {
   return {
@@ -184,6 +194,14 @@ async function filesToInputs(files: FileList | File[], source: "upload" | "drop"
   return inputs;
 }
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
+}
+
 function App(): ReactElement {
   const {
     project,
@@ -192,9 +210,16 @@ function App(): ReactElement {
     selectedNodeId,
     drawer,
     theme,
+    canUndo,
+    canRedo,
     setProjectDocument,
-    setNodes,
-    setEdges,
+    replaceCanvasLive,
+    commitCanvasChange,
+    beginHistoryTransaction,
+    commitHistoryTransaction,
+    cancelHistoryTransaction,
+    undo,
+    redo,
     updateNodeData,
     appendAttachments,
     setSelectedNodeId,
@@ -209,11 +234,16 @@ function App(): ReactElement {
   const [recentProjects, setRecentProjects] = useState<ScatterProjectInfo[]>([]);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [canvasTool, setCanvasTool] = useState<CanvasTool>("select");
+  const [spacePanActive, setSpacePanActive] = useState(false);
+  const [viewportZoom, setViewportZoom] = useState(1);
+  const isSplashWindow = new URLSearchParams(window.location.search).get("window") === "splash";
   const saveTimerRef = useRef<number | null>(null);
   const loadedProjectPathRef = useRef<string | null>(null);
   const latestMouseRef = useRef({ x: 360, y: 240 });
   const flowInstanceRef = useRef<ReactFlowInstance | null>(null);
   const canvasShellRef = useRef<HTMLDivElement | null>(null);
+  const nodeDragHistoryOpenRef = useRef(false);
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) || null,
@@ -221,6 +251,8 @@ function App(): ReactElement {
   );
 
   const selectedRunMode = selectedNode?.data.runMode || "flow";
+  const panModeActive = canvasTool === "pan" || spacePanActive;
+  const zoomPercent = Math.round(viewportZoom * 100);
   const markdownResult = useMemo(
     () =>
       project
@@ -241,12 +273,48 @@ function App(): ReactElement {
   }, []);
 
   useEffect(() => {
-    refreshRecentProjects();
-  }, [refreshRecentProjects]);
+    if (!isSplashWindow) {
+      void refreshRecentProjects();
+    }
+  }, [isSplashWindow, refreshRecentProjects]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    document.documentElement.dataset.window = isSplashWindow ? "splash" : "main";
+  }, [isSplashWindow, theme]);
+
+  useEffect(() => {
+    function isSpaceKey(event: KeyboardEvent): boolean {
+      return event.code === "Space" || event.key === " ";
+    }
+
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (!isSpaceKey(event) || isEditableTarget(event.target)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setSpacePanActive(true);
+    }
+
+    function handleKeyUp(event: KeyboardEvent): void {
+      if (!isSpaceKey(event)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setSpacePanActive(false);
+    }
+
+    function handleBlur(): void {
+      setSpacePanActive(false);
+    }
+
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    window.addEventListener("keyup", handleKeyUp, { capture: true });
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+      window.removeEventListener("keyup", handleKeyUp, { capture: true });
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, []);
 
   const hydrateProject = useCallback(
     async (result: OpenProjectResult | null) => {
@@ -311,9 +379,9 @@ function App(): ReactElement {
         )
       : findOpenPositionNear(getVisibleCanvasCenterPosition(), nodes);
     const node = emptyNode(position, nodes);
-    setNodes([...nodes.map((item) => ({ ...item, selected: false })), { ...node, selected: true }]);
+    commitCanvasChange({ nodes: [...nodes.map((item) => ({ ...item, selected: false })), { ...node, selected: true }] });
     setSelectedNodeId(node.id);
-  }, [getVisibleCanvasCenterPosition, nodes, project, selectedNode, setNodes, setSelectedNodeId]);
+  }, [commitCanvasChange, getVisibleCanvasCenterPosition, nodes, project, selectedNode, setSelectedNodeId]);
 
   const addFilesToNode = useCallback(
     async (nodeId: string, files: FileList | File[], source: "upload" | "drop" | "paste") => {
@@ -327,15 +395,15 @@ function App(): ReactElement {
     [appendAttachments, project, setStatus]
   );
 
-  const ensureTargetNode = useCallback(async (): Promise<ScatterNode | null> => {
+  const ensureTargetNode = useCallback((): ScatterNode | null => {
     if (!project) return null;
     const existing = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) : null;
     if (existing) return existing;
     const node = emptyNode(findOpenPositionNear(getVisibleCanvasCenterPosition(), nodes), nodes);
-    setNodes([...nodes.map((item) => ({ ...item, selected: false })), { ...node, selected: true }]);
+    replaceCanvasLive({ nodes: [...nodes.map((item) => ({ ...item, selected: false })), { ...node, selected: true }] });
     setSelectedNodeId(node.id);
     return node;
-  }, [getVisibleCanvasCenterPosition, nodes, project, selectedNodeId, setNodes, setSelectedNodeId]);
+  }, [getVisibleCanvasCenterPosition, nodes, project, replaceCanvasLive, selectedNodeId, setSelectedNodeId]);
 
   const runNode = useCallback(
     async (nodeId: string, mode: RunMode) => {
@@ -380,34 +448,42 @@ function App(): ReactElement {
           title: defaultTaskTitle(nodes)
         }
       };
-      setNodes([...nodes.map((node) => ({ ...node, selected: false })), duplicate]);
+      commitCanvasChange({ nodes: [...nodes.map((node) => ({ ...node, selected: false })), duplicate] });
       setSelectedNodeId(duplicate.id);
     },
-    [nodes, setNodes, setSelectedNodeId]
+    [commitCanvasChange, nodes, setSelectedNodeId]
   );
 
   const deleteNode = useCallback(
     (nodeId: string) => {
-      setNodes(nodes.filter((node) => node.id !== nodeId));
-      setEdges(edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+      commitCanvasChange({
+        nodes: nodes.filter((node) => node.id !== nodeId),
+        edges: edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId)
+      });
       if (selectedNodeId === nodeId) {
         setSelectedNodeId(null);
       }
     },
-    [edges, nodes, selectedNodeId, setEdges, setNodes, setSelectedNodeId]
+    [commitCanvasChange, edges, nodes, selectedNodeId, setSelectedNodeId]
   );
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
-      if (!selectedNodeId || (event.key !== "Backspace" && event.key !== "Delete")) return;
-      const target = event.target;
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        (target instanceof HTMLElement && target.isContentEditable)
-      ) {
+      if (isEditableTarget(event.target)) {
         return;
       }
+
+      if (event.metaKey && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        return;
+      }
+
+      if (!selectedNodeId || (event.key !== "Backspace" && event.key !== "Delete")) return;
 
       event.preventDefault();
       deleteNode(selectedNodeId);
@@ -415,40 +491,85 @@ function App(): ReactElement {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [deleteNode, selectedNodeId]);
+  }, [deleteNode, redo, selectedNodeId, undo]);
 
   useEffect(() => {
     setTaskNodeActions({
       updateNodeData,
+      beginNodeEdit: beginHistoryTransaction,
+      commitNodeEdit: commitHistoryTransaction,
       addFilesToNode,
       removeAttachment,
       duplicateNode,
       deleteNode,
       runNode
     });
-  }, [addFilesToNode, deleteNode, duplicateNode, removeAttachment, runNode, updateNodeData]);
+  }, [addFilesToNode, beginHistoryTransaction, commitHistoryTransaction, deleteNode, duplicateNode, removeAttachment, runNode, updateNodeData]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<ScatterNode>[]) => {
       const next = applyNodeChanges(changes as NodeChange[], nodes as Node<ScatterNodeData>[]) as Node<ScatterNodeData>[];
-      setNodes(next.map((node) => ({ ...node, type: "task" as const })) as ScatterNode[]);
+      const nextNodes = next.map((node) => ({ ...node, type: "task" as const })) as ScatterNode[];
+      const hasStructuralChange = changes.some((change) => change.type === "add" || change.type === "remove" || change.type === "replace");
+      const hasPositionChange = changes.some((change) => change.type === "position");
+      const hasDraggingPosition = changes.some((change) => change.type === "position" && change.dragging);
+      const removedNodeIds = changes.flatMap((change) => (change.type === "remove" ? [change.id] : []));
+
+      if (hasStructuralChange) {
+        commitCanvasChange({
+          nodes: nextNodes,
+          edges: removedNodeIds.length
+            ? edges.filter((edge) => !removedNodeIds.includes(edge.source) && !removedNodeIds.includes(edge.target))
+            : edges
+        });
+        return;
+      }
+
+      if (hasPositionChange) {
+        if (hasDraggingPosition) {
+          if (!nodeDragHistoryOpenRef.current) {
+            beginHistoryTransaction();
+            nodeDragHistoryOpenRef.current = true;
+          }
+          replaceCanvasLive({ nodes: nextNodes });
+          return;
+        }
+
+        if (nodeDragHistoryOpenRef.current) {
+          replaceCanvasLive({ nodes: nextNodes });
+          commitHistoryTransaction();
+          nodeDragHistoryOpenRef.current = false;
+          return;
+        }
+
+        commitCanvasChange({ nodes: nextNodes });
+        return;
+      }
+
+      replaceCanvasLive({ nodes: nextNodes });
     },
-    [nodes, setNodes]
+    [beginHistoryTransaction, commitCanvasChange, commitHistoryTransaction, edges, nodes, replaceCanvasLive]
   );
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange<ScatterEdge>[]) => {
       const next = applyEdgeChanges(changes as EdgeChange[], edges as Edge[]);
-      setEdges(
-        next.map((edge) => ({
+      const nextEdges = next.map((edge) => ({
           id: edge.id,
           source: edge.source,
           target: edge.target,
           label: typeof (edge as Edge).label === "string" ? ((edge as Edge).label as string) : undefined
-        }))
-      );
+      }));
+      const hasDocumentChange = changes.some((change) => change.type !== "select");
+
+      if (hasDocumentChange) {
+        commitCanvasChange({ edges: nextEdges });
+        return;
+      }
+
+      replaceCanvasLive({ edges: nextEdges });
     },
-    [edges, setEdges]
+    [commitCanvasChange, edges, replaceCanvasLive]
   );
 
   const onConnect = useCallback(
@@ -462,9 +583,9 @@ function App(): ReactElement {
           },
           edges as Edge[]
       );
-      setEdges(next.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target })));
+      commitCanvasChange({ edges: next.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target })) });
     },
-    [edges, setEdges]
+    [commitCanvasChange, edges]
   );
 
   const selectCanvasNode = useCallback(
@@ -487,22 +608,33 @@ function App(): ReactElement {
       setHoveredNodeId(node.id);
       if (isConnecting) {
         selectCanvasNode(node.id);
-        setNodes(nodes.map((item) => ({ ...item, selected: item.id === node.id })));
+        replaceCanvasLive({ nodes: nodes.map((item) => ({ ...item, selected: item.id === node.id })) });
       }
     },
-    [isConnecting, nodes, selectCanvasNode, setNodes]
+    [isConnecting, nodes, replaceCanvasLive, selectCanvasNode]
   );
 
   const handlePaste = useCallback(
     async (event: React.ClipboardEvent) => {
       if (!project) return;
-      const target = await ensureTargetNode();
-      if (!target) return;
 
       const files = event.clipboardData.files;
       if (files.length > 0) {
         event.preventDefault();
-        await addFilesToNode(target.id, files, "paste");
+        beginHistoryTransaction();
+        const target = ensureTargetNode();
+        if (!target) {
+          cancelHistoryTransaction();
+          return;
+        }
+
+        try {
+          await addFilesToNode(target.id, files, "paste");
+          commitHistoryTransaction();
+        } catch (error) {
+          cancelHistoryTransaction();
+          setStatus(error instanceof Error ? error.message : "添加附件失败");
+        }
         return;
       }
 
@@ -510,36 +642,78 @@ function App(): ReactElement {
       const savedImage = await window.scatter.saveClipboardImage(project.path);
       if (savedImage) {
         event.preventDefault();
+        beginHistoryTransaction();
+        const target = ensureTargetNode();
+        if (!target) {
+          cancelHistoryTransaction();
+          return;
+        }
         appendAttachments(target.id, [savedImage]);
+        commitHistoryTransaction();
         return;
       }
 
       const savedFiles = await window.scatter.saveClipboardFiles(project.path);
       if (savedFiles.length) {
         event.preventDefault();
+        beginHistoryTransaction();
+        const target = ensureTargetNode();
+        if (!target) {
+          cancelHistoryTransaction();
+          return;
+        }
         appendAttachments(target.id, savedFiles);
+        commitHistoryTransaction();
         return;
       }
 
-      if (text && !(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLTextAreaElement)) {
+      if (text && !isEditableTarget(event.target)) {
         event.preventDefault();
+        beginHistoryTransaction();
+        const target = ensureTargetNode();
+        if (!target) {
+          cancelHistoryTransaction();
+          return;
+        }
         updateNodeData(target.id, {
           body: `${target.data.body ? `${target.data.body}\n` : ""}${text}`
         });
+        commitHistoryTransaction();
       }
     },
-    [addFilesToNode, appendAttachments, ensureTargetNode, project, updateNodeData]
+    [
+      addFilesToNode,
+      appendAttachments,
+      beginHistoryTransaction,
+      cancelHistoryTransaction,
+      commitHistoryTransaction,
+      ensureTargetNode,
+      project,
+      setStatus,
+      updateNodeData
+    ]
   );
 
   const handleDrop = useCallback(
     async (event: React.DragEvent) => {
       if (!project || event.dataTransfer.files.length === 0) return;
       event.preventDefault();
-      const target = await ensureTargetNode();
-      if (!target) return;
-      await addFilesToNode(target.id, event.dataTransfer.files, "drop");
+      beginHistoryTransaction();
+      const target = ensureTargetNode();
+      if (!target) {
+        cancelHistoryTransaction();
+        return;
+      }
+
+      try {
+        await addFilesToNode(target.id, event.dataTransfer.files, "drop");
+        commitHistoryTransaction();
+      } catch (error) {
+        cancelHistoryTransaction();
+        setStatus(error instanceof Error ? error.message : "添加附件失败");
+      }
     },
-    [addFilesToNode, ensureTargetNode, project]
+    [addFilesToNode, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, project, setStatus]
   );
 
   const runActiveNode = useCallback(() => {
@@ -548,30 +722,23 @@ function App(): ReactElement {
     void runNode(target.id, target.data.runMode || "flow");
   }, [nodes, runNode, selectedNode]);
 
-  if (!project) {
+  if (isSplashWindow) {
     return (
-      <main className="welcome-shell" data-theme={theme}>
-        <div className="welcome-card">
-          <div className="welcome-icon">
-            <Icon name="inbox" size={24} />
+      <main className="startup-shell" data-theme={theme}>
+        <section className="startup-panel" aria-label="Scatter 启动中">
+          <div className="startup-copy">
+            <div className="startup-title-group">
+              <h1>Scatter</h1>
+              <p>构建你的项目，然后再执行</p>
+            </div>
+            <p className="startup-status">启动中....</p>
           </div>
-          <h1>Scatter</h1>
-          <p>选择一个本地文件夹作为项目，然后开始组织多模态任务画布。</p>
-          <div className="welcome-actions">
-            <Button variant="primary" onClick={() => hydrateProject(null).then(() => window.scatter.createProject().then(hydrateProject))}>
-              新建项目文件夹
-            </Button>
-            <Button onClick={() => window.scatter.openProject().then(hydrateProject)}>打开项目文件夹</Button>
+          <div className="startup-visual" aria-hidden="true">
+            <div className="startup-image-frame">
+              <img src={startupToolboxImage} alt="" />
+            </div>
           </div>
-          <div className="welcome-recent">
-            {recentProjects.map((item) => (
-              <button key={item.path} type="button" onClick={() => window.scatter.openKnownProject(item.path).then(hydrateProject)}>
-                <strong>{item.name}</strong>
-                <span>{item.path}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        </section>
       </main>
     );
   }
@@ -588,7 +755,7 @@ function App(): ReactElement {
     >
       <Sidebar
         recentProjects={recentProjects}
-        activePath={project.path}
+        activePath={project?.path}
         theme={theme}
         onCreateProject={() => window.scatter.createProject().then(hydrateProject)}
         onOpenProject={() => window.scatter.openProject().then(hydrateProject)}
@@ -598,94 +765,160 @@ function App(): ReactElement {
       <section className="workspace">
         <Topbar
           canRun={nodes.length > 0}
+          disabled={!project}
           onRunActive={runActiveNode}
-          onOpenTasks={() => setDrawer(drawer === "tasks" ? null : "tasks")}
-          onOpenMarkdown={() => setDrawer(drawer === "markdown" ? null : "markdown")}
+          onOpenTasks={() => {
+            if (project) setDrawer(drawer === "tasks" ? null : "tasks");
+          }}
+          onOpenMarkdown={() => {
+            if (project) setDrawer(drawer === "markdown" ? null : "markdown");
+          }}
         />
-        <div className="canvas-shell" ref={canvasShellRef}>
-          <ReactFlow
-            nodes={nodes as Node[]}
-            edges={
-              edges.map((edge) => ({
-                ...edge,
-                type: "scatter",
-                data: {
-                  active:
-                    edge.source === selectedNodeId ||
-                    edge.target === selectedNodeId ||
-                    edge.source === hoveredNodeId ||
-                    edge.target === hoveredNodeId
-                }
-              })) as Edge[]
-            }
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            onNodesChange={onNodesChange as any}
-            onEdgesChange={onEdgesChange as any}
-            onConnect={onConnect}
-            onSelectionChange={onSelectionChange}
-            onConnectStart={() => setIsConnecting(true)}
-            onConnectEnd={() => setIsConnecting(false)}
-            onNodeMouseEnter={handleNodeMouseEnter}
-            onNodeMouseLeave={() => setHoveredNodeId(null)}
-            onInit={(instance) => {
-              flowInstanceRef.current = instance;
-            }}
-            fitView
-            minZoom={0.2}
-            maxZoom={1.8}
-            proOptions={{ hideAttribution: true }}
-            defaultEdgeOptions={{
-              type: "scatter"
-            }}
-          >
-            <Background gap={200} size={0} color="transparent" />
-          </ReactFlow>
-          <div className="canvas-actions" aria-label="画布操作">
-            <button className="canvas-tool-button" type="button" aria-label="定位画布" onClick={() => flowInstanceRef.current?.fitView({ padding: 0.24 })}>
-              <Icon name="map-pin" size={16} />
-            </button>
-            <button className="canvas-tool-button" type="button" aria-label="撤销" disabled>
-              <Icon name="undo" size={16} />
-            </button>
-            <button className="canvas-tool-button" type="button" aria-label="重做" disabled>
-              <Icon name="redo" size={16} />
-            </button>
+        {project ? (
+          <div className="canvas-shell" ref={canvasShellRef}>
+            <ReactFlow
+              nodes={nodes as Node[]}
+              edges={
+                edges.map((edge) => ({
+                  ...edge,
+                  type: "scatter",
+                  data: {
+                    active:
+                      edge.source === selectedNodeId ||
+                      edge.target === selectedNodeId ||
+                      edge.source === hoveredNodeId ||
+                      edge.target === hoveredNodeId
+                  }
+                })) as Edge[]
+              }
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              onNodesChange={onNodesChange as any}
+              onEdgesChange={onEdgesChange as any}
+              onConnect={onConnect}
+              onSelectionChange={onSelectionChange}
+              selectionKeyCode={panModeActive ? null : "Shift"}
+              selectionOnDrag={false}
+              panOnDrag={panModeActive}
+              panActivationKeyCode="Space"
+              zoomOnScroll={false}
+              zoomOnPinch={false}
+              zoomOnDoubleClick={false}
+              zoomActivationKeyCode="Meta"
+              nodesDraggable={!panModeActive}
+              onConnectStart={() => setIsConnecting(true)}
+              onConnectEnd={() => setIsConnecting(false)}
+              onNodeMouseEnter={handleNodeMouseEnter}
+              onNodeMouseLeave={() => setHoveredNodeId(null)}
+              onNodeDragStop={() => {
+                window.setTimeout(() => {
+                  if (!nodeDragHistoryOpenRef.current) return;
+                  commitHistoryTransaction();
+                  nodeDragHistoryOpenRef.current = false;
+                }, 0);
+              }}
+              onInit={(instance) => {
+                flowInstanceRef.current = instance;
+              }}
+              onMove={(_, viewport) => {
+                setViewportZoom(viewport.zoom);
+              }}
+              fitView
+              minZoom={0.2}
+              maxZoom={2}
+              proOptions={{ hideAttribution: true }}
+              defaultEdgeOptions={{
+                type: "scatter"
+              }}
+            >
+              <Background gap={200} size={0} color="transparent" />
+            </ReactFlow>
+            <div className="canvas-actions" aria-label="画布操作">
+              <button className="canvas-tool-button" type="button" aria-label="定位画布" onClick={() => flowInstanceRef.current?.fitView({ padding: 0.24 })}>
+                <Icon name="map-pin" size={16} />
+              </button>
+              <button className="canvas-tool-button" type="button" aria-label="撤销" title="撤销 (Cmd+Z)" disabled={!canUndo} onClick={undo}>
+                <Icon name="undo" size={16} />
+              </button>
+              <button className="canvas-tool-button" type="button" aria-label="重做" title="重做 (Cmd+Shift+Z)" disabled={!canRedo} onClick={redo}>
+                <Icon name="redo" size={16} />
+              </button>
+            </div>
+            <div className="canvas-toolbar" aria-label="画布工具">
+              <button className="canvas-toolbar-button" type="button" aria-label="新建节点" onClick={addNode}>
+                <Icon name="plus-lg" size={20} />
+              </button>
+              <span className="canvas-toolbar-divider" />
+              <button
+                className={`canvas-toolbar-button ${canvasTool === "select" && !spacePanActive ? "is-selected" : ""}`}
+                type="button"
+                aria-label="选择工具"
+                aria-pressed={canvasTool === "select" && !spacePanActive}
+                onClick={() => setCanvasTool("select")}
+              >
+                <Icon name="work-with-apps" size={20} />
+              </button>
+              <button
+                className={`canvas-toolbar-button ${panModeActive ? "is-selected" : ""}`}
+                type="button"
+                aria-label="拖动画布"
+                aria-pressed={panModeActive}
+                onClick={() => setCanvasTool("pan")}
+              >
+                <Icon name="hand-raised" size={20} />
+              </button>
+              <span className="canvas-toolbar-divider" />
+              <RadixDropdownMenu.Root>
+                <RadixDropdownMenu.Trigger asChild>
+                  <button className="canvas-zoom-trigger" type="button" aria-label="缩放比例">
+                    <span>{zoomPercent}%</span>
+                    <Icon name="chevron-down" size={16} />
+                  </button>
+                </RadixDropdownMenu.Trigger>
+                <RadixDropdownMenu.Portal>
+                  <RadixDropdownMenu.Content className="canvas-zoom-popover" side="top" sideOffset={8} align="end">
+                    <DropdownMenu className="canvas-zoom-menu" role="menu">
+                      {zoomOptions.map((option) => (
+                        <RadixDropdownMenu.Item key={option.value} asChild>
+                          <DropdownMenuItem
+                            label={option.label}
+                            selected={Math.abs(viewportZoom - option.value) < 0.01}
+                            role="menuitemradio"
+                            aria-checked={Math.abs(viewportZoom - option.value) < 0.01}
+                            onClick={() => {
+                              setViewportZoom(option.value);
+                              void flowInstanceRef.current?.zoomTo(option.value);
+                            }}
+                          />
+                        </RadixDropdownMenu.Item>
+                      ))}
+                    </DropdownMenu>
+                  </RadixDropdownMenu.Content>
+                </RadixDropdownMenu.Portal>
+              </RadixDropdownMenu.Root>
+            </div>
           </div>
-          <div className="canvas-toolbar" aria-label="画布工具">
-            <button className="canvas-toolbar-button" type="button" aria-label="新建节点" onClick={addNode}>
-              <Icon name="plus-lg" size={20} />
-            </button>
-            <span className="canvas-toolbar-divider" />
-            <button className="canvas-toolbar-button is-selected" type="button" aria-label="选择工具">
-              <Icon name="work-with-apps" size={20} />
-            </button>
-            <button className="canvas-toolbar-button" type="button" aria-label="拖动画布">
-              <Icon name="hand-raised" size={20} />
-            </button>
-            <span className="canvas-toolbar-divider" />
-            <button className="canvas-zoom-trigger" type="button" onClick={() => flowInstanceRef.current?.zoomTo(1)}>
-              <span>100%</span>
-              <Icon name="chevron-down" size={16} />
-            </button>
-          </div>
-        </div>
+        ) : (
+          <div className="empty-workspace" aria-label="未打开项目" />
+        )}
       </section>
-      <RightDrawer
-        drawer={drawer}
-        nodes={nodes}
-        edges={edges}
-        selectedNodeId={selectedNodeId}
-        markdown={markdownResult.markdown}
-        currentRunMode={selectedRunMode}
-        onClose={() => setDrawer(null)}
-        onSelectNode={(nodeId) => {
-          setSelectedNodeId(nodeId);
-          setNodes(nodes.map((node) => ({ ...node, selected: node.id === nodeId })));
-          setDrawer("markdown");
-        }}
-        onRunNode={runNode}
-      />
+      {project ? (
+        <RightDrawer
+          drawer={drawer}
+          nodes={nodes}
+          edges={edges}
+          selectedNodeId={selectedNodeId}
+          markdown={markdownResult.markdown}
+          currentRunMode={selectedRunMode}
+          onClose={() => setDrawer(null)}
+          onSelectNode={(nodeId) => {
+            setSelectedNodeId(nodeId);
+            replaceCanvasLive({ nodes: nodes.map((node) => ({ ...node, selected: node.id === nodeId })) });
+            setDrawer("markdown");
+          }}
+          onRunNode={runNode}
+        />
+      ) : null}
     </main>
   );
 }

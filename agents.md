@@ -1,6 +1,6 @@
 # Scatter Agent 说明
 
-更新时间：2026-05-02
+更新时间：2026-05-03
 
 这份文件给后续参与 Scatter 的 AI agent 使用，记录项目概况、命令、目录、约定和容易踩坑的位置。修改架构、命令或协作规则时要同步更新。
 
@@ -86,6 +86,14 @@ Markdown 或执行范围变化：
 - 检查环形 flow 的行为。
 - 确保附件路径对 Codex 仍然明确可用。
 
+画布撤销/重做变化：
+
+- 从 `src/renderer/src/store/scatterStore.ts` 开始，历史栈只保存在 renderer 内存中。
+- 文档编辑使用 `commitCanvasChange`；选中态、hover 等 UI 状态使用 `replaceCanvasLive` 或普通 UI setter。
+- 拖拽、文本编辑、粘贴/拖拽自动创建节点这类组合操作用 `beginHistoryTransaction` 和 `commitHistoryTransaction` 合并为一步。
+- 不要把 `selected`、抽屉、主题、视口、保存状态或 `data.lastRunAt` 做成撤销历史。
+- 左下角撤销/重做按钮必须由 `canUndo`、`canRedo` 控制禁用态；快捷键保持 `Cmd+Z` 和 `Cmd+Shift+Z`。
+
 Codex 启动行为变化：
 
 - 从 `src/main/codexBridge.ts` 开始。
@@ -98,16 +106,30 @@ Codex 启动行为变化：
 - 优先从 `src/renderer/src/styles/app.css` 调整。
 - 复用 `Button`、`Switch`、`Icon`。
 - 保持界面紧凑、工具型。
-- 验证欢迎页、画布、任务节点、右侧抽屉和深色模式。
+- 验证启动页、欢迎页、画布、任务节点、右侧抽屉和深色模式。
+
+画布交互变化：
+
+- 从 `src/renderer/src/App.tsx` 的 React Flow props 开始。
+- 缩放必须按住 `Cmd` 加滚轮；不要恢复普通滚轮缩放。
+- 手形工具进入画布平移模式；按住空格键临时进入同一平移状态。
+- 缩放比例按钮必须打开下拉菜单，提供 50%、75%、100%、150%、200%。
+- `Shift` 框选只在框选过程中显示选框；结束后只保留节点选中态，不显示持续存在的群组选框。
 
 ## 需要保留的当前行为
 
 - 打开或创建文件夹时初始化 `.scatter/scatter.json` 和 `.scatter/assets`。
 - 最近项目保存在 Electron `userData`，不是每个项目里。
+- 应用启动先显示独立无边框启动窗口；主窗口隐藏加载，ready 后也要等启动窗口至少显示 5 秒再打开。
+- 启动窗口和主窗口都保留透明 Electron 窗口、macOS 背景模糊和带透明度的应用/画布背景色。
+- 主窗口未打开项目时仍显示主应用壳和左侧项目列表；没有最近项目时列表为空，不显示居中欢迎卡片或空状态文案。
 - 节点和连线变化后会短防抖自动保存。
 - 附件先复制到项目目录，再挂到节点上。
 - 双击附件项会在 Finder 中显示文件。
 - 节点保存推理强度 `data.effort`，旧文档缺失时 hydrate 为 `xhigh`。
+- 画布缩放使用 `Cmd` + 滚轮或缩放比例下拉菜单，画布平移使用手形工具或空格键临时进入，框选使用 `Shift` + 拖拽。
+- 画布撤销/重做历史不写入项目文件；打开或切换项目时清空。
+- 撤销附件操作只移除节点引用，不删除 `.scatter/assets` 中的文件。
 - 计划模式只改变发送给 Codex 的 prompt，不改变本地文档结构。
 - `flow` 模式包含下游节点；`node` 模式只包含当前节点。
 - Markdown 导出会复制当前生成结果到剪贴板。
@@ -116,7 +138,7 @@ Codex 启动行为变化：
 
 - 文档 schema 里有 viewport，但 React Flow 视口还没实际持久化。
 - 还没有附件移除和 asset 清理。
-- 暂无针对项目持久化或 Markdown 遍历的自动化测试。
+- 暂无针对项目持久化、Markdown 遍历或撤销/重做历史的自动化测试。
 - Codex UI fallback 依赖 macOS Accessibility 权限。
 - 当前是桌面应用最小尺寸设计，不是响应式移动网页。
 
