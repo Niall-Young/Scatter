@@ -103,12 +103,13 @@ async function focusCodex(): Promise<void> {
   await delay(250);
 }
 
-async function pasteAndSubmitInCodex(): Promise<void> {
+async function pasteAndSubmitInCodex(planMode: boolean): Promise<void> {
   const script = [
     'tell application "Codex" to activate',
     "delay 0.7",
     'tell application "System Events"',
     '  tell process "Codex" to set frontmost to true',
+    ...(planMode ? ['  key code 48 using {shift down}', "  delay 0.2"] : []),
     '  keystroke "v" using {command down}',
     "  delay 0.2",
     "  key code 36",
@@ -235,20 +236,10 @@ interface TurnStartResponse {
   turn?: { id?: string };
 }
 
-function markdownForCodex(input: CodexRunInput): string {
-  if (!input.planMode) return input.markdown;
-  return [
-    "请先按计划模式处理这个 Scatter 任务：先给出清晰计划，等待用户确认后再执行。若当前 Codex 会话已经处于计划模式，请遵循计划模式交互。",
-    "",
-    input.markdown
-  ].join("\n");
-}
-
 async function runViaDesktopProxy(input: CodexRunInput): Promise<CodexRunResult | null> {
   if (!(await canUseDesktopProxy())) return null;
 
   const command = (await canUseBundledCodex()) ? codexExecutable() : "codex";
-  const prompt = markdownForCodex(input);
 
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -281,7 +272,7 @@ async function runViaDesktopProxy(input: CodexRunInput): Promise<CodexRunResult 
       const userInput: Array<Record<string, unknown>> = [
         {
           type: "text",
-          text: prompt,
+          text: input.markdown,
           text_elements: []
         },
         ...input.imagePaths.map((imagePath) => ({
@@ -333,8 +324,8 @@ async function runViaDesktopProxy(input: CodexRunInput): Promise<CodexRunResult 
 
 async function runViaDesktopUi(input: CodexRunInput): Promise<CodexRunResult> {
   await openCodexUrl(codexNewThreadUrl(input.projectPath), 900);
-  clipboard.writeText(markdownForCodex(input));
-  await pasteAndSubmitInCodex();
+  clipboard.writeText(input.markdown);
+  await pasteAndSubmitInCodex(input.planMode);
   await focusCodex();
 
   return {
@@ -345,6 +336,7 @@ async function runViaDesktopUi(input: CodexRunInput): Promise<CodexRunResult> {
 
 export async function runInCodex(input: CodexRunInput): Promise<CodexRunResult> {
   await spawnCodex(["app", input.projectPath], 1400);
+  if (input.planMode) return runViaDesktopUi(input);
   const proxyResult = await runViaDesktopProxy(input);
   if (proxyResult) return proxyResult;
   return runViaDesktopUi(input);

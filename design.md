@@ -32,7 +32,7 @@ Scatter 是一个本地优先的多模态任务画布，用来把零散任务节
 
 顶部栏左侧的侧栏按钮可以收起或展开左侧栏。左侧栏收起后，项目列表区域隐藏，工作区铺满窗口宽度并保留左右 12px 边距；顶部栏左侧显示侧栏按钮和添加项目按钮。侧栏展开和收起带短过渡动画，这个折叠状态只保存在 renderer 内存中，不写入项目文件。
 
-顶部栏右侧的任务清单和 Markdown 预览按钮会在工作区右侧打开侧边栏，不是悬浮弹出层。任务清单侧栏宽度为 288px，复用任务列表项组件；Markdown 预览侧栏与画布并排分配剩余空间。打开任一右侧侧栏时，画布在同一行内收缩，顶部栏对应按钮显示选中态。
+顶部栏右侧的任务清单和 Markdown 预览按钮会在工作区右侧打开侧边栏，不是悬浮弹出层。任务清单侧栏宽度为 288px，复用任务列表项组件；Markdown 预览侧栏与画布并排分配剩余空间。打开任一右侧侧栏时，画布在同一行内收缩，顶部栏对应按钮显示选中态。Markdown 预览侧栏和画布之间的分隔区域悬停时显示横向调整光标，并支持拖拽调整两侧比例。
 
 画布交互约定：普通滚轮不缩放画布；按住 `Cmd` 加滚轮缩放，右下角缩放比例下拉菜单提供 50%、75%、100%、150%、200%。手形工具进入画布平移模式，按住空格键会临时进入同一平移状态；按住 `Shift` 拖拽临时框选节点。框选完成后只保留节点选中态，不显示持续存在的群组选框。
 
@@ -178,7 +178,7 @@ Renderer 在 `scatterStore.ts` 中维护非持久化的内存历史栈，最多�
 - 当前范围内的连接关系。
 - 所有附件的相对路径和绝对路径。
 
-通过 Codex desktop proxy 路径发送时，图片附件的绝对路径也会作为 local image input 一起传给 Codex。
+通过 Codex desktop proxy 路径发送时，图片附件的绝对路径也会作为 local image input 一起传给 Codex。通过 UI fallback 路径发送时，附件通过 Markdown 中的相对路径和绝对路径提供给 Codex 访问。
 
 ## Codex 集成
 
@@ -197,10 +197,11 @@ Renderer 在 `scatterStore.ts` 中维护非持久化的内存历史栈，最多�
 第二条是 UI fallback：
 
 - 打开 `codex://threads/new?path=<projectPath>`。
+- 如果起始节点开启计划模式，先用 `Shift+Tab` 切换 Codex 输入框的真实计划模式。
 - 把 Markdown 写入剪贴板。
 - 用 AppleScript 在 Codex 中粘贴并提交。
 
-计划模式会作为运行参数从起始节点传入当前 Codex 运行链路；当前 desktop proxy 没有稳定的显式 plan-mode 字段时，会在 Markdown 前追加中文指令，要求 Codex 先给出清晰计划并等待用户确认。
+计划模式会作为运行参数从起始节点传入当前 Codex 运行链路。起始节点开启计划模式时，Scatter 跳过 desktop proxy 并使用 UI fallback，以触发 Codex 的真实 `Shift+Tab` 计划模式；此时附件通过 Markdown 路径提供，不作为 proxy 的 local image input 发送。
 
 desktop proxy 当前使用：
 

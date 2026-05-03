@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactElement } from "react";
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   addEdge,
@@ -47,6 +47,8 @@ const TASK_NODE_WIDTH = 400;
 const TASK_NODE_HEIGHT = 220;
 const TASK_NODE_HORIZONTAL_GAP = 180;
 const TASK_NODE_VERTICAL_GAP = 72;
+const MARKDOWN_PANEL_DEFAULT_RATIO = 0.5;
+const MARKDOWN_PANEL_MIN_WIDTH = 360;
 const zoomOptions = [
   { label: "50%", value: 0.5 },
   { label: "75%", value: 0.75 },
@@ -233,6 +235,8 @@ function App(): ReactElement {
 
   const [recentProjects, setRecentProjects] = useState<ScatterProjectInfo[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [markdownPanelRatio, setMarkdownPanelRatio] = useState(MARKDOWN_PANEL_DEFAULT_RATIO);
+  const [isResizingMarkdownPanel, setIsResizingMarkdownPanel] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [canvasTool, setCanvasTool] = useState<CanvasTool>("select");
@@ -244,6 +248,7 @@ function App(): ReactElement {
   const latestMouseRef = useRef({ x: 360, y: 240 });
   const flowInstanceRef = useRef<ReactFlowInstance | null>(null);
   const canvasShellRef = useRef<HTMLDivElement | null>(null);
+  const workspaceContentRef = useRef<HTMLDivElement | null>(null);
   const nodeDragHistoryOpenRef = useRef(false);
 
   const selectedNode = useMemo(
@@ -727,6 +732,42 @@ function App(): ReactElement {
     void runNode(target.id, target.data.runMode || "flow");
   }, [nodes, runNode, selectedNode]);
 
+  const startMarkdownResize = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (drawer !== "markdown") return;
+    const container = workspaceContentRef.current;
+    if (!container) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsResizingMarkdownPanel(true);
+
+    const updateRatio = (clientX: number): void => {
+      const rect = container.getBoundingClientRect();
+      const totalWidth = rect.width - 12;
+      if (totalWidth <= MARKDOWN_PANEL_MIN_WIDTH * 2) return;
+      const markdownWidth = rect.right - clientX;
+      const minRatio = MARKDOWN_PANEL_MIN_WIDTH / totalWidth;
+      const maxRatio = 1 - minRatio;
+      const nextRatio = Math.min(maxRatio, Math.max(minRatio, markdownWidth / totalWidth));
+      setMarkdownPanelRatio(nextRatio);
+    };
+
+    updateRatio(event.clientX);
+
+    const handlePointerMove = (moveEvent: PointerEvent): void => {
+      updateRatio(moveEvent.clientX);
+    };
+    const stopResize = (): void => {
+      setIsResizingMarkdownPanel(false);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResize);
+      window.removeEventListener("pointercancel", stopResize);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResize);
+    window.addEventListener("pointercancel", stopResize);
+  }, [drawer]);
+
   if (isSplashWindow) {
     return (
       <main className="startup-shell" data-theme={theme}>
@@ -784,7 +825,18 @@ function App(): ReactElement {
           }}
           onToggleSidebar={() => setSidebarCollapsed((collapsed) => !collapsed)}
         />
-        <div className={`workspace-content ${drawer ? "has-right-sidebar" : ""}`}>
+        <div
+          className={`workspace-content ${drawer ? "has-right-sidebar" : ""} ${drawer === "markdown" ? "has-markdown-sidebar" : ""} ${isResizingMarkdownPanel ? "is-resizing-markdown" : ""}`}
+          ref={workspaceContentRef}
+          style={
+            drawer === "markdown"
+              ? ({
+                  "--markdown-panel-ratio": markdownPanelRatio,
+                  "--canvas-panel-ratio": 1 - markdownPanelRatio
+                } as CSSProperties)
+              : undefined
+          }
+        >
           {project ? (
             <>
               <div className="canvas-shell" ref={canvasShellRef}>
@@ -910,6 +962,14 @@ function App(): ReactElement {
                   </RadixDropdownMenu.Root>
                 </div>
               </div>
+              {drawer === "markdown" ? (
+                <button
+                  className="workspace-resize-handle"
+                  type="button"
+                  aria-label="调整 Markdown 预览宽度"
+                  onPointerDown={startMarkdownResize}
+                />
+              ) : null}
               <RightDrawer
                 drawer={drawer}
                 nodes={nodes}

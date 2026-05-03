@@ -600,6 +600,10 @@ button {
   backdrop-filter: blur(16px);
 }
 
+.workspace-content.has-right-sidebar .canvas-shell {
+  flex: var(--canvas-panel-ratio, 1) 1 0;
+}
+
 .workspace-content {
   display: flex;
   flex: 1 1 0;
@@ -607,6 +611,51 @@ button {
   min-height: 0;
   gap: 12px;
   align-items: stretch;
+}
+
+.workspace-content.has-markdown-sidebar {
+  gap: 0;
+}
+
+.workspace-content.is-resizing-markdown {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.workspace-content.is-resizing-markdown .react-flow,
+.workspace-content.is-resizing-markdown .right-drawer {
+  pointer-events: none;
+}
+
+.workspace-resize-handle {
+  position: relative;
+  z-index: 3;
+  width: 12px;
+  align-self: stretch;
+  flex: 0 0 12px;
+  margin: 0;
+  padding: 0;
+  cursor: col-resize;
+  border: 0;
+  background: transparent;
+}
+
+.workspace-resize-handle::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--border-weight-sm);
+  content: "";
+  background: transparent;
+  transform: translateX(-50%);
+  transition: background 120ms ease;
+}
+
+.workspace-resize-handle:hover::after,
+.workspace-resize-handle:focus-visible::after,
+.workspace-content.is-resizing-markdown .workspace-resize-handle::after {
+  background: var(--color-border-divider);
 }
 
 .empty-workspace {
@@ -2047,24 +2096,46 @@ button {
 }
 
 .kit-segmented {
+  --kit-segmented-item-size: 28px;
+  --kit-segmented-padding: 4px;
+
+  position: relative;
   display: inline-flex;
   align-items: center;
-  padding: 4px;
+  padding: var(--kit-segmented-padding);
   overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--color-background-sunken);
 }
 
+.kit-segmented::before {
+  position: absolute;
+  top: var(--kit-segmented-padding);
+  left: var(--kit-segmented-padding);
+  width: var(--kit-segmented-item-size);
+  height: var(--kit-segmented-item-size);
+  content: "";
+  opacity: var(--kit-segmented-indicator-opacity, 1);
+  border-radius: var(--radius-sm);
+  background: var(--color-background-surface);
+  box-shadow: 0 2px 6px var(--color-shadow-sm);
+  transform: translateX(calc(var(--kit-segmented-selected-index, 0) * var(--kit-segmented-item-size)));
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 120ms ease;
+}
+
 .kit-segmented-item {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
-  width: 28px;
-  height: 28px;
+  width: var(--kit-segmented-item-size);
+  height: var(--kit-segmented-item-size);
   align-items: center;
   justify-content: center;
-  color: var(--color-text);
+  color: var(--color-icon);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
+  transition: color 120ms ease, background 120ms ease;
 }
 
 .kit-segmented-item:hover,
@@ -2076,8 +2147,8 @@ button {
 .kit-segmented-item.is-selected,
 .kit-segmented-item.is-selected:hover,
 .kit-segmented-item.is-selected:focus-visible {
-  background: var(--color-background-surface);
-  box-shadow: 0 2px 6px var(--color-shadow-sm);
+  color: var(--color-text);
+  background: transparent;
 }
 
 .kit-toast {
@@ -2182,7 +2253,7 @@ button {
 }
 
 .right-drawer.is-markdown {
-  flex: 1 1 0;
+  flex: var(--markdown-panel-ratio, 1) 1 0;
   min-width: 360px;
 }
 
@@ -2210,6 +2281,42 @@ button {
 .markdown-source,
 .markdown-preview {
   overflow: auto;
+  scrollbar-color: color-mix(in srgb, var(--color-icon) 42%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.task-list::-webkit-scrollbar,
+.markdown-source::-webkit-scrollbar,
+.markdown-preview::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.task-list::-webkit-scrollbar-track,
+.markdown-source::-webkit-scrollbar-track,
+.markdown-preview::-webkit-scrollbar-track {
+  border: 0;
+  background: transparent;
+}
+
+.task-list::-webkit-scrollbar-thumb,
+.markdown-source::-webkit-scrollbar-thumb,
+.markdown-preview::-webkit-scrollbar-thumb {
+  border: 0;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-icon) 42%, transparent);
+}
+
+.task-list::-webkit-scrollbar-thumb:hover,
+.markdown-source::-webkit-scrollbar-thumb:hover,
+.markdown-preview::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-icon) 58%, transparent);
+}
+
+.task-list::-webkit-scrollbar-corner,
+.markdown-source::-webkit-scrollbar-corner,
+.markdown-preview::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .task-list {
