@@ -2,9 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import {
   addEdge,
   Background,
-  BackgroundVariant,
-  Controls,
-  MiniMap,
   ReactFlow,
   type Connection,
   type Edge,
@@ -12,8 +9,10 @@ import {
   type NodeChange,
   type EdgeChange,
   type OnSelectionChangeParams,
+  type ReactFlowInstance,
   applyNodeChanges,
   applyEdgeChanges,
+  type EdgeTypes,
   type NodeTypes
 } from "@xyflow/react";
 import { nanoid } from "nanoid";
@@ -30,26 +29,119 @@ import type {
 } from "../../shared/types";
 import { buildMarkdown } from "./lib/markdown";
 import { Sidebar } from "./components/Sidebar";
+import { ScatterEdge as ScatterFlowEdge } from "./components/ScatterEdge";
 import { Topbar } from "./components/Topbar";
 import { RightDrawer } from "./components/RightDrawer";
 import { TaskNode, setTaskNodeActions } from "./components/TaskNode";
 import { Button } from "./components/ui/button";
 import { Icon } from "./components/ui/icon";
 import { useScatterStore } from "./store/scatterStore";
-import "./styles/app.css";
 import "@xyflow/react/dist/style.css";
+import "./styles/app.css";
 
 const nodeTypes = { task: TaskNode } satisfies NodeTypes;
+const edgeTypes = { scatter: ScatterFlowEdge } satisfies EdgeTypes;
+const TASK_NODE_WIDTH = 400;
+const TASK_NODE_HEIGHT = 220;
+const TASK_NODE_HORIZONTAL_GAP = 180;
+const TASK_NODE_VERTICAL_GAP = 72;
 
-function emptyNode(position: { x: number; y: number }): ScatterNode {
+type FlowPosition = { x: number; y: number };
+
+function roundPosition(position: FlowPosition): FlowPosition {
+  return {
+    x: Math.round(position.x),
+    y: Math.round(position.y)
+  };
+}
+
+function nodeBounds(node: ScatterNode): { width: number; height: number } {
+  return {
+    width: node.width ?? TASK_NODE_WIDTH,
+    height: node.height ?? TASK_NODE_HEIGHT
+  };
+}
+
+function positionOverlapsNode(position: FlowPosition, node: ScatterNode): boolean {
+  const margin = 32;
+  const bounds = nodeBounds(node);
+  const left = position.x;
+  const right = position.x + TASK_NODE_WIDTH;
+  const top = position.y;
+  const bottom = position.y + TASK_NODE_HEIGHT;
+  const nodeLeft = node.position.x - margin;
+  const nodeRight = node.position.x + bounds.width + margin;
+  const nodeTop = node.position.y - margin;
+  const nodeBottom = node.position.y + bounds.height + margin;
+
+  return left < nodeRight && right > nodeLeft && top < nodeBottom && bottom > nodeTop;
+}
+
+function isOpenPosition(position: FlowPosition, nodes: ScatterNode[]): boolean {
+  return nodes.every((node) => !positionOverlapsNode(position, node));
+}
+
+function findOpenPositionNear(preferred: FlowPosition, nodes: ScatterNode[]): FlowPosition {
+  const base = roundPosition(preferred);
+  if (isOpenPosition(base, nodes)) return base;
+
+  const stepX = TASK_NODE_WIDTH + TASK_NODE_HORIZONTAL_GAP;
+  const stepY = TASK_NODE_HEIGHT + TASK_NODE_VERTICAL_GAP;
+  for (let ring = 1; ring <= 6; ring += 1) {
+    for (let column = -ring; column <= ring; column += 1) {
+      for (let row = -ring; row <= ring; row += 1) {
+        if (Math.abs(column) !== ring && Math.abs(row) !== ring) continue;
+        const candidate = roundPosition({
+          x: preferred.x + column * stepX,
+          y: preferred.y + row * stepY
+        });
+        if (isOpenPosition(candidate, nodes)) return candidate;
+      }
+    }
+  }
+
+  return base;
+}
+
+function findOpenPositionToRight(preferred: FlowPosition, nodes: ScatterNode[]): FlowPosition {
+  const base = roundPosition(preferred);
+  if (isOpenPosition(base, nodes)) return base;
+
+  const stepX = TASK_NODE_WIDTH + TASK_NODE_HORIZONTAL_GAP;
+  const stepY = TASK_NODE_HEIGHT + TASK_NODE_VERTICAL_GAP;
+  const rowOffsets = [0, 1, -1, 2, -2, 3, -3, 4, -4];
+  for (let column = 0; column <= 4; column += 1) {
+    for (const row of rowOffsets) {
+      const candidate = roundPosition({
+        x: preferred.x + column * stepX,
+        y: preferred.y + row * stepY
+      });
+      if (isOpenPosition(candidate, nodes)) return candidate;
+    }
+  }
+
+  return base;
+}
+
+function defaultTaskTitle(nodes: ScatterNode[]): string {
+  const nextNumber =
+    nodes.reduce((max, node) => {
+      const match = /^新建任务\s+(\d+)$/.exec(node.data.title.trim());
+      return match ? Math.max(max, Number(match[1])) : max;
+    }, 0) + 1;
+  return `新建任务 ${nextNumber}`;
+}
+
+function emptyNode(position: { x: number; y: number }, existingNodes: ScatterNode[]): ScatterNode {
   return {
     id: nanoid(),
     type: "task",
     position,
     data: {
-      title: "新任务节点",
+      title: defaultTaskTitle(existingNodes),
       body: "",
       attachments: [],
+      effort: "xhigh",
       planMode: false,
       runMode: "flow"
     }
@@ -100,8 +192,6 @@ function App(): ReactElement {
     selectedNodeId,
     drawer,
     theme,
-    status,
-    isSaving,
     setProjectDocument,
     setNodes,
     setEdges,
@@ -112,13 +202,18 @@ function App(): ReactElement {
     setTheme,
     setStatus,
     setSaving,
+    removeAttachment,
     markNodeRun
   } = useScatterStore();
 
   const [recentProjects, setRecentProjects] = useState<ScatterProjectInfo[]>([]);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
   const saveTimerRef = useRef<number | null>(null);
   const loadedProjectPathRef = useRef<string | null>(null);
   const latestMouseRef = useRef({ x: 360, y: 240 });
+  const flowInstanceRef = useRef<ReactFlowInstance | null>(null);
+  const canvasShellRef = useRef<HTMLDivElement | null>(null);
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) || null,
@@ -188,16 +283,37 @@ function App(): ReactElement {
     };
   }, [nodes, edges, project, saveCurrentDocument]);
 
+  const getVisibleCanvasCenterPosition = useCallback((): FlowPosition => {
+    const canvasRect = canvasShellRef.current?.getBoundingClientRect();
+    const screenCenter = canvasRect
+      ? {
+          x: canvasRect.left + canvasRect.width / 2,
+          y: canvasRect.top + canvasRect.height / 2
+        }
+      : latestMouseRef.current;
+    const flowCenter = flowInstanceRef.current?.screenToFlowPosition(screenCenter) ?? screenCenter;
+
+    return {
+      x: flowCenter.x - TASK_NODE_WIDTH / 2,
+      y: flowCenter.y - TASK_NODE_HEIGHT / 2
+    };
+  }, []);
+
   const addNode = useCallback(() => {
     if (!project) return;
-    const node = emptyNode({
-      x: latestMouseRef.current.x - 280,
-      y: latestMouseRef.current.y - 120
-    });
-    setNodes([...nodes, node]);
+    const position = selectedNode
+      ? findOpenPositionToRight(
+          {
+            x: selectedNode.position.x + nodeBounds(selectedNode).width + TASK_NODE_HORIZONTAL_GAP,
+            y: selectedNode.position.y
+          },
+          nodes
+        )
+      : findOpenPositionNear(getVisibleCanvasCenterPosition(), nodes);
+    const node = emptyNode(position, nodes);
+    setNodes([...nodes.map((item) => ({ ...item, selected: false })), { ...node, selected: true }]);
     setSelectedNodeId(node.id);
-    setDrawer("markdown");
-  }, [nodes, project, setDrawer, setNodes, setSelectedNodeId]);
+  }, [getVisibleCanvasCenterPosition, nodes, project, selectedNode, setNodes, setSelectedNodeId]);
 
   const addFilesToNode = useCallback(
     async (nodeId: string, files: FileList | File[], source: "upload" | "drop" | "paste") => {
@@ -215,14 +331,11 @@ function App(): ReactElement {
     if (!project) return null;
     const existing = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) : null;
     if (existing) return existing;
-    const node = emptyNode({
-      x: latestMouseRef.current.x - 280,
-      y: latestMouseRef.current.y - 120
-    });
-    setNodes([...nodes, node]);
+    const node = emptyNode(findOpenPositionNear(getVisibleCanvasCenterPosition(), nodes), nodes);
+    setNodes([...nodes.map((item) => ({ ...item, selected: false })), { ...node, selected: true }]);
     setSelectedNodeId(node.id);
     return node;
-  }, [nodes, project, selectedNodeId, setNodes, setSelectedNodeId]);
+  }, [getVisibleCanvasCenterPosition, nodes, project, selectedNodeId, setNodes, setSelectedNodeId]);
 
   const runNode = useCallback(
     async (nodeId: string, mode: RunMode) => {
@@ -238,6 +351,7 @@ function App(): ReactElement {
           threadName,
           markdown: result.markdown,
           imagePaths: result.imagePaths,
+          effort: node.data.effort || "xhigh",
           planMode: result.planMode
         });
         markNodeRun(nodeId, mode);
@@ -249,13 +363,70 @@ function App(): ReactElement {
     [edges, markNodeRun, nodes, project, setStatus]
   );
 
+  const duplicateNode = useCallback(
+    (nodeId: string) => {
+      const source = nodes.find((node) => node.id === nodeId);
+      if (!source) return;
+      const duplicate: ScatterNode = {
+        ...source,
+        id: nanoid(),
+        selected: true,
+        position: {
+          x: source.position.x + 32,
+          y: source.position.y + 32
+        },
+        data: {
+          ...source.data,
+          title: defaultTaskTitle(nodes)
+        }
+      };
+      setNodes([...nodes.map((node) => ({ ...node, selected: false })), duplicate]);
+      setSelectedNodeId(duplicate.id);
+    },
+    [nodes, setNodes, setSelectedNodeId]
+  );
+
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      setNodes(nodes.filter((node) => node.id !== nodeId));
+      setEdges(edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+      if (selectedNodeId === nodeId) {
+        setSelectedNodeId(null);
+      }
+    },
+    [edges, nodes, selectedNodeId, setEdges, setNodes, setSelectedNodeId]
+  );
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (!selectedNodeId || (event.key !== "Backspace" && event.key !== "Delete")) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      deleteNode(selectedNodeId);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [deleteNode, selectedNodeId]);
+
   useEffect(() => {
     setTaskNodeActions({
       updateNodeData,
       addFilesToNode,
+      removeAttachment,
+      duplicateNode,
+      deleteNode,
       runNode
     });
-  }, [addFilesToNode, runNode, updateNodeData]);
+  }, [addFilesToNode, deleteNode, duplicateNode, removeAttachment, runNode, updateNodeData]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<ScatterNode>[]) => {
@@ -286,7 +457,7 @@ function App(): ReactElement {
           {
             ...connection,
             id: nanoid(),
-            type: "smoothstep",
+            type: "scatter",
             animated: false
           },
           edges as Edge[]
@@ -296,12 +467,30 @@ function App(): ReactElement {
     [edges, setEdges]
   );
 
+  const selectCanvasNode = useCallback(
+    (nodeId: string | null) => {
+      setSelectedNodeId(nodeId);
+    },
+    [setSelectedNodeId]
+  );
+
   const onSelectionChange = useCallback(
     ({ nodes: selectedNodes }: OnSelectionChangeParams) => {
       const first = selectedNodes[0] as ScatterNode | undefined;
-      setSelectedNodeId(first?.id || null);
+      selectCanvasNode(first?.id || null);
     },
-    [setSelectedNodeId]
+    [selectCanvasNode]
+  );
+
+  const handleNodeMouseEnter = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      setHoveredNodeId(node.id);
+      if (isConnecting) {
+        selectCanvasNode(node.id);
+        setNodes(nodes.map((item) => ({ ...item, selected: item.id === node.id })));
+      }
+    },
+    [isConnecting, nodes, selectCanvasNode, setNodes]
   );
 
   const handlePaste = useCallback(
@@ -353,11 +542,11 @@ function App(): ReactElement {
     [addFilesToNode, ensureTargetNode, project]
   );
 
-  const exportMarkdown = useCallback(async () => {
-    if (!markdownResult.markdown) return;
-    await navigator.clipboard.writeText(markdownResult.markdown);
-    setStatus("Markdown 已复制到剪贴板");
-  }, [markdownResult.markdown, setStatus]);
+  const runActiveNode = useCallback(() => {
+    const target = selectedNode || nodes[0];
+    if (!target) return;
+    void runNode(target.id, target.data.runMode || "flow");
+  }, [nodes, runNode, selectedNode]);
 
   if (!project) {
     return (
@@ -408,36 +597,78 @@ function App(): ReactElement {
       />
       <section className="workspace">
         <Topbar
-          projectName={project.name}
-          taskCount={nodes.length}
-          isSaving={isSaving}
-          status={status}
-          onAddNode={addNode}
+          canRun={nodes.length > 0}
+          onRunActive={runActiveNode}
           onOpenTasks={() => setDrawer(drawer === "tasks" ? null : "tasks")}
           onOpenMarkdown={() => setDrawer(drawer === "markdown" ? null : "markdown")}
-          onExportMarkdown={exportMarkdown}
         />
-        <div className="canvas-shell">
+        <div className="canvas-shell" ref={canvasShellRef}>
           <ReactFlow
             nodes={nodes as Node[]}
-            edges={edges as Edge[]}
+            edges={
+              edges.map((edge) => ({
+                ...edge,
+                type: "scatter",
+                data: {
+                  active:
+                    edge.source === selectedNodeId ||
+                    edge.target === selectedNodeId ||
+                    edge.source === hoveredNodeId ||
+                    edge.target === hoveredNodeId
+                }
+              })) as Edge[]
+            }
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             onNodesChange={onNodesChange as any}
             onEdgesChange={onEdgesChange as any}
             onConnect={onConnect}
             onSelectionChange={onSelectionChange}
+            onConnectStart={() => setIsConnecting(true)}
+            onConnectEnd={() => setIsConnecting(false)}
+            onNodeMouseEnter={handleNodeMouseEnter}
+            onNodeMouseLeave={() => setHoveredNodeId(null)}
+            onInit={(instance) => {
+              flowInstanceRef.current = instance;
+            }}
             fitView
             minZoom={0.2}
             maxZoom={1.8}
+            proOptions={{ hideAttribution: true }}
             defaultEdgeOptions={{
-              type: "smoothstep",
-              style: { stroke: "var(--color-border-connecting)", strokeWidth: 1.6 }
+              type: "scatter"
             }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="var(--color-border-divider)" />
-            <MiniMap pannable zoomable nodeColor="var(--color-primary)" maskColor="rgba(0,0,0,0.08)" />
-            <Controls />
+            <Background gap={200} size={0} color="transparent" />
           </ReactFlow>
+          <div className="canvas-actions" aria-label="画布操作">
+            <button className="canvas-tool-button" type="button" aria-label="定位画布" onClick={() => flowInstanceRef.current?.fitView({ padding: 0.24 })}>
+              <Icon name="map-pin" size={16} />
+            </button>
+            <button className="canvas-tool-button" type="button" aria-label="撤销" disabled>
+              <Icon name="undo" size={16} />
+            </button>
+            <button className="canvas-tool-button" type="button" aria-label="重做" disabled>
+              <Icon name="redo" size={16} />
+            </button>
+          </div>
+          <div className="canvas-toolbar" aria-label="画布工具">
+            <button className="canvas-toolbar-button" type="button" aria-label="新建节点" onClick={addNode}>
+              <Icon name="plus-lg" size={20} />
+            </button>
+            <span className="canvas-toolbar-divider" />
+            <button className="canvas-toolbar-button is-selected" type="button" aria-label="选择工具">
+              <Icon name="work-with-apps" size={20} />
+            </button>
+            <button className="canvas-toolbar-button" type="button" aria-label="拖动画布">
+              <Icon name="hand-raised" size={20} />
+            </button>
+            <span className="canvas-toolbar-divider" />
+            <button className="canvas-zoom-trigger" type="button" onClick={() => flowInstanceRef.current?.zoomTo(1)}>
+              <span>100%</span>
+              <Icon name="chevron-down" size={16} />
+            </button>
+          </div>
         </div>
       </section>
       <RightDrawer

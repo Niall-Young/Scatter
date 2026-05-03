@@ -305,7 +305,7 @@ async function runViaDesktopProxy(input: CodexRunInput): Promise<CodexRunResult 
           },
         model: started.model,
         serviceTier: started.serviceTier ?? null,
-        effort: started.reasoningEffort ?? null,
+        effort: input.effort || started.reasoningEffort || null,
         summary: "auto",
         personality: null,
         outputSchema: null

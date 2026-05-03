@@ -2,7 +2,6 @@ import { app, clipboard, dialog, nativeImage } from "electron";
 import { mkdir, readFile, writeFile, copyFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import type {
   Attachment,
@@ -15,6 +14,7 @@ import type {
 const scatterDirName = ".scatter";
 const documentFileName = "scatter.json";
 const assetsDirName = "assets";
+const assetProtocol = "scatter-asset";
 
 function now(): string {
   return new Date().toISOString();
@@ -34,6 +34,32 @@ function documentPath(projectPath: string): string {
 
 function assetsPath(projectPath: string): string {
   return path.join(scatterPath(projectPath), assetsDirName);
+}
+
+export function attachmentFileUrl(storedPath: string): string {
+  return `${assetProtocol}://asset/${Buffer.from(storedPath, "utf8").toString("base64url")}`;
+}
+
+function normalizeAttachment(attachment: Attachment): Attachment {
+  return {
+    ...attachment,
+    fileUrl: attachmentFileUrl(attachment.storedPath)
+  };
+}
+
+function normalizeDocument(document: ScatterDocument): ScatterDocument {
+  return {
+    ...document,
+    nodes: (document.nodes || []).map((node) => ({
+      ...node,
+      data: {
+        ...node.data,
+        attachments: (node.data.attachments || []).map(normalizeAttachment),
+        effort: node.data.effort || "xhigh"
+      }
+    })),
+    edges: document.edges || []
+  };
 }
 
 function projectNameFromPath(projectPath: string): string {
@@ -64,13 +90,13 @@ async function ensureProject(projectPath: string): Promise<ScatterDocument> {
 
   const raw = await readFile(docPath, "utf8");
   const parsed = JSON.parse(raw) as ScatterDocument;
-  return {
+  return normalizeDocument({
     ...defaultDocument(projectPath),
     ...parsed,
     projectName: parsed.projectName || projectNameFromPath(projectPath),
     nodes: parsed.nodes || [],
     edges: parsed.edges || []
-  };
+  });
 }
 
 async function addRecentProject(project: ScatterProjectInfo): Promise<void> {
@@ -184,7 +210,7 @@ async function saveAttachment(projectPath: string, input: AttachmentInput): Prom
     originalName: input.name,
     storedPath,
     relativePath,
-    fileUrl: pathToFileURL(storedPath).toString(),
+    fileUrl: attachmentFileUrl(storedPath),
     mime: input.mime || "application/octet-stream",
     size: fileStat.size,
     createdAt: now()

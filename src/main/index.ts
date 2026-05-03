@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, net, protocol, shell } from "electron";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   chooseProject,
   getRecentProjects,
@@ -11,6 +12,35 @@ import {
 } from "./projectStore";
 import { runInCodex } from "./codexBridge";
 import type { AttachmentInput, CodexRunInput, ScatterDocument } from "../shared/types";
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "scatter-asset",
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true
+    }
+  }
+]);
+
+function isScatterAssetPath(filePath: string): boolean {
+  return filePath.includes(`${path.sep}.scatter${path.sep}assets${path.sep}`);
+}
+
+function registerAssetProtocol(): void {
+  protocol.handle("scatter-asset", (request) => {
+    const url = new URL(request.url);
+    const token = url.pathname.slice(1);
+    const filePath = Buffer.from(token, "base64url").toString("utf8");
+
+    if (!isScatterAssetPath(filePath)) {
+      return new Response("Forbidden", { status: 403 });
+    }
+
+    return net.fetch(pathToFileURL(filePath).toString());
+  });
+}
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -30,6 +60,24 @@ function createWindow(): void {
     }
   });
 
+  mainWindow.webContents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown") return;
+
+    const isMacDevtoolsShortcut = process.platform === "darwin" && input.meta && input.alt && input.key.toLowerCase() === "i";
+    const isWindowsDevtoolsShortcut =
+      process.platform !== "darwin" && input.control && input.shift && input.key.toLowerCase() === "i";
+    const isF12 = input.key === "F12";
+
+    if (!isMacDevtoolsShortcut && !isWindowsDevtoolsShortcut && !isF12) return;
+
+    event.preventDefault();
+    if (mainWindow.webContents.isDevToolsOpened()) {
+      mainWindow.webContents.closeDevTools();
+    } else {
+      mainWindow.webContents.openDevTools({ mode: "detach" });
+    }
+  });
+
   if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
@@ -38,6 +86,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  registerAssetProtocol();
   ipcMain.handle("scatter:get-recent-projects", () => getRecentProjects());
   ipcMain.handle("scatter:create-project", () => chooseProject("create"));
   ipcMain.handle("scatter:open-project", () => chooseProject("open"));

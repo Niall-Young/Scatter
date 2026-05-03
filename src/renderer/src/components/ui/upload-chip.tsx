@@ -1,4 +1,4 @@
-import type { HTMLAttributes, KeyboardEvent, ReactElement } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type KeyboardEvent, type ReactElement } from "react";
 import { cn } from "../../lib/utils";
 import { Icon } from "./icon";
 
@@ -12,6 +12,18 @@ interface UploadChipProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export function UploadChip({ className, fileName, imageAlt = "", imageSrc, kind = "file", onOpen, onRemove, ...props }: UploadChipProps): ReactElement {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [lockedWidth, setLockedWidth] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    setLockedWidth(null);
+    const frame = window.requestAnimationFrame(() => {
+      const width = rootRef.current?.offsetWidth;
+      if (width) setLockedWidth(width);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [fileName, imageSrc, kind, Boolean(onRemove)]);
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     props.onKeyDown?.(event);
     if (event.defaultPrevented || !onOpen) return;
@@ -21,11 +33,18 @@ export function UploadChip({ className, fileName, imageAlt = "", imageSrc, kind 
     }
   }
 
+  const style = {
+    ...props.style,
+    "--chip-width": lockedWidth ? `${lockedWidth}px` : undefined
+  } as CSSProperties;
+
   return (
     <div
       {...props}
+      ref={rootRef}
       className={cn("kit-upload-chip", onOpen && "is-clickable", onRemove && "has-remove", className)}
       role={onOpen ? "button" : props.role}
+      style={style}
       tabIndex={onOpen ? 0 : props.tabIndex}
       onClick={(event) => {
         props.onClick?.(event);

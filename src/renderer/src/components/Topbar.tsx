@@ -1,55 +1,29 @@
 import type { ReactElement } from "react";
-import { Button } from "./ui/button";
-import { Icon } from "./ui/icon";
+import { IconButton } from "./ui/icon-button";
 
 interface TopbarProps {
-  projectName?: string;
-  taskCount: number;
-  isSaving: boolean;
-  status: string;
-  onAddNode: () => void;
+  canRun: boolean;
+  onRunActive: () => void;
   onOpenTasks: () => void;
   onOpenMarkdown: () => void;
-  onExportMarkdown: () => void;
 }
 
 export function Topbar({
-  projectName,
-  taskCount,
-  isSaving,
-  status,
-  onAddNode,
+  canRun,
+  onRunActive,
   onOpenTasks,
-  onOpenMarkdown,
-  onExportMarkdown
+  onOpenMarkdown
 }: TopbarProps): ReactElement {
   return (
-    <header className="topbar">
-      <div className="topbar-title">
-        <strong>{projectName || "未打开项目"}</strong>
-        <span>{taskCount} 个任务</span>
-      </div>
-      <div className="topbar-status">
-        <Icon name="save" size={14} />
-        <span>{isSaving ? "保存中" : status}</span>
+    <header className="topbar" aria-label="窗口操作">
+      <div className="window-drag-region" />
+      <div className="topbar-leading">
+        <IconButton className="topbar-icon-button" filled={false} icon="sidebar-expand" size="md" aria-label="展开侧边栏" />
       </div>
       <div className="topbar-actions">
-        <Button variant="secondary" onClick={onAddNode}>
-          <Icon name="plus" size={16} />
-          <span>新建节点</span>
-        </Button>
-        <Button variant="ghost" onClick={onOpenTasks}>
-          <Icon name="list-checks" size={16} />
-          <span>任务清单</span>
-        </Button>
-        <Button variant="ghost" onClick={onOpenMarkdown}>
-          <Icon name="panel-right-open" size={16} />
-          <span>预览 MD</span>
-        </Button>
-        <Button variant="ghost" onClick={onExportMarkdown}>
-          <Icon name="file-down" size={16} />
-          <span>导出</span>
-        </Button>
+        <IconButton className="topbar-icon-button" filled={false} icon="play" size="md" aria-label="运行当前任务" disabled={!canRun} onClick={onRunActive} />
+        <IconButton className="topbar-icon-button" filled={false} icon="tasks" size="md" aria-label="任务列表" onClick={onOpenTasks} />
+        <IconButton className="topbar-icon-button" filled={false} icon="sidebar-right-expand" size="md" aria-label="打开右侧面板" onClick={onOpenMarkdown} />
       </div>
     </header>
   );

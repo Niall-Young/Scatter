@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type HTMLAttributes, typ
 import { cn } from "../../lib/utils";
 import { DropdownMenu, DropdownMenuItem } from "./dropdown-menu";
 import { DropdownTrigger } from "./dropdown-trigger";
+import { IconButton } from "./icon-button";
 import { Icon } from "./icon";
 import { Toggle } from "./toggle";
 import { UploadChip } from "./upload-chip";
@@ -33,7 +34,6 @@ interface CanvasNodeProps extends HTMLAttributes<HTMLDivElement> {
   onEffortChange?: (effort: CanvasNodeEffort) => void;
   onPlanModeChange?: (checked: boolean) => void;
   onRun?: () => void;
-  onSubmit?: () => void;
   onUploadFiles?: (files: FileList) => void;
   planMode?: boolean;
   prompt?: string;
@@ -60,7 +60,6 @@ export function CanvasNode({
   onPlanModeChange,
   onRun,
   onRunCurrentNode,
-  onSubmit,
   onUploadFiles,
   planMode = true,
   prompt = "Prompt and description go here...",
@@ -106,13 +105,12 @@ export function CanvasNode({
       <div className="kit-canvas-node-heading">
         <div className="kit-canvas-node-title">{heading}</div>
         <div className="kit-canvas-node-heading-actions">
-          <button className="kit-canvas-node-icon-button" type="button" aria-label="运行节点" onClick={onRun}>
-            <Icon name="play-1" size={16} />
-          </button>
+          <IconButton filled={false} icon="play-1" size="lg" aria-label={filled ? "运行节点" : "提示词为空，无法运行"} disabled={!filled || !onRun} onClick={onRun} />
           <div className="kit-canvas-node-menu-picker">
-            <button
-              className="kit-canvas-node-icon-button"
-              type="button"
+            <IconButton
+              filled={false}
+              icon="dots-horizontal"
+              size="lg"
               aria-label="更多操作"
               aria-haspopup="menu"
               aria-expanded={nodeMenuOpen}
@@ -120,9 +118,7 @@ export function CanvasNode({
                 onMenu?.();
                 setNodeMenuOpen((open) => !open);
               }}
-            >
-              <Icon name="dots-horizontal" size={16} />
-            </button>
+            />
             {nodeMenuOpen ? (
               <DropdownMenu className="kit-canvas-node-actions-menu" role="menu">
                 <DropdownMenuItem
@@ -171,17 +167,16 @@ export function CanvasNode({
           <div className="kit-canvas-node-divider" />
           <div className="kit-canvas-node-footer-row">
             <input ref={fileInputRef} className="kit-canvas-node-file-input" type="file" accept={uploadAccept} multiple={uploadMultiple} tabIndex={-1} onChange={handleUploadChange} />
-            <button
-              className="kit-canvas-node-icon-button"
-              type="button"
+            <IconButton
+              filled={false}
+              icon="plus-lg"
+              size="lg"
               aria-label="上传附件"
               onClick={() => {
                 onAddInput?.();
                 fileInputRef.current?.click();
               }}
-            >
-              <Icon name="plus-lg" size={16} />
-            </button>
+            />
             <div className="kit-canvas-node-settings">
               <div className="kit-canvas-node-effort-picker">
                 <DropdownTrigger label={currentEffort} size="lg" aria-haspopup="menu" aria-expanded={effortMenuOpen} onClick={() => setEffortMenuOpen((open) => !open)} />
@@ -206,10 +201,6 @@ export function CanvasNode({
               </div>
               <span className="kit-canvas-node-plan-label">计划模式</span>
               <Toggle checked={planMode} onCheckedChange={onPlanModeChange} aria-label="切换计划模式" />
-              <span className="kit-canvas-node-vertical-divider" />
-              <button className="kit-canvas-node-submit" type="button" aria-label="提交节点" onClick={onSubmit} disabled>
-                <Icon name="arrow-up-lg" size={16} />
-              </button>
             </div>
           </div>
         </div>

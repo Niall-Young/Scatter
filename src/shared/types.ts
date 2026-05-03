@@ -1,6 +1,7 @@
 export type AttachmentKind = "image" | "file";
 export type AttachmentSource = "upload" | "drop" | "paste" | "clipboard";
 export type RunMode = "flow" | "node";
+export type EffortLevel = "low" | "medium" | "high" | "xhigh";
 
 export interface ScatterProjectInfo {
   name: string;
@@ -33,6 +34,7 @@ export interface ScatterNodeData extends Record<string, unknown> {
   title: string;
   body: string;
   attachments: Attachment[];
+  effort: EffortLevel;
   planMode: boolean;
   runMode: RunMode;
   lastRunAt?: string;
@@ -74,6 +76,7 @@ export interface CodexRunInput {
   threadName: string;
   markdown: string;
   imagePaths: string[];
+  effort: EffortLevel;
   planMode: boolean;
 }
 

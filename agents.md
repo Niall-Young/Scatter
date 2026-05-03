@@ -58,6 +58,7 @@ npm run preview
 - 新 UI 样式优先复用现有 CSS 变量和组件 primitive。
 - UI 文案保持中文优先。
 - 图标优先使用现有 `Icon` 名称；需要新增时放到 `src/renderer/src/assets/icons`。
+- 图标按钮必须复用 `src/renderer/src/components/ui/icon-button.tsx` 的 `IconButton`，不要在业务组件里手写 icon-only `<button>`。
 
 ## 常见改动路径
 
@@ -106,6 +107,7 @@ Codex 启动行为变化：
 - 节点和连线变化后会短防抖自动保存。
 - 附件先复制到项目目录，再挂到节点上。
 - 双击附件项会在 Finder 中显示文件。
+- 节点保存推理强度 `data.effort`，旧文档缺失时 hydrate 为 `xhigh`。
 - 计划模式只改变发送给 Codex 的 prompt，不改变本地文档结构。
 - `flow` 模式包含下游节点；`node` 模式只包含当前节点。
 - Markdown 导出会复制当前生成结果到剪贴板。

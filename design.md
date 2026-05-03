@@ -100,6 +100,7 @@ Scatter 项目就是用户选择的普通本地文件夹。Scatter 自己的数�
 - `data.title`：标题。
 - `data.body`：提示词正文。
 - `data.attachments`：附件。
+- `data.effort`：推理强度，默认 `xhigh`。
 - `data.planMode`：计划模式。
 - `data.runMode`：运行范围。
 - 可选 `data.lastRunAt`。

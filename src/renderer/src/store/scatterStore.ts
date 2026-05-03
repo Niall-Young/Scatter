@@ -23,6 +23,7 @@ interface ScatterState {
   setEdges: (edges: ScatterEdge[]) => void;
   updateNodeData: (nodeId: string, patch: Partial<ScatterNode["data"]>) => void;
   appendAttachments: (nodeId: string, attachments: Attachment[]) => void;
+  removeAttachment: (nodeId: string, attachmentId: string) => void;
   setSelectedNodeId: (nodeId: string | null) => void;
   setDrawer: (drawer: "tasks" | "markdown" | null) => void;
   setTheme: (theme: "light" | "dark") => void;
@@ -45,7 +46,7 @@ export const useScatterStore = create<ScatterState>((set, get) => ({
     set({
       project,
       document,
-      nodes: document.nodes,
+      nodes: document.nodes.map((node) => ({ ...node, selected: false })),
       edges: document.edges,
       selectedNodeId: null,
       status: `Opened ${project.name}`
@@ -75,6 +76,20 @@ export const useScatterStore = create<ScatterState>((set, get) => ({
               data: {
                 ...node.data,
                 attachments: [...node.data.attachments, ...attachments]
+              }
+            }
+          : node
+      )
+    }),
+  removeAttachment: (nodeId, attachmentId) =>
+    set({
+      nodes: get().nodes.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                attachments: node.data.attachments.filter((attachment) => attachment.id !== attachmentId)
               }
             }
           : node
