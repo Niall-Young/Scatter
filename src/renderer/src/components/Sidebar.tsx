@@ -12,6 +12,7 @@ interface SidebarProps {
   onOpenProject: () => void;
   onOpenRecent: (projectPath: string) => void;
   onOpenSettings: () => void;
+  onRemoveRecent: (projectPath: string) => void;
 }
 
 export function Sidebar({
@@ -21,7 +22,8 @@ export function Sidebar({
   onCreateProject,
   onOpenProject,
   onOpenRecent,
-  onOpenSettings
+  onOpenSettings,
+  onRemoveRecent
 }: SidebarProps): ReactElement {
   return (
     <aside className="sidebar" aria-hidden={collapsed} inert={collapsed}>
@@ -50,6 +52,7 @@ export function Sidebar({
             selected={project.path === activePath}
             unread={project.path !== activePath && index === 2}
             onClick={() => onOpenRecent(project.path)}
+            onArchive={() => onRemoveRecent(project.path)}
           />
         ))}
       </div>

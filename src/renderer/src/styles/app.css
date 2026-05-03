@@ -1253,6 +1253,7 @@ button {
   justify-content: center;
   border: 0;
   border-radius: var(--radius-md);
+  cursor: pointer;
   font: inherit;
   font-size: var(--text-14);
   line-height: var(--line-14);
@@ -1564,7 +1565,7 @@ button {
   display: flex;
   width: 320px;
   align-items: flex-start;
-  gap: 12px;
+  gap: 8px;
   padding: 10px;
   color: var(--color-text);
   border: 0;
@@ -1575,10 +1576,29 @@ button {
 }
 
 .kit-project-item:hover,
-.kit-project-item:focus-visible,
+.kit-project-item:focus-within,
 .kit-project-item.is-selected {
   outline: none;
   background: var(--color-interaction);
+}
+
+.kit-project-item-main {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kit-project-item-main:focus-visible {
+  outline: none;
 }
 
 .kit-project-item-leading {
@@ -1638,29 +1658,20 @@ button {
 }
 
 .kit-project-item-archive {
-  display: inline-flex;
   width: 20px;
   height: 20px;
   flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
   padding: 2px;
   opacity: 0;
-  color: var(--color-icon);
   border-radius: var(--radius-xs);
   pointer-events: none;
 }
 
 .kit-project-item:hover .kit-project-item-archive,
-.kit-project-item:focus-visible .kit-project-item-archive,
+.kit-project-item:focus-within .kit-project-item-archive,
 .kit-project-item-archive:focus-visible {
   opacity: 1;
   pointer-events: auto;
-}
-
-.kit-project-item-archive:hover,
-.kit-project-item-archive:focus-visible {
-  background: var(--color-interaction);
 }
 
 .kit-task-item {

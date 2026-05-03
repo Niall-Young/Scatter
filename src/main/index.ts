@@ -5,6 +5,7 @@ import {
   chooseProject,
   getRecentProjects,
   openKnownProject,
+  removeRecentProject,
   saveAttachments,
   saveClipboardFiles,
   saveClipboardImage,
@@ -151,6 +152,7 @@ function createWindow(showWhenReady = false): BrowserWindow {
 app.whenReady().then(() => {
   registerAssetProtocol();
   ipcMain.handle("scatter:get-recent-projects", () => getRecentProjects());
+  ipcMain.handle("scatter:remove-recent-project", (_event, projectPath: string) => removeRecentProject(projectPath));
   ipcMain.handle("scatter:create-project", () => chooseProject("create"));
   ipcMain.handle("scatter:open-project", () => chooseProject("open"));
   ipcMain.handle("scatter:open-known-project", (_event, projectPath: string) => openKnownProject(projectPath));

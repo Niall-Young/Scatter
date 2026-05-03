@@ -293,6 +293,18 @@ function App(): ReactElement {
     setRecentProjects(await window.scatter.getRecentProjects());
   }, []);
 
+  const removeRecentProject = useCallback(
+    async (projectPath: string) => {
+      try {
+        setRecentProjects(await window.scatter.removeRecentProject(projectPath));
+        setStatus("已从项目列表移出");
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "移出项目失败");
+      }
+    },
+    [setStatus]
+  );
+
   const applySettingsValues = useCallback((values: SettingsValues): void => {
     setThemePreference(values.themePreference);
     setLanguage(values.language);
@@ -913,6 +925,7 @@ function App(): ReactElement {
         onOpenProject={() => window.scatter.openProject().then(hydrateProject)}
         onOpenRecent={(projectPath) => window.scatter.openKnownProject(projectPath).then(hydrateProject)}
         onOpenSettings={openSettingsDialog}
+        onRemoveRecent={(projectPath) => void removeRecentProject(projectPath)}
       />
       <section className="workspace">
         <Topbar

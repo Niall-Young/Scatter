@@ -109,6 +109,13 @@ async function addRecentProject(project: ScatterProjectInfo): Promise<void> {
   await writeFile(appDataPath("recent-projects.json"), JSON.stringify(next, null, 2), "utf8");
 }
 
+export async function removeRecentProject(projectPath: string): Promise<ScatterProjectInfo[]> {
+  const next = (await getRecentProjects()).filter((item) => item.path !== projectPath);
+  await mkdir(app.getPath("userData"), { recursive: true });
+  await writeFile(appDataPath("recent-projects.json"), JSON.stringify(next, null, 2), "utf8");
+  return next;
+}
+
 export async function getRecentProjects(): Promise<ScatterProjectInfo[]> {
   const filePath = appDataPath("recent-projects.json");
   if (!existsSync(filePath)) return [];
