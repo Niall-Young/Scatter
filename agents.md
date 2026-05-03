@@ -14,7 +14,7 @@ Scatter 是一个本地 Electron 桌面应用，用任务画布把节点、附�
 - React 19 + TypeScript。
 - React Flow 作为画布。
 - Zustand 管理 renderer 状态。
-- Radix UI 用于 dropdown 和 switch。
+- Radix UI 用于 dropdown、dialog 和 switch。
 - 本地 SVG 图标注册在 `src/renderer/src/components/ui/icon.tsx`。
 
 ## 常用命令
@@ -44,6 +44,7 @@ npm run preview
 - `src/renderer/src/store/scatterStore.ts`：Zustand 状态和 mutator。
 - `src/renderer/src/lib/markdown.ts`：执行范围遍历和 Markdown 生成。
 - `src/renderer/src/components`：业务组件。
+- `src/renderer/src/components/SettingsDialog.tsx`：居中设置弹窗。
 - `src/renderer/src/components/ui`：共享 UI primitive。
 - `src/renderer/src/styles/app.css`：设计 token 和样式。
 
@@ -106,6 +107,7 @@ Codex 启动行为变化：
 - 优先从 `src/renderer/src/styles/app.css` 调整。
 - 复用 `Button`、`Switch`、`Icon`。
 - 保持界面紧凑、工具型。
+- 左侧栏“设置”按钮打开居中设置弹窗，不要恢复成直接切换主题。
 - 验证启动页、欢迎页、画布、任务节点、右侧侧边栏和深色模式。
 - 顶部栏左侧的侧栏按钮使用 `IconButton`；展开态显示侧栏收起按钮，收起态显示侧栏展开按钮和添加项目按钮。
 
@@ -124,6 +126,7 @@ Codex 启动行为变化：
 - 应用启动先显示独立无边框启动窗口；主窗口隐藏加载，ready 后也要等启动窗口至少显示 5 秒再打开。
 - 启动窗口和主窗口都保留透明 Electron 窗口、macOS 背景模糊和带透明度的应用/画布背景色。
 - 主窗口未打开项目时仍显示主应用壳和左侧项目列表；没有最近项目时列表为空，不显示居中欢迎卡片或空状态文案。
+- 左侧栏“设置”打开居中弹窗，包含主题、语言、半透明背景、恢复默认和保存设置；设置项切换后实时预览，未保存关闭时回退到打开弹窗前的设置；设置状态只保存在 renderer 内存中，不写入项目文件。
 - 左侧栏可以通过顶部栏按钮收起；收起状态只保存在 renderer 内存中，不写入项目文件。收起后工作区铺满窗口宽度并保留左右 12px 边距，顶部栏左侧保留侧栏按钮和添加项目按钮，展开/收起需要有短过渡动画。
 - 顶部栏右侧的任务清单和 Markdown 预览按钮打开工作区右侧侧边栏，不使用浮层。右侧侧边栏展开和收起需要有短过渡动画。任务清单侧栏固定 288px 并复用 `TaskItem`；清单只展示没有入边且有出边的 `flow` 流程起始节点任务，以及没有任何连线的 `node` 落单节点任务。被连接的子节点不要单独显示；落单节点有正文时显示可发送给 Codex，没有正文时显示暂未编辑。Markdown 预览侧栏和画布并排占用剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮；对应顶部栏按钮要显示选中态。
 - Markdown 预览侧栏和画布之间需要有可拖拽分隔条；悬停和拖拽时使用横向 resize 光标，比例状态只保存在 renderer 内存中。

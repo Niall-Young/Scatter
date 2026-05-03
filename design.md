@@ -25,10 +25,12 @@ Scatter 是一个本地优先的多模态任务画布，用来把零散任务节
 
 打开项目后，主界面包含四块：
 
-- 左侧栏：新建项目、打开项目、最近项目列表、深浅色切换。
+- 左侧栏：新建项目、打开项目、最近项目列表、设置入口。
 - 顶部栏：项目名、任务数量、保存状态、新建节点、任务清单、Markdown 预览、导出。
 - 画布：基于 React Flow 的任务节点画布，支持拖拽节点、连线、缩放、定位画布以及撤销/重做。
 - 右侧侧边栏：任务清单或 Markdown 预览。
+
+点击左侧栏“设置”会打开居中的设置弹窗。弹窗包含主题、语言和半透明背景三项设置，底部提供恢复默认和保存设置。设置项切换后会实时预览；如果关闭弹窗而没有点击保存设置，会回退到打开弹窗前的设置。设置状态只保存在 renderer 内存中，不写入项目文件；主题支持跟随系统、浅色和深色，半透明背景默认开启。
 
 顶部栏左侧的侧栏按钮可以收起或展开左侧栏。左侧栏收起后，项目列表区域隐藏，工作区铺满窗口宽度并保留左右 12px 边距；顶部栏左侧显示侧栏按钮和添加项目按钮。侧栏展开和收起带短过渡动画，这个折叠状态只保存在 renderer 内存中，不写入项目文件。
 
@@ -77,6 +79,7 @@ Scatter 是一个 Electron 桌面应用，使用 Electron Vite、React、TypeScr
 - `src/renderer/src/lib/markdown.ts`：把节点和连线转换成 Codex Markdown。
 - `src/renderer/src/components/TaskNode.tsx`：画布任务节点。
 - `src/renderer/src/components/Sidebar.tsx`：项目导航侧栏。
+- `src/renderer/src/components/SettingsDialog.tsx`：居中设置弹窗。
 - `src/renderer/src/components/Topbar.tsx`：工作区顶部操作栏。
 - `src/renderer/src/components/RightDrawer.tsx`：任务清单和 Markdown 预览右侧侧边栏。
 - `src/renderer/src/styles/app.css`：设计 token、布局、节点样式、右侧侧边栏样式和主题变量。

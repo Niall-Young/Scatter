@@ -112,6 +112,16 @@
   --color-shadow-lg-primeter: rgba(0, 0, 0, 0.4);
 }
 
+:root[data-translucent="false"] {
+  --color-background-canvas: #F2F2F2;
+  --color-background: #FFFFFF;
+}
+
+:root[data-theme="dark"][data-translucent="false"] {
+  --color-background-canvas: #0A0A0A;
+  --color-background: #151515;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -458,6 +468,125 @@ button {
 
 .sidebar-action-item .app-icon {
   color: var(--color-icon);
+}
+
+.settings-dialog-overlay {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  background: transparent;
+}
+
+.settings-dialog-content {
+  position: fixed;
+  z-index: 60;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  width: 520px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 80px);
+  flex-direction: column;
+  overflow: clip;
+  color: var(--color-text);
+  border: var(--border-weight-sm) solid var(--color-border-divider);
+  border-radius: var(--radius-xl);
+  background: var(--color-background-raised);
+  box-shadow: var(--shadow-popover);
+  transform: translate(-50%, -50%);
+}
+
+.settings-dialog-content:focus-visible {
+  outline: none;
+}
+
+.settings-dialog-header {
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+}
+
+.settings-dialog-title {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--text-16);
+  line-height: var(--line-16);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-dialog-close {
+  flex: 0 0 auto;
+}
+
+.settings-dialog-body {
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  flex-direction: column;
+  padding: 12px 20px;
+  background: var(--color-background-raised);
+}
+
+.settings-dialog-row {
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.settings-dialog-row-label {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--text-14);
+  line-height: var(--line-14);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-dialog-select {
+  width: 120px;
+  flex: 0 0 auto;
+}
+
+.settings-dialog-select-popover {
+  z-index: 70;
+}
+
+.kit-dropdown-menu.settings-dialog-select-menu {
+  width: 120px;
+}
+
+.settings-dialog-row .switch-row {
+  flex: 0 0 auto;
+}
+
+.settings-dialog-footer {
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 20px;
+}
+
+.settings-dialog-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
 }
 
 .sidebar-section-title {

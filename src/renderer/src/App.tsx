@@ -31,6 +31,7 @@ import type {
 import { buildMarkdown } from "./lib/markdown";
 import { Sidebar } from "./components/Sidebar";
 import { ScatterEdge as ScatterFlowEdge } from "./components/ScatterEdge";
+import { SettingsDialog, type LanguagePreference, type SettingsValues, type ThemePreference } from "./components/SettingsDialog";
 import { Topbar } from "./components/Topbar";
 import { RightDrawer } from "./components/RightDrawer";
 import { TaskNode, setTaskNodeActions } from "./components/TaskNode";
@@ -59,6 +60,11 @@ const zoomOptions = [
 
 type FlowPosition = { x: number; y: number };
 type CanvasTool = "select" | "pan";
+
+function systemColorTheme(): "light" | "dark" {
+  if (!window.matchMedia) return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 
 function roundPosition(position: FlowPosition): FlowPosition {
   return {
@@ -235,6 +241,11 @@ function App(): ReactElement {
 
   const [recentProjects, setRecentProjects] = useState<ScatterProjectInfo[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [themePreference, setThemePreference] = useState<ThemePreference>("system");
+  const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() => systemColorTheme());
+  const [language, setLanguage] = useState<LanguagePreference>("zh");
+  const [translucentBackground, setTranslucentBackground] = useState(true);
   const [markdownPanelRatio, setMarkdownPanelRatio] = useState(MARKDOWN_PANEL_DEFAULT_RATIO);
   const [isResizingMarkdownPanel, setIsResizingMarkdownPanel] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -250,6 +261,8 @@ function App(): ReactElement {
   const canvasShellRef = useRef<HTMLDivElement | null>(null);
   const workspaceContentRef = useRef<HTMLDivElement | null>(null);
   const nodeDragHistoryOpenRef = useRef(false);
+  const settingsSnapshotRef = useRef<SettingsValues | null>(null);
+  const settingsSaveRequestedRef = useRef(false);
   const [taskRunModeOverride, setTaskRunModeOverride] = useState<{ nodeId: string; mode: RunMode } | null>(null);
 
   const selectedNode = useMemo(
@@ -280,6 +293,55 @@ function App(): ReactElement {
     setRecentProjects(await window.scatter.getRecentProjects());
   }, []);
 
+  const applySettingsValues = useCallback((values: SettingsValues): void => {
+    setThemePreference(values.themePreference);
+    setLanguage(values.language);
+    setTranslucentBackground(values.translucentBackground);
+  }, []);
+
+  const openSettingsDialog = useCallback((): void => {
+    settingsSaveRequestedRef.current = false;
+    settingsSnapshotRef.current = {
+      themePreference,
+      language,
+      translucentBackground
+    };
+    setSettingsOpen(true);
+  }, [language, themePreference, translucentBackground]);
+
+  const handleSettingsOpenChange = useCallback(
+    (open: boolean): void => {
+      if (open) {
+        openSettingsDialog();
+        return;
+      }
+
+      setSettingsOpen(false);
+      if (settingsSaveRequestedRef.current) {
+        settingsSaveRequestedRef.current = false;
+        settingsSnapshotRef.current = null;
+        return;
+      }
+
+      const snapshot = settingsSnapshotRef.current;
+      if (snapshot) {
+        applySettingsValues(snapshot);
+      }
+      settingsSnapshotRef.current = null;
+    },
+    [applySettingsValues, openSettingsDialog]
+  );
+
+  const handleSaveSettings = useCallback(
+    (values: SettingsValues): void => {
+      settingsSaveRequestedRef.current = true;
+      settingsSnapshotRef.current = null;
+      applySettingsValues(values);
+      setStatus("设置已保存");
+    },
+    [applySettingsValues, setStatus]
+  );
+
   useEffect(() => {
     if (!isSplashWindow) {
       void refreshRecentProjects();
@@ -287,9 +349,29 @@ function App(): ReactElement {
   }, [isSplashWindow, refreshRecentProjects]);
 
   useEffect(() => {
+    if (!window.matchMedia) return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateSystemTheme = (): void => {
+      setSystemTheme(media.matches ? "dark" : "light");
+    };
+
+    updateSystemTheme();
+    media.addEventListener("change", updateSystemTheme);
+    return () => media.removeEventListener("change", updateSystemTheme);
+  }, []);
+
+  useEffect(() => {
+    const resolvedTheme = themePreference === "system" ? systemTheme : themePreference;
+    if (theme !== resolvedTheme) {
+      setTheme(resolvedTheme);
+    }
+  }, [setTheme, systemTheme, theme, themePreference]);
+
+  useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.window = isSplashWindow ? "splash" : "main";
-  }, [isSplashWindow, theme]);
+    document.documentElement.dataset.translucent = translucentBackground ? "true" : "false";
+  }, [isSplashWindow, theme, translucentBackground]);
 
   useEffect(() => {
     function isSpaceKey(event: KeyboardEvent): boolean {
@@ -297,7 +379,7 @@ function App(): ReactElement {
     }
 
     function handleKeyDown(event: KeyboardEvent): void {
-      if (!isSpaceKey(event) || isEditableTarget(event.target)) return;
+      if (settingsOpen || !isSpaceKey(event) || isEditableTarget(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setSpacePanActive(true);
@@ -322,7 +404,7 @@ function App(): ReactElement {
       window.removeEventListener("keyup", handleKeyUp, { capture: true });
       window.removeEventListener("blur", handleBlur);
     };
-  }, []);
+  }, [settingsOpen]);
 
   const hydrateProject = useCallback(
     async (result: OpenProjectResult | null) => {
@@ -485,7 +567,7 @@ function App(): ReactElement {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
-      if (isEditableTarget(event.target)) {
+      if (settingsOpen || isEditableTarget(event.target)) {
         return;
       }
 
@@ -507,7 +589,7 @@ function App(): ReactElement {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [deleteNode, redo, selectedNodeId, undo]);
+  }, [deleteNode, redo, selectedNodeId, settingsOpen, undo]);
 
   useEffect(() => {
     setTaskNodeActions({
@@ -632,7 +714,7 @@ function App(): ReactElement {
 
   const handlePaste = useCallback(
     async (event: React.ClipboardEvent) => {
-      if (!project) return;
+      if (!project || settingsOpen) return;
 
       const files = event.clipboardData.files;
       if (files.length > 0) {
@@ -705,6 +787,7 @@ function App(): ReactElement {
       commitHistoryTransaction,
       ensureTargetNode,
       project,
+      settingsOpen,
       setStatus,
       updateNodeData
     ]
@@ -712,7 +795,7 @@ function App(): ReactElement {
 
   const handleDrop = useCallback(
     async (event: React.DragEvent) => {
-      if (!project || event.dataTransfer.files.length === 0) return;
+      if (!project || settingsOpen || event.dataTransfer.files.length === 0) return;
       event.preventDefault();
       beginHistoryTransaction();
       const target = ensureTargetNode();
@@ -729,7 +812,7 @@ function App(): ReactElement {
         setStatus(error instanceof Error ? error.message : "添加附件失败");
       }
     },
-    [addFilesToNode, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, project, setStatus]
+    [addFilesToNode, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, project, settingsOpen, setStatus]
   );
 
   const runActiveNode = useCallback(() => {
@@ -826,11 +909,10 @@ function App(): ReactElement {
         recentProjects={recentProjects}
         activePath={project?.path}
         collapsed={sidebarCollapsed}
-        theme={theme}
         onCreateProject={createProject}
         onOpenProject={() => window.scatter.openProject().then(hydrateProject)}
         onOpenRecent={(projectPath) => window.scatter.openKnownProject(projectPath).then(hydrateProject)}
-        onToggleTheme={() => setTheme(theme === "light" ? "dark" : "light")}
+        onOpenSettings={openSettingsDialog}
       />
       <section className="workspace">
         <Topbar
@@ -1010,6 +1092,15 @@ function App(): ReactElement {
           )}
         </div>
       </section>
+      <SettingsDialog
+        open={settingsOpen}
+        themePreference={themePreference}
+        language={language}
+        translucentBackground={translucentBackground}
+        onOpenChange={handleSettingsOpenChange}
+        onPreview={applySettingsValues}
+        onSave={handleSaveSettings}
+      />
     </main>
   );
 }

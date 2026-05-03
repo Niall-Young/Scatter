@@ -8,22 +8,20 @@ interface SidebarProps {
   recentProjects: ScatterProjectInfo[];
   activePath?: string;
   collapsed?: boolean;
-  theme: "light" | "dark";
   onCreateProject: () => void;
   onOpenProject: () => void;
   onOpenRecent: (projectPath: string) => void;
-  onToggleTheme: () => void;
+  onOpenSettings: () => void;
 }
 
 export function Sidebar({
   recentProjects,
   activePath,
   collapsed = false,
-  theme,
   onCreateProject,
   onOpenProject,
   onOpenRecent,
-  onToggleTheme
+  onOpenSettings
 }: SidebarProps): ReactElement {
   return (
     <aside className="sidebar" aria-hidden={collapsed} inert={collapsed}>
@@ -36,7 +34,7 @@ export function Sidebar({
           <Icon name="search" size={16} />
           <span>搜索</span>
         </button>
-        <button className="sidebar-action-item" type="button" onClick={onToggleTheme}>
+        <button className="sidebar-action-item" type="button" onClick={onOpenSettings}>
           <Icon name="settings-cog" size={16} />
           <span>设置</span>
         </button>
