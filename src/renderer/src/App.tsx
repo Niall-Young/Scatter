@@ -10,6 +10,7 @@ import {
   type NodeChange,
   type EdgeChange,
   type OnSelectionChangeParams,
+  type OnNodeDrag,
   type ReactFlowInstance,
   applyNodeChanges,
   applyEdgeChanges,
@@ -69,6 +70,13 @@ const zoomOptions = [
 
 type FlowPosition = { x: number; y: number };
 type CanvasTool = "select" | "pan";
+interface OptionDuplicateDrag {
+  sourceId: string;
+  duplicateId: string;
+  originalNodes: ScatterNode[];
+  lastPosition: FlowPosition;
+  hasPreview: boolean;
+}
 
 function systemColorTheme(): "light" | "dark" {
   if (!window.matchMedia) return "light";
@@ -175,6 +183,37 @@ function emptyNode(position: { x: number; y: number }, existingNodes: ScatterNod
   };
 }
 
+function cloneCanvasNode(node: ScatterNode): ScatterNode {
+  return {
+    ...node,
+    position: { ...node.position },
+    data: {
+      ...node.data,
+      attachments: node.data.attachments.map((attachment) => ({ ...attachment }))
+    }
+  };
+}
+
+function duplicateNodeAt(source: ScatterNode, position: FlowPosition, id = nanoid()): ScatterNode {
+  return {
+    ...cloneCanvasNode(source),
+    id,
+    selected: true,
+    position: roundPosition(position)
+  };
+}
+
+function optionDuplicatePreviewNodes(drag: OptionDuplicateDrag, position: FlowPosition): ScatterNode[] {
+  const source = drag.originalNodes.find((node) => node.id === drag.sourceId);
+  if (!source) return drag.originalNodes.map(cloneCanvasNode);
+
+  const restoredNodes = drag.originalNodes.map((node) => ({
+    ...cloneCanvasNode(node),
+    selected: false
+  }));
+  return [...restoredNodes, duplicateNodeAt(source, position, drag.duplicateId)];
+}
+
 function toDocument(projectName: string, nodes: ScatterNode[], edges: ScatterEdge[]): ScatterDocument {
   return {
     version: 1,
@@ -272,7 +311,10 @@ function App(): ReactElement {
   const flowInstanceRef = useRef<ReactFlowInstance | null>(null);
   const canvasShellRef = useRef<HTMLDivElement | null>(null);
   const workspaceContentRef = useRef<HTMLDivElement | null>(null);
+  const nodeDragActiveRef = useRef(false);
   const nodeDragHistoryOpenRef = useRef(false);
+  const optionDuplicateDragRef = useRef<OptionDuplicateDrag | null>(null);
+  const optionDuplicateSettledSourceRef = useRef<string | null>(null);
   const settingsSnapshotRef = useRef<SettingsValues | null>(null);
   const settingsSaveRequestedRef = useRef(false);
   const [taskRunModeOverride, setTaskRunModeOverride] = useState<{ nodeId: string; mode: RunMode } | null>(null);
@@ -314,15 +356,26 @@ function App(): ReactElement {
 
   const removeRecentProject = useCallback(
     async (projectPath: string) => {
+      const removesCurrentProject = project?.path === projectPath;
+      if (removesCurrentProject && saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      if (removesCurrentProject) {
+        loadedProjectPathRef.current = null;
+      }
+
       try {
         setRecentProjects(await window.scatter.removeRecentProject(projectPath));
-        if (project?.path === projectPath) {
-          loadedProjectPathRef.current = null;
+        if (removesCurrentProject) {
           clearProject();
           setCanvasRevealActive(false);
         }
         setStatus(t("status.removedRecent"));
       } catch (error) {
+        if (removesCurrentProject && useScatterStore.getState().project?.path === projectPath) {
+          loadedProjectPathRef.current = projectPath;
+        }
         setStatus(error instanceof Error ? error.message : t("status.removeRecentFailed"));
       }
     },
@@ -484,30 +537,35 @@ function App(): ReactElement {
     void window.scatter.createProject().then(hydrateProject);
   }, [hydrateProject]);
 
-  const saveCurrentDocument = useCallback(async () => {
-    if (!project) return;
+  const saveDocumentSnapshot = useCallback(async (targetProject: ScatterProjectInfo, document: ScatterDocument) => {
+    if (loadedProjectPathRef.current !== targetProject.path) return;
+    if (useScatterStore.getState().project?.path !== targetProject.path) return;
+
     setSaving(true);
     try {
-      const document = toDocument(project.name, nodes, edges);
-      await window.scatter.saveDocument(project.path, document);
+      await window.scatter.saveDocument(targetProject.path, document);
       setStatus(t("status.saved"));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t("status.saveFailed"));
     } finally {
       setSaving(false);
     }
-  }, [edges, nodes, project, setSaving, setStatus, t]);
+  }, [setSaving, setStatus, t]);
 
   useEffect(() => {
     if (!project || loadedProjectPathRef.current !== project.path) return;
+    if (nodeDragActiveRef.current) return;
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    const document = toDocument(project.name, nodes, edges);
+    const targetProject = project;
     saveTimerRef.current = window.setTimeout(() => {
-      saveCurrentDocument();
+      saveTimerRef.current = null;
+      void saveDocumentSnapshot(targetProject, document);
     }, 550);
     return () => {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     };
-  }, [nodes, edges, project, saveCurrentDocument]);
+  }, [nodes, edges, project, saveDocumentSnapshot]);
 
   const getVisibleCanvasCenterPosition = useCallback((): FlowPosition => {
     const canvasRect = canvasShellRef.current?.getBoundingClientRect();
@@ -598,15 +656,13 @@ function App(): ReactElement {
       const source = nodes.find((node) => node.id === nodeId);
       if (!source) return;
       const duplicate: ScatterNode = {
-        ...source,
-        id: nanoid(),
-        selected: true,
-        position: {
+        ...duplicateNodeAt(source, {
           x: source.position.x + 32,
           y: source.position.y + 32
-        },
+        }),
         data: {
           ...source.data,
+          attachments: source.data.attachments.map((attachment) => ({ ...attachment })),
           title: defaultTaskTitle(nodes, t)
         }
       };
@@ -662,7 +718,25 @@ function App(): ReactElement {
       }
 
       if (hasPositionChange) {
+        const settledSourceId = optionDuplicateSettledSourceRef.current;
+        if (settledSourceId && changes.some((change) => change.type === "position" && change.id === settledSourceId)) {
+          return;
+        }
+
+        const optionDuplicateDrag = optionDuplicateDragRef.current;
+        if (optionDuplicateDrag) {
+          const draggedNode = nextNodes.find((node) => node.id === optionDuplicateDrag.sourceId);
+          const nextPosition = draggedNode?.position ?? optionDuplicateDrag.lastPosition;
+          optionDuplicateDrag.lastPosition = roundPosition(nextPosition);
+          optionDuplicateDrag.hasPreview = true;
+          nodeDragActiveRef.current = true;
+          replaceCanvasLive({ nodes: optionDuplicatePreviewNodes(optionDuplicateDrag, optionDuplicateDrag.lastPosition) });
+          setSelectedNodeId(optionDuplicateDrag.duplicateId);
+          return;
+        }
+
         if (hasDraggingPosition) {
+          nodeDragActiveRef.current = true;
           if (!nodeDragHistoryOpenRef.current) {
             beginHistoryTransaction();
             nodeDragHistoryOpenRef.current = true;
@@ -672,19 +746,21 @@ function App(): ReactElement {
         }
 
         if (nodeDragHistoryOpenRef.current) {
+          nodeDragActiveRef.current = false;
           replaceCanvasLive({ nodes: nextNodes });
           commitHistoryTransaction();
           nodeDragHistoryOpenRef.current = false;
           return;
         }
 
+        nodeDragActiveRef.current = false;
         commitCanvasChange({ nodes: nextNodes });
         return;
       }
 
       replaceCanvasLive({ nodes: nextNodes });
     },
-    [beginHistoryTransaction, commitCanvasChange, commitHistoryTransaction, edges, nodes, replaceCanvasLive]
+    [beginHistoryTransaction, commitCanvasChange, commitHistoryTransaction, edges, nodes, replaceCanvasLive, setSelectedNodeId]
   );
 
   const onEdgesChange = useCallback(
@@ -722,6 +798,63 @@ function App(): ReactElement {
       commitCanvasChange({ edges: next.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target })) });
     },
     [commitCanvasChange, edges]
+  );
+
+  const handleNodeDragStart = useCallback<OnNodeDrag<Node>>(
+    (event, node) => {
+      nodeDragActiveRef.current = true;
+
+      const isSelectedNode = selectedNodeId === node.id;
+      if (!event.altKey || !isSelectedNode) return;
+      const source = nodes.find((item) => item.id === node.id);
+      if (!source) return;
+
+      optionDuplicateDragRef.current = {
+        sourceId: node.id,
+        duplicateId: nanoid(),
+        originalNodes: nodes.map(cloneCanvasNode),
+        lastPosition: source.position,
+        hasPreview: false
+      };
+      beginHistoryTransaction();
+    },
+    [beginHistoryTransaction, nodes, selectedNodeId]
+  );
+
+  const handleNodeDragStop = useCallback<OnNodeDrag<Node>>(
+    () => {
+      const optionDuplicateDrag = optionDuplicateDragRef.current;
+      if (optionDuplicateDrag) {
+        if (!optionDuplicateDrag.hasPreview) {
+          optionDuplicateDragRef.current = null;
+          nodeDragActiveRef.current = false;
+          cancelHistoryTransaction();
+          return;
+        }
+
+        optionDuplicateDragRef.current = null;
+        nodeDragHistoryOpenRef.current = false;
+        nodeDragActiveRef.current = false;
+        optionDuplicateSettledSourceRef.current = optionDuplicateDrag.sourceId;
+        replaceCanvasLive({ nodes: optionDuplicatePreviewNodes(optionDuplicateDrag, optionDuplicateDrag.lastPosition) });
+        setSelectedNodeId(optionDuplicateDrag.duplicateId);
+        commitHistoryTransaction();
+        window.setTimeout(() => {
+          if (optionDuplicateSettledSourceRef.current === optionDuplicateDrag.sourceId) {
+            optionDuplicateSettledSourceRef.current = null;
+          }
+        }, 0);
+        return;
+      }
+
+      window.setTimeout(() => {
+        nodeDragActiveRef.current = false;
+        if (!nodeDragHistoryOpenRef.current) return;
+        commitHistoryTransaction();
+        nodeDragHistoryOpenRef.current = false;
+      }, 0);
+    },
+    [cancelHistoryTransaction, commitHistoryTransaction, replaceCanvasLive, setSelectedNodeId]
   );
 
   const selectCanvasNode = useCallback(
@@ -1153,13 +1286,8 @@ function App(): ReactElement {
                   onConnectEnd={() => setIsConnecting(false)}
                   onNodeMouseEnter={handleNodeMouseEnter}
                   onNodeMouseLeave={() => setHoveredNodeId(null)}
-                  onNodeDragStop={() => {
-                    window.setTimeout(() => {
-                      if (!nodeDragHistoryOpenRef.current) return;
-                      commitHistoryTransaction();
-                      nodeDragHistoryOpenRef.current = false;
-                    }, 0);
-                  }}
+                  onNodeDragStart={handleNodeDragStart}
+                  onNodeDragStop={handleNodeDragStop}
                   onInit={(instance) => {
                     flowInstanceRef.current = instance;
                   }}
