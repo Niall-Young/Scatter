@@ -1,7 +1,7 @@
 {
   "version": 1,
   "projectName": "Scatter",
-  "updatedAt": "2026-05-04T02:30:24.499Z",
+  "updatedAt": "2026-05-04T03:14:30.150Z",
   "viewport": {
     "x": 0,
     "y": 0,
@@ -12,8 +12,8 @@
       "id": "W4AlhRYYR-AOP0-YJ4esn",
       "type": "task",
       "position": {
-        "x": 369,
-        "y": 284
+        "x": 379.8653642795575,
+        "y": 303.0143874892255
       },
       "measured": {
         "width": 400,
@@ -27,7 +27,8 @@
         "runMode": "flow",
         "attachments": []
       },
-      "selected": false
+      "selected": false,
+      "dragging": false
     },
     {
       "id": "KzNdA6K6SojlxIlrX1kWF",

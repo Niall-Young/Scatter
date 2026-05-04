@@ -1,8 +1,11 @@
 import { useMemo, useState, type ChangeEvent, type ReactElement } from "react";
+import * as RadixDialog from "@radix-ui/react-dialog";
+import type { AchievementId } from "../../../shared/types";
 import type { AchievementState } from "../../../shared/types";
 import { achievements, achievementsPerRow, type AchievementDefinition } from "../lib/achievements";
 import { useI18n } from "../lib/i18n";
 import { Icon } from "./ui/icon";
+import { KitButton } from "./ui/kit-button";
 
 interface AchievementsWallProps {
   achievementState: AchievementState;
@@ -11,6 +14,7 @@ interface AchievementsWallProps {
 export function AchievementsWall({ achievementState }: AchievementsWallProps): ReactElement {
   const { t } = useI18n();
   const [query, setQuery] = useState("");
+  const [selectedAchievementId, setSelectedAchievementId] = useState<AchievementId | null>(null);
 
   const visibleAchievements = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -36,6 +40,12 @@ export function AchievementsWall({ achievementState }: AchievementsWallProps): R
     }
     return rows;
   }, [visibleAchievements]);
+
+  const selectedAchievement = useMemo(
+    () => achievements.find((achievement) => achievement.id === selectedAchievementId) ?? null,
+    [selectedAchievementId]
+  );
+  const selectedAchievedAt = selectedAchievement ? achievementState.unlockedAt[selectedAchievement.id] : undefined;
 
   function handleQueryChange(event: ChangeEvent<HTMLInputElement>): void {
     setQuery(event.target.value);
@@ -64,16 +74,37 @@ export function AchievementsWall({ achievementState }: AchievementsWallProps): R
               <div className="achievements-row" key={row.map((achievement) => achievement.id).join("-") || rowIndex}>
                 {row.map((achievement) => {
                   const achievedAt = achievementState.unlockedAt[achievement.id];
-                  return (
-                    <article className={`achievement-card ${achievedAt ? "is-unlocked" : "is-locked"}`} key={achievement.id}>
+                  const title = t(achievement.titleKey);
+                  const cardContent = (
+                    <>
                       <div className="achievement-image-frame">
                         <img src={achievedAt ? achievement.image : achievement.lockedImage} alt="" />
                       </div>
                       <div className="achievement-card-content">
-                        <h2>{t(achievement.titleKey)}</h2>
+                        <h2>{title}</h2>
                         <p>{achievedAt ?? t(achievement.conditionKey)}</p>
                       </div>
-                    </article>
+                    </>
+                  );
+
+                  if (!achievedAt) {
+                    return (
+                      <article className="achievement-card is-locked" key={achievement.id}>
+                        {cardContent}
+                      </article>
+                    );
+                  }
+
+                  return (
+                    <button
+                      className="achievement-card is-unlocked"
+                      key={achievement.id}
+                      type="button"
+                      aria-label={t("achievements.openDetail", { name: title })}
+                      onClick={() => setSelectedAchievementId(achievement.id)}
+                    >
+                      {cardContent}
+                    </button>
                   );
                 })}
                 {row.length < achievementsPerRow
@@ -88,6 +119,39 @@ export function AchievementsWall({ achievementState }: AchievementsWallProps): R
       ) : (
         <p className="achievements-empty">{t("achievements.empty")}</p>
       )}
+      <RadixDialog.Root
+        open={Boolean(selectedAchievement && selectedAchievedAt)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedAchievementId(null);
+        }}
+      >
+        <RadixDialog.Portal>
+          <RadixDialog.Overlay className="achievement-dialog-overlay" />
+          {selectedAchievement && selectedAchievedAt ? (
+            <RadixDialog.Content className="achievement-dialog-content">
+              <div className="achievement-dialog-image-frame">
+                <img src={selectedAchievement.backgroundImage} alt="" />
+              </div>
+              <div className="achievement-dialog-copy">
+                <div className="achievement-dialog-info">
+                  <RadixDialog.Title className="achievement-dialog-title">
+                    {t(selectedAchievement.titleKey)}
+                  </RadixDialog.Title>
+                  <RadixDialog.Description className="achievement-dialog-condition">
+                    {t(selectedAchievement.conditionKey)}
+                  </RadixDialog.Description>
+                </div>
+                <p className="achievement-dialog-date">{selectedAchievedAt}</p>
+              </div>
+              <RadixDialog.Close asChild>
+                <KitButton className="achievement-dialog-button" filled size="lg">
+                  {t("achievements.dialog.keepGoing")}
+                </KitButton>
+              </RadixDialog.Close>
+            </RadixDialog.Content>
+          ) : null}
+        </RadixDialog.Portal>
+      </RadixDialog.Root>
     </section>
   );
 }

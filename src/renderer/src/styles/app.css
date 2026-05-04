@@ -1179,8 +1179,21 @@ button {
   align-self: flex-start;
   overflow: hidden;
   padding: 12px;
+  color: inherit;
+  border: 0;
   border-radius: var(--radius-md);
   background: var(--color-background-sunken);
+  font: inherit;
+  text-align: center;
+}
+
+button.achievement-card.is-unlocked {
+  cursor: pointer;
+}
+
+button.achievement-card.is-unlocked:focus-visible {
+  outline: var(--border-weight-sm) solid var(--color-border-focus);
+  outline-offset: 2px;
 }
 
 .achievement-card-spacer {
@@ -1245,6 +1258,143 @@ button {
 
 .achievements-empty {
   padding: 0 20px 20px;
+}
+
+.achievement-dialog-overlay {
+  position: fixed;
+  z-index: 70;
+  inset: 0;
+  background: transparent;
+}
+
+.achievement-dialog-content {
+  position: fixed;
+  z-index: 80;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  width: 400px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 80px);
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  overflow: auto;
+  padding: 24px;
+  color: var(--color-text);
+  border: var(--border-weight-sm) solid var(--color-border-divider);
+  border-radius: var(--radius-xl);
+  background: var(--color-background-raised);
+  box-shadow: var(--shadow-popover);
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  transform-style: preserve-3d;
+}
+
+.achievement-dialog-content[data-state="open"] {
+  animation: achievement-card-pop 680ms cubic-bezier(0.18, 0.86, 0.22, 1) both;
+}
+
+.achievement-dialog-content:focus-visible {
+  outline: none;
+}
+
+.achievement-dialog-image-frame {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+  overflow: hidden;
+  place-items: center;
+  border: var(--border-weight-lg) solid var(--color-inverted);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 6px var(--color-shadow-sm);
+}
+
+.achievement-dialog-image-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.achievement-dialog-copy,
+.achievement-dialog-info {
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.achievement-dialog-copy {
+  gap: 12px;
+}
+
+.achievement-dialog-info {
+  gap: 4px;
+}
+
+.achievement-dialog-title,
+.achievement-dialog-condition,
+.achievement-dialog-date {
+  width: 100%;
+  margin: 0;
+}
+
+.achievement-dialog-title {
+  color: var(--color-text);
+  font-size: var(--text-16);
+  line-height: var(--line-16);
+  font-weight: 500;
+}
+
+.achievement-dialog-condition {
+  color: var(--color-text-subtle);
+  font-size: var(--text-14);
+  line-height: var(--line-14);
+  font-weight: 400;
+}
+
+.achievement-dialog-date {
+  color: var(--color-text-subtlest);
+  font-size: var(--text-14);
+  line-height: var(--line-14);
+  font-weight: 400;
+}
+
+.achievement-dialog-button {
+  width: 100%;
+  flex: 0 0 auto;
+}
+
+@keyframes achievement-card-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) perspective(920px) rotateY(-540deg) scale(0.18);
+  }
+
+  56% {
+    opacity: 1;
+    transform: translate(-50%, -50%) perspective(920px) rotateY(22deg) scale(1.04);
+  }
+
+  78% {
+    transform: translate(-50%, -50%) perspective(920px) rotateY(-8deg) scale(0.99);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) perspective(920px) rotateY(0deg) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .achievement-dialog-content[data-state="open"] {
+    animation: none;
+  }
 }
 
 .react-flow {
