@@ -4,6 +4,17 @@ export type RunMode = "flow" | "node";
 export type EffortLevel = "low" | "medium" | "high" | "xhigh";
 export type LanguagePreference = "zh" | "en";
 export type ThemePreference = "system" | "light" | "dark";
+export const achievementIds = [
+  "oneshot",
+  "gunslinger",
+  "three-musketeers",
+  "codex-rookie",
+  "double-take",
+  "idea-overlord",
+  "master-builder",
+  "gone-in-a-flash"
+] as const;
+export type AchievementId = (typeof achievementIds)[number];
 
 export interface AppSettings {
   themePreference: ThemePreference;
@@ -16,6 +27,18 @@ export const defaultAppSettings = {
   language: "zh",
   translucentBackground: true
 } satisfies AppSettings;
+
+export interface AchievementState {
+  unlockedAt: Partial<Record<AchievementId, string>>;
+  projectPaths: string[];
+  usageDates: string[];
+}
+
+export const defaultAchievementState = {
+  unlockedAt: {},
+  projectPaths: [],
+  usageDates: []
+} satisfies AchievementState;
 
 export interface ScatterProjectInfo {
   name: string;

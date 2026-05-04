@@ -1,7 +1,7 @@
 {
   "version": 1,
   "projectName": "Scatter",
-  "updatedAt": "2026-05-03T12:33:59.106Z",
+  "updatedAt": "2026-05-04T02:30:24.499Z",
   "viewport": {
     "x": 0,
     "y": 0,
@@ -33,8 +33,8 @@
       "id": "KzNdA6K6SojlxIlrX1kWF",
       "type": "task",
       "position": {
-        "x": 956.614500321129,
-        "y": 598.8338828249049
+        "x": 907.0431161351263,
+        "y": 456.7928012150127
       },
       "measured": {
         "width": 400,

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type {
+  AchievementState,
   AppSettings,
   Attachment,
   AttachmentInput,
@@ -11,6 +12,7 @@ import type {
 } from "../shared/types";
 
 const api = {
+  getAchievements: (): Promise<AchievementState> => ipcRenderer.invoke("scatter:get-achievements"),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke("scatter:get-settings"),
   saveSettings: (settings: AppSettings): Promise<AppSettings> => ipcRenderer.invoke("scatter:save-settings", settings),
   getRecentProjects: (): Promise<ScatterProjectInfo[]> => ipcRenderer.invoke("scatter:get-recent-projects"),

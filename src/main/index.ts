@@ -12,6 +12,7 @@ import {
   saveClipboardImage,
   saveDocument
 } from "./projectStore";
+import { getAchievements, recordUsageToday, unlockAchievement } from "./achievementStore";
 import { runInCodex } from "./codexBridge";
 import { getSettings, saveSettings } from "./settingsStore";
 import type { AppSettings, AttachmentInput, CodexRunInput, ScatterDocument } from "../shared/types";
@@ -169,10 +170,12 @@ function createWindow(showWhenReady = false, iconPath = appIconPath()): BrowserW
   return mainWindow;
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   const iconPath = appIconPath();
   setAppIcon(iconPath);
+  await recordUsageToday().catch(() => undefined);
   registerAssetProtocol();
+  ipcMain.handle("scatter:get-achievements", () => getAchievements());
   ipcMain.handle("scatter:get-settings", () => getSettings());
   ipcMain.handle("scatter:save-settings", (_event, settings: AppSettings) => saveSettings(settings));
   ipcMain.handle("scatter:get-recent-projects", () => getRecentProjects());
@@ -189,7 +192,11 @@ app.whenReady().then(() => {
   ipcMain.handle("scatter:save-clipboard-image", (_event, projectPath: string) => saveClipboardImage(projectPath));
   ipcMain.handle("scatter:save-clipboard-files", (_event, projectPath: string) => saveClipboardFiles(projectPath));
   ipcMain.handle("scatter:show-in-folder", (_event, targetPath: string) => shell.showItemInFolder(targetPath));
-  ipcMain.handle("scatter:run-codex", (_event, input: CodexRunInput) => runInCodex(input));
+  ipcMain.handle("scatter:run-codex", async (_event, input: CodexRunInput) => {
+    const result = await runInCodex(input);
+    await unlockAchievement("codex-rookie").catch(() => undefined);
+    return result;
+  });
 
   const splashWindow = createSplashWindow(iconPath);
   const mainWindow = createWindow(false, iconPath);

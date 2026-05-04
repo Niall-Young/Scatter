@@ -10,6 +10,7 @@ import type {
   ScatterDocument,
   ScatterProjectInfo
 } from "../shared/types";
+import { recordProjectOpened, unlockAchievement } from "./achievementStore";
 import { tMain } from "./i18n";
 import { getSettings } from "./settingsStore";
 
@@ -112,9 +113,14 @@ async function addRecentProject(project: ScatterProjectInfo): Promise<void> {
 }
 
 export async function removeRecentProject(projectPath: string): Promise<ScatterProjectInfo[]> {
-  const next = (await getRecentProjects()).filter((item) => item.path !== projectPath);
+  const current = await getRecentProjects();
+  const removed = current.some((item) => item.path === projectPath);
+  const next = current.filter((item) => item.path !== projectPath);
   await mkdir(app.getPath("userData"), { recursive: true });
   await writeFile(appDataPath("recent-projects.json"), JSON.stringify(next, null, 2), "utf8");
+  if (removed) {
+    await unlockAchievement("gone-in-a-flash").catch(() => undefined);
+  }
   return next;
 }
 
@@ -151,6 +157,7 @@ export async function openKnownProject(projectPath: string): Promise<OpenProject
     updatedAt: now()
   };
   await addRecentProject(project);
+  await recordProjectOpened(projectPath).catch(() => undefined);
   return { project, document };
 }
 

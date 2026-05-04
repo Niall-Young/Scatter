@@ -19,6 +19,7 @@ import {
 } from "@xyflow/react";
 import { nanoid } from "nanoid";
 import type {
+  AchievementState,
   Attachment,
   AttachmentInput,
   LanguagePreference,
@@ -31,11 +32,14 @@ import type {
   ScatterProjectInfo,
   ThemePreference
 } from "../../shared/types";
-import { defaultAppSettings } from "../../shared/types";
+import { defaultAchievementState, defaultAppSettings } from "../../shared/types";
 import { buildMarkdown } from "./lib/markdown";
 import { I18nProvider } from "./lib/i18n";
 import { shortcuts } from "./lib/shortcuts";
 import { createTranslator } from "./lib/translations";
+import { achievements, type AchievementDefinition } from "./lib/achievements";
+import { AchievementToast } from "./components/AchievementToast";
+import { AchievementsWall } from "./components/AchievementsWall";
 import { Sidebar } from "./components/Sidebar";
 import { ScatterEdge as ScatterFlowEdge } from "./components/ScatterEdge";
 import { SearchDialog } from "./components/SearchDialog";
@@ -69,6 +73,7 @@ const zoomOptions = [
 ];
 
 type FlowPosition = { x: number; y: number };
+type AppView = "canvas" | "achievements";
 type CanvasTool = "select" | "pan";
 interface OptionDuplicateDrag {
   sourceId: string;
@@ -289,6 +294,14 @@ function App(): ReactElement {
   } = useScatterStore();
 
   const [recentProjects, setRecentProjects] = useState<ScatterProjectInfo[]>([]);
+  const [achievementState, setAchievementState] = useState<AchievementState>(() => ({
+    ...defaultAchievementState,
+    unlockedAt: {},
+    projectPaths: [],
+    usageDates: []
+  }));
+  const [achievementToastQueue, setAchievementToastQueue] = useState<AchievementDefinition[]>([]);
+  const [activeView, setActiveView] = useState<AppView>("canvas");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -315,6 +328,8 @@ function App(): ReactElement {
   const nodeDragHistoryOpenRef = useRef(false);
   const optionDuplicateDragRef = useRef<OptionDuplicateDrag | null>(null);
   const optionDuplicateSettledSourceRef = useRef<string | null>(null);
+  const achievementStateRef = useRef<AchievementState>(achievementState);
+  const achievementsLoadedRef = useRef(false);
   const settingsSnapshotRef = useRef<SettingsValues | null>(null);
   const settingsSaveRequestedRef = useRef(false);
   const [taskRunModeOverride, setTaskRunModeOverride] = useState<{ nodeId: string; mode: RunMode } | null>(null);
@@ -327,6 +342,8 @@ function App(): ReactElement {
 
   const selectedRunModeOverride = taskRunModeOverride && taskRunModeOverride.nodeId === selectedNode?.id ? taskRunModeOverride.mode : null;
   const selectedRunMode = selectedRunModeOverride ?? selectedNode?.data.runMode ?? "flow";
+  const isCanvasView = activeView === "canvas";
+  const isAchievementsView = activeView === "achievements";
   const panModeActive = canvasTool === "pan" || spacePanActive;
   const zoomPercent = Math.round(viewportZoom * 100);
   const markdownResult = useMemo(
@@ -354,6 +371,33 @@ function App(): ReactElement {
     setRecentProjects(await window.scatter.getRecentProjects());
   }, []);
 
+  const refreshAchievements = useCallback(async (options: { notify?: boolean } = {}) => {
+    const previousState = achievementStateRef.current;
+    const nextState = await window.scatter.getAchievements();
+    achievementStateRef.current = nextState;
+    setAchievementState(nextState);
+
+    if (options.notify && achievementsLoadedRef.current) {
+      const newlyUnlocked = achievements.filter((achievement) => !previousState.unlockedAt[achievement.id] && nextState.unlockedAt[achievement.id]);
+      if (newlyUnlocked.length) {
+        setAchievementToastQueue((queue) => [...queue, ...newlyUnlocked]);
+      }
+    }
+
+    achievementsLoadedRef.current = true;
+    return nextState;
+  }, []);
+
+  const closeAchievementToast = useCallback((): void => {
+    setAchievementToastQueue((queue) => queue.slice(1));
+  }, []);
+
+  useEffect(() => {
+    if (!achievementToastQueue[0]) return undefined;
+    const timer = window.setTimeout(closeAchievementToast, 4800);
+    return () => window.clearTimeout(timer);
+  }, [achievementToastQueue, closeAchievementToast]);
+
   const removeRecentProject = useCallback(
     async (projectPath: string) => {
       const removesCurrentProject = project?.path === projectPath;
@@ -367,6 +411,7 @@ function App(): ReactElement {
 
       try {
         setRecentProjects(await window.scatter.removeRecentProject(projectPath));
+        await refreshAchievements({ notify: true });
         if (removesCurrentProject) {
           clearProject();
           setCanvasRevealActive(false);
@@ -379,7 +424,7 @@ function App(): ReactElement {
         setStatus(error instanceof Error ? error.message : t("status.removeRecentFailed"));
       }
     },
-    [clearProject, project?.path, setStatus, t]
+    [clearProject, project?.path, refreshAchievements, setStatus, t]
   );
 
   const applySettingsValues = useCallback((values: SettingsValues): void => {
@@ -458,8 +503,9 @@ function App(): ReactElement {
   useEffect(() => {
     if (!isSplashWindow) {
       void refreshRecentProjects();
+      void refreshAchievements();
     }
-  }, [isSplashWindow, refreshRecentProjects]);
+  }, [isSplashWindow, refreshAchievements, refreshRecentProjects]);
 
   useEffect(() => {
     if (!window.matchMedia) return;
@@ -493,7 +539,7 @@ function App(): ReactElement {
     }
 
     function handleKeyDown(event: KeyboardEvent): void {
-      if (settingsOpen || searchOpen || !isSpaceKey(event) || isEditableTarget(event.target)) return;
+      if (!isCanvasView || settingsOpen || searchOpen || !isSpaceKey(event) || isEditableTarget(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setSpacePanActive(true);
@@ -518,24 +564,35 @@ function App(): ReactElement {
       window.removeEventListener("keyup", handleKeyUp, { capture: true });
       window.removeEventListener("blur", handleBlur);
     };
-  }, [searchOpen, settingsOpen]);
+  }, [isCanvasView, searchOpen, settingsOpen]);
 
   const hydrateProject = useCallback(
     async (result: OpenProjectResult | null) => {
       if (!result) return;
       const shouldRevealCanvas = useScatterStore.getState().project === null;
       loadedProjectPathRef.current = result.project.path;
+      setActiveView("canvas");
       setCanvasRevealActive(shouldRevealCanvas);
       setProjectDocument(result.project, result.document);
       setStatus(t("app.openedProject", { name: result.project.name }));
-      await refreshRecentProjects();
+      await Promise.all([refreshRecentProjects(), refreshAchievements({ notify: true })]);
     },
-    [refreshRecentProjects, setProjectDocument, setStatus, t]
+    [refreshAchievements, refreshRecentProjects, setProjectDocument, setStatus, t]
   );
 
   const createProject = useCallback(() => {
     void window.scatter.createProject().then(hydrateProject);
   }, [hydrateProject]);
+
+  const openAchievements = useCallback((): void => {
+    setActiveView("achievements");
+    setDrawer(null);
+  }, [setDrawer]);
+
+  const viewAchievementToast = useCallback((): void => {
+    openAchievements();
+    closeAchievementToast();
+  }, [closeAchievementToast, openAchievements]);
 
   const saveDocumentSnapshot = useCallback(async (targetProject: ScatterProjectInfo, document: ScatterDocument) => {
     if (loadedProjectPathRef.current !== targetProject.path) return;
@@ -584,7 +641,7 @@ function App(): ReactElement {
   }, []);
 
   const addNode = useCallback(() => {
-    if (!project) return;
+    if (!project || !isCanvasView) return;
     const position = selectedNode
       ? findOpenPositionToRight(
           {
@@ -597,7 +654,7 @@ function App(): ReactElement {
     const node = emptyNode(position, nodes, t);
     commitCanvasChange({ nodes: [...nodes.map((item) => ({ ...item, selected: false })), { ...node, selected: true }] });
     setSelectedNodeId(node.id);
-  }, [commitCanvasChange, getVisibleCanvasCenterPosition, nodes, project, selectedNode, setSelectedNodeId, t]);
+  }, [commitCanvasChange, getVisibleCanvasCenterPosition, isCanvasView, nodes, project, selectedNode, setSelectedNodeId, t]);
 
   const addFilesToNode = useCallback(
     async (nodeId: string, files: FileList | File[], source: "upload" | "drop" | "paste") => {
@@ -643,12 +700,13 @@ function App(): ReactElement {
           planMode: result.planMode
         });
         markNodeRun(nodeId, mode);
+        await refreshAchievements({ notify: true });
         setStatus(t("status.sentCodex"));
       } catch (error) {
         setStatus(error instanceof Error ? error.message : t("status.sendCodexFailed"));
       }
     },
-    [edges, language, markNodeRun, nodes, project, setStatus, t]
+    [edges, language, markNodeRun, nodes, project, refreshAchievements, setStatus, t]
   );
 
   const duplicateNode = useCallback(
@@ -884,7 +942,7 @@ function App(): ReactElement {
 
   const handlePaste = useCallback(
     async (event: React.ClipboardEvent) => {
-      if (!project || settingsOpen || searchOpen) return;
+      if (!project || !isCanvasView || settingsOpen || searchOpen) return;
 
       const files = event.clipboardData.files;
       if (files.length > 0) {
@@ -956,6 +1014,7 @@ function App(): ReactElement {
       cancelHistoryTransaction,
       commitHistoryTransaction,
       ensureTargetNode,
+      isCanvasView,
       project,
       searchOpen,
       settingsOpen,
@@ -967,7 +1026,7 @@ function App(): ReactElement {
 
   const handleDrop = useCallback(
     async (event: React.DragEvent) => {
-      if (!project || settingsOpen || searchOpen || event.dataTransfer.files.length === 0) return;
+      if (!project || !isCanvasView || settingsOpen || searchOpen || event.dataTransfer.files.length === 0) return;
       event.preventDefault();
       beginHistoryTransaction();
       const target = ensureTargetNode();
@@ -984,28 +1043,30 @@ function App(): ReactElement {
         setStatus(error instanceof Error ? error.message : t("status.addAttachmentFailed"));
       }
     },
-    [addFilesToNode, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, project, searchOpen, settingsOpen, setStatus, t]
+    [addFilesToNode, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, isCanvasView, project, searchOpen, settingsOpen, setStatus, t]
   );
 
   const runActiveNode = useCallback(() => {
+    if (!isCanvasView) return;
     const target = selectedNode || nodes[0];
     if (!target) return;
     void runNode(target.id, selectedNode ? selectedRunMode : target.data.runMode || "flow");
-  }, [nodes, runNode, selectedNode, selectedRunMode]);
+  }, [isCanvasView, nodes, runNode, selectedNode, selectedRunMode]);
 
   const fitCanvas = useCallback(() => {
+    if (!isCanvasView) return;
     flowInstanceRef.current?.fitView({ padding: 0.24 });
-  }, []);
+  }, [isCanvasView]);
 
   const toggleTasksDrawer = useCallback(() => {
-    if (!project) return;
+    if (!project || !isCanvasView) return;
     setDrawer(drawer === "tasks" ? null : "tasks");
-  }, [drawer, project, setDrawer]);
+  }, [drawer, isCanvasView, project, setDrawer]);
 
   const toggleMarkdownDrawer = useCallback(() => {
-    if (!project) return;
+    if (!project || !isCanvasView) return;
     setDrawer(drawer === "markdown" ? null : "markdown");
-  }, [drawer, project, setDrawer]);
+  }, [drawer, isCanvasView, project, setDrawer]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
@@ -1017,16 +1078,6 @@ function App(): ReactElement {
       const hasPrimaryModifier = event.metaKey || event.ctrlKey;
 
       if (hasPrimaryModifier && !event.altKey) {
-        if (key === "z") {
-          event.preventDefault();
-          if (event.shiftKey) {
-            redo();
-          } else {
-            undo();
-          }
-          return;
-        }
-
         if (!event.shiftKey && key === "f") {
           event.preventDefault();
           setSearchOpen(true);
@@ -1048,6 +1099,18 @@ function App(): ReactElement {
         if (!event.shiftKey && key === "b") {
           event.preventDefault();
           setSidebarCollapsed((collapsed) => !collapsed);
+          return;
+        }
+
+        if (!isCanvasView) return;
+
+        if (key === "z") {
+          event.preventDefault();
+          if (event.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
           return;
         }
 
@@ -1082,6 +1145,8 @@ function App(): ReactElement {
         }
       }
 
+      if (!isCanvasView) return;
+
       if (project && !hasPrimaryModifier && !event.altKey && !event.shiftKey) {
         if (key === "v") {
           event.preventDefault();
@@ -1109,6 +1174,7 @@ function App(): ReactElement {
     createProject,
     deleteNode,
     fitCanvas,
+    isCanvasView,
     openSettingsDialog,
     project,
     redo,
@@ -1210,9 +1276,11 @@ function App(): ReactElement {
       >
       <Sidebar
         recentProjects={recentProjects}
-        activePath={project?.path}
+        activePath={isCanvasView ? project?.path : undefined}
+        achievementsActive={isAchievementsView}
         collapsed={sidebarCollapsed}
         onCreateProject={createProject}
+        onOpenAchievements={openAchievements}
         onOpenRecent={(projectPath) => window.scatter.openKnownProject(projectPath).then(hydrateProject)}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={openSettingsDialog}
@@ -1220,10 +1288,10 @@ function App(): ReactElement {
       />
       <section className="workspace">
         <Topbar
-          activeDrawer={drawer}
-          canRun={nodes.length > 0}
+          activeDrawer={isCanvasView ? drawer : null}
+          canRun={isCanvasView && nodes.length > 0}
           sidebarCollapsed={sidebarCollapsed}
-          disabled={!project}
+          disabled={!project || !isCanvasView}
           onCreateProject={createProject}
           onRunActive={runActiveNode}
           onOpenTasks={toggleTasksDrawer}
@@ -1231,10 +1299,10 @@ function App(): ReactElement {
           onToggleSidebar={() => setSidebarCollapsed((collapsed) => !collapsed)}
         />
         <div
-          className={`workspace-content ${drawer ? "has-right-sidebar" : ""} ${drawer === "markdown" ? "has-markdown-sidebar" : ""} ${isResizingMarkdownPanel ? "is-resizing-markdown" : ""}`}
+          className={`workspace-content ${isCanvasView && drawer ? "has-right-sidebar" : ""} ${isCanvasView && drawer === "markdown" ? "has-markdown-sidebar" : ""} ${isCanvasView && isResizingMarkdownPanel ? "is-resizing-markdown" : ""}`}
           ref={workspaceContentRef}
           style={
-            drawer === "markdown"
+            isCanvasView && drawer === "markdown"
               ? ({
                   "--markdown-panel-ratio": markdownPanelRatio,
                   "--canvas-panel-ratio": 1 - markdownPanelRatio
@@ -1242,7 +1310,9 @@ function App(): ReactElement {
               : undefined
           }
         >
-          {project ? (
+          {isAchievementsView ? (
+            <AchievementsWall achievementState={achievementState} />
+          ) : project ? (
             <>
               <div
                 className={`canvas-shell ${canvasRevealActive ? "is-revealing" : ""}`}
@@ -1417,6 +1487,9 @@ function App(): ReactElement {
         onOpenChange={setSearchOpen}
         onOpenProject={(projectPath) => window.scatter.openKnownProject(projectPath).then(hydrateProject)}
       />
+      {achievementToastQueue[0] ? (
+        <AchievementToast achievement={achievementToastQueue[0]} onClose={closeAchievementToast} onView={viewAchievementToast} />
+      ) : null}
       </main>
     </I18nProvider>
   );

@@ -9,8 +9,10 @@ import { ProjectItem } from "./ui/project-item";
 interface SidebarProps {
   recentProjects: ScatterProjectInfo[];
   activePath?: string;
+  achievementsActive?: boolean;
   collapsed?: boolean;
   onCreateProject: () => void;
+  onOpenAchievements: () => void;
   onOpenRecent: (projectPath: string) => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
@@ -20,8 +22,10 @@ interface SidebarProps {
 export function Sidebar({
   recentProjects,
   activePath,
+  achievementsActive = false,
   collapsed = false,
   onCreateProject,
+  onOpenAchievements,
   onOpenRecent,
   onOpenSearch,
   onOpenSettings,
@@ -41,6 +45,15 @@ export function Sidebar({
           <Icon name="search" size={16} />
           <span className="sidebar-action-label">{t("sidebar.search")}</span>
           <span className="kit-shortcut sidebar-action-shortcut">{shortcuts.openSearch}</span>
+        </button>
+        <button
+          className={`sidebar-action-item ${achievementsActive ? "is-selected" : ""}`}
+          type="button"
+          aria-pressed={achievementsActive}
+          onClick={onOpenAchievements}
+        >
+          <Icon name="lightbulb-glow" size={16} />
+          <span className="sidebar-action-label">{t("sidebar.achievements")}</span>
         </button>
         <button className="sidebar-action-item" type="button" onClick={onOpenSettings}>
           <Icon name="settings-cog" size={16} />

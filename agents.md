@@ -1,6 +1,6 @@
 # Scatter Agent 说明
 
-更新时间：2026-05-03
+更新时间：2026-05-04
 
 这份文件给后续参与 Scatter 的 AI agent 使用，记录项目概况、命令、目录、约定和容易踩坑的位置。修改架构、命令或协作规则时要同步更新。
 
@@ -49,11 +49,15 @@ npm run dist:mac
 - `src/renderer/src/App.tsx`：renderer 顶层逻辑。
 - `src/renderer/src/store/scatterStore.ts`：Zustand 状态和 mutator。
 - `src/renderer/src/lib/markdown.ts`：执行范围遍历和 Markdown 生成。
+- `src/renderer/src/lib/achievements.ts`：成就静态资源、名称、条件和展示顺序。
 - `src/renderer/src/lib/translations.ts`：renderer 中英文词典。
 - `src/renderer/src/lib/i18n.tsx`：renderer i18n context。
 - `src/renderer/src/components`：业务组件。
+- `src/renderer/src/components/AchievementsWall.tsx`：成就墙视图。
+- `src/renderer/src/components/AchievementToast.tsx`：成就达成 toast。
 - `src/renderer/src/components/SearchDialog.tsx`：居中项目搜索弹窗。
 - `src/renderer/src/components/SettingsDialog.tsx`：居中设置弹窗。
+- `src/renderer/src/assets/achievements`：成就墙静态图片资源。
 - `src/renderer/src/components/ui`：共享 UI primitive。
 - `src/renderer/src/styles/app.css`：设计 token 和样式。
 
@@ -126,6 +130,7 @@ Codex 启动行为变化：
 - 复用 `Button`、`Switch`、`Icon`。
 - 保持界面紧凑、工具型。
 - 左侧栏“搜索”按钮打开居中搜索项目弹窗，只搜索左侧最近项目列表；不要恢复成系统文件夹选择器。
+- 左侧栏“成就”按钮打开工作区内成就墙，成就墙不依赖当前项目，不写入项目文件；已达成成就展示无背景资源和达成日期，未达成成就展示 fade 资源和达成条件；选择或创建项目时切回画布。成就刚达成时弹出专用 toast，图片使用 default 带背景资源，主文案是“{成就名}已达成！”，副文案是达成条件，“查看”按钮打开成就墙。
 - 左侧栏“设置”按钮打开居中设置弹窗，不要恢复成直接切换主题。
 - 验证启动页、无项目空状态、画布、任务节点、右侧侧边栏和深色模式。
 - 顶部栏左侧的侧栏按钮使用 `IconButton`；展开态显示侧栏收起按钮，收起态显示侧栏展开按钮和添加项目按钮。侧栏切换快捷键是 `⌘B`，任务清单是 `⌘⇧T`，Markdown 预览是 `⌘⇧M`，运行当前任务是 `⌘↩`。
@@ -149,6 +154,7 @@ Codex 启动行为变化：
 - 最近项目列表项悬停或聚焦时显示“移除项目”图标按钮，只移除最近项目记录，不删除用户项目文件夹，也不能修改项目目录里的 `.scatter/scatter.json` 节点内容。
 - 左侧栏“添加项目”或 `⌘⇧N` 打开添加项目流程。
 - 左侧栏“搜索”或 `⌘F` 打开居中项目搜索弹窗，输入框默认聚焦，按项目名称或路径过滤最近项目；点击结果关闭弹窗并打开对应项目。
+- 左侧栏“成就”打开成就墙视图，侧边栏中成就入口显示选中态；成就墙展示标题、搜索框和成就卡片，右侧任务清单和 Markdown 预览按钮在该视图中禁用。每个成就资源保留无背景、带背景和 fade 三态；英文名以资源文件名前缀为准。成就状态保存在 Electron `userData/achievements.json`，项目数量成就按成功进入画布的唯一项目路径计数，连续使用成就按本机本地日期记录，首次移出项目和首次成功联动 Codex 在对应操作成功后解锁；成就一旦达成不回退。本次操作新解锁的成就会弹出 toast，初始加载已有成就不补弹。
 - 左侧栏“设置”或 `⌘,` 打开居中弹窗，包含主题、语言、半透明背景、恢复默认和保存设置；设置项切换后实时预览，未保存关闭时回退到打开弹窗前的设置；保存后的设置写入 Electron `userData/settings.json`，不写入项目文件。
 - 左侧栏可以通过顶部栏按钮收起；收起状态只保存在 renderer 内存中，不写入项目文件。收起后工作区铺满窗口宽度并保留左右 12px 边距，顶部栏左侧保留侧栏按钮和添加项目按钮，展开/收起需要有短过渡动画。
 - 顶部栏右侧的任务清单和 Markdown 预览按钮打开工作区右侧侧边栏，不使用浮层。右侧侧边栏展开和收起需要有短过渡动画。任务清单侧栏固定 288px 并复用 `TaskItem`；清单只展示没有入边且有出边的 `flow` 流程起始节点任务，以及没有任何连线的 `node` 落单节点任务。被连接的子节点不要单独显示；落单节点有正文时显示可发送给 Codex，没有正文时显示暂未编辑。Markdown 预览侧栏和画布并排占用剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮；对应顶部栏按钮要显示选中态。
