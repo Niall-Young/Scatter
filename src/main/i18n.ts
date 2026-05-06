@@ -4,12 +4,14 @@ const mainText = {
   zh: {
     chooseProjectCreateTitle: "选择或创建 Scatter 项目文件夹",
     chooseProjectOpenTitle: "打开 Scatter 项目文件夹",
+    chooseAttachmentsTitle: "选择要添加到 Scatter 的附件",
     codexAccessibilityError:
       "Codex 已打开新线程，但 Scatter 没有权限自动粘贴并发送。请在 macOS“系统设置 > 隐私与安全性 > 辅助功能”里允许当前终端或 Scatter 控制 Codex。原始错误：{detail}"
   },
   en: {
     chooseProjectCreateTitle: "Choose or create a Scatter project folder",
     chooseProjectOpenTitle: "Open a Scatter project folder",
+    chooseAttachmentsTitle: "Choose attachments for Scatter",
     codexAccessibilityError:
       "Codex opened a new thread, but Scatter does not have permission to paste and submit automatically. Allow the current terminal or Scatter to control Codex in macOS System Settings > Privacy & Security > Accessibility. Original error: {detail}"
   }

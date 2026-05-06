@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  chooseAttachments,
   chooseProject,
   getRecentProjects,
   openKnownProject,
@@ -183,6 +184,7 @@ app.whenReady().then(async () => {
   ipcMain.handle("scatter:create-project", () => chooseProject("create"));
   ipcMain.handle("scatter:open-project", () => chooseProject("open"));
   ipcMain.handle("scatter:open-known-project", (_event, projectPath: string) => openKnownProject(projectPath));
+  ipcMain.handle("scatter:choose-attachments", (_event, projectPath: string) => chooseAttachments(projectPath));
   ipcMain.handle("scatter:save-document", (_event, projectPath: string, document: ScatterDocument) =>
     saveDocument(projectPath, document)
   );

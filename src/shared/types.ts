@@ -64,6 +64,7 @@ export interface AttachmentInput {
   mime?: string;
   source: AttachmentSource;
   path?: string;
+  bookmark?: string;
   bytes?: ArrayBuffer;
 }
 

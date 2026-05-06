@@ -11,6 +11,7 @@ import {
   type EdgeChange,
   type OnSelectionChangeParams,
   type OnNodeDrag,
+  PanOnScrollMode,
   type ReactFlowInstance,
   applyNodeChanges,
   applyEdgeChanges,
@@ -320,6 +321,7 @@ function App(): ReactElement {
   const isSplashWindow = new URLSearchParams(window.location.search).get("window") === "splash";
   const saveTimerRef = useRef<number | null>(null);
   const loadedProjectPathRef = useRef<string | null>(null);
+  const skipNextAutosavePathRef = useRef<string | null>(null);
   const latestMouseRef = useRef({ x: 360, y: 240 });
   const flowInstanceRef = useRef<ReactFlowInstance | null>(null);
   const canvasShellRef = useRef<HTMLDivElement | null>(null);
@@ -571,6 +573,7 @@ function App(): ReactElement {
       if (!result) return;
       const shouldRevealCanvas = useScatterStore.getState().project === null;
       loadedProjectPathRef.current = result.project.path;
+      skipNextAutosavePathRef.current = result.project.path;
       setActiveView("canvas");
       setCanvasRevealActive(shouldRevealCanvas);
       setProjectDocument(result.project, result.document);
@@ -612,6 +615,10 @@ function App(): ReactElement {
   useEffect(() => {
     if (!project || loadedProjectPathRef.current !== project.path) return;
     if (nodeDragActiveRef.current) return;
+    if (skipNextAutosavePathRef.current === project.path) {
+      skipNextAutosavePathRef.current = null;
+      return;
+    }
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     const document = toDocument(project.name, nodes, edges);
     const targetProject = project;
@@ -655,6 +662,22 @@ function App(): ReactElement {
     commitCanvasChange({ nodes: [...nodes.map((item) => ({ ...item, selected: false })), { ...node, selected: true }] });
     setSelectedNodeId(node.id);
   }, [commitCanvasChange, getVisibleCanvasCenterPosition, isCanvasView, nodes, project, selectedNode, setSelectedNodeId, t]);
+
+  const chooseFilesForNode = useCallback(
+    async (nodeId: string) => {
+      if (!project) return;
+
+      try {
+        const saved = await window.scatter.chooseAttachments(project.path);
+        if (!saved.length) return;
+        appendAttachments(nodeId, saved);
+        setStatus(t("status.attachmentsAdded", { count: saved.length }));
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : t("status.addAttachmentFailed"));
+      }
+    },
+    [appendAttachments, project, setStatus, t]
+  );
 
   const addFilesToNode = useCallback(
     async (nodeId: string, files: FileList | File[], source: "upload" | "drop" | "paste") => {
@@ -748,13 +771,14 @@ function App(): ReactElement {
       updateNodeData,
       beginNodeEdit: beginHistoryTransaction,
       commitNodeEdit: commitHistoryTransaction,
+      chooseFilesForNode,
       addFilesToNode,
       removeAttachment,
       duplicateNode,
       deleteNode,
       runNode
     });
-  }, [addFilesToNode, beginHistoryTransaction, commitHistoryTransaction, deleteNode, duplicateNode, removeAttachment, runNode, updateNodeData]);
+  }, [addFilesToNode, beginHistoryTransaction, chooseFilesForNode, commitHistoryTransaction, deleteNode, duplicateNode, removeAttachment, runNode, updateNodeData]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<ScatterNode>[]) => {
@@ -1346,8 +1370,10 @@ function App(): ReactElement {
                   selectionOnDrag={false}
                   panOnDrag={panModeActive}
                   panActivationKeyCode="Space"
+                  panOnScroll
+                  panOnScrollMode={PanOnScrollMode.Free}
                   zoomOnScroll={false}
-                  zoomOnPinch={false}
+                  zoomOnPinch
                   zoomOnDoubleClick={false}
                   zoomActivationKeyCode="Meta"
                   nodesDraggable={!panModeActive}

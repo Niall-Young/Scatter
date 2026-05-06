@@ -25,6 +25,7 @@ interface RuntimeActions {
   updateNodeData: (nodeId: string, patch: Partial<ScatterNodeData>) => void;
   beginNodeEdit: () => void;
   commitNodeEdit: () => void;
+  chooseFilesForNode: (nodeId: string) => Promise<void>;
   addFilesToNode: (nodeId: string, files: FileList | File[], source: "upload" | "drop" | "paste") => Promise<void>;
   removeAttachment: (nodeId: string, attachmentId: string) => void;
   duplicateNode: (nodeId: string) => void;
@@ -41,21 +42,11 @@ export function setTaskNodeActions(actions: RuntimeActions): void {
 function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement {
   const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const pointerStartedSelectedRef = useRef(false);
   const [effortMenuOpen, setEffortMenuOpen] = useState(false);
   const [editingField, setEditingField] = useState<EditableField | null>(null);
-
-  const onUpload = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      if (!event.target.files?.length) return;
-      await taskNodeActions?.addFilesToNode(id, event.target.files, "upload");
-      event.target.value = "";
-    },
-    [id]
-  );
 
   const runMode = data.runMode || "flow";
   const effort = data.effort || "xhigh";
@@ -229,9 +220,8 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
         ) : null}
 
         <div className="task-node-footer">
-          <input ref={fileInputRef} className="task-node-file-input" type="file" multiple onChange={onUpload} />
           <TooltipAnchor className="nodrag" label={t("task.addAttachment")}>
-            <IconButton className="nodrag" filled={false} icon="plus-lg" size="lg" aria-label={t("task.addAttachment")} onClick={() => fileInputRef.current?.click()} />
+            <IconButton className="nodrag" filled={false} icon="plus-lg" size="lg" aria-label={t("task.addAttachment")} onClick={() => taskNodeActions?.chooseFilesForNode(id)} />
           </TooltipAnchor>
           <div className="task-node-settings">
             <div className="task-node-effort-picker">

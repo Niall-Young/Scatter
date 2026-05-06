@@ -149,6 +149,26 @@ export async function chooseProject(kind: "create" | "open"): Promise<OpenProjec
   return openKnownProject(result.filePaths[0]);
 }
 
+export async function chooseAttachments(projectPath: string): Promise<Attachment[]> {
+  const settings = await getSettings();
+  const result = await dialog.showOpenDialog({
+    title: tMain(settings.language, "chooseAttachmentsTitle"),
+    properties: ["openFile", "multiSelections"],
+    securityScopedBookmarks: true
+  });
+
+  if (result.canceled || result.filePaths.length === 0) return [];
+  return saveAttachments(
+    projectPath,
+    result.filePaths.map((filePath, index) => ({
+      name: path.basename(filePath),
+      path: filePath,
+      bookmark: result.bookmarks?.[index],
+      source: "upload"
+    }))
+  );
+}
+
 export async function openKnownProject(projectPath: string): Promise<OpenProjectResult> {
   const document = await ensureProject(projectPath);
   const project: ScatterProjectInfo = {
@@ -204,6 +224,20 @@ function kindFor(input: AttachmentInput): "image" | "file" {
   return [".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"].includes(ext) ? "image" : "file";
 }
 
+async function withSecurityScopedAccess<T>(bookmark: string | undefined, action: () => Promise<T>): Promise<T> {
+  let stopAccessing: (() => void) | undefined;
+  if (bookmark && process.platform === "darwin" && process.mas) {
+    const releaseSecurityScopedAccess = app.startAccessingSecurityScopedResource(bookmark);
+    stopAccessing = () => releaseSecurityScopedAccess();
+  }
+
+  try {
+    return await action();
+  } finally {
+    stopAccessing?.();
+  }
+}
+
 async function saveAttachment(projectPath: string, input: AttachmentInput): Promise<Attachment> {
   await mkdir(assetsPath(projectPath), { recursive: true });
   const id = randomUUID();
@@ -213,7 +247,8 @@ async function saveAttachment(projectPath: string, input: AttachmentInput): Prom
   const storedPath = path.join(assetsPath(projectPath), fileName);
 
   if (input.path) {
-    await copyFile(input.path, storedPath);
+    const sourcePath = input.path;
+    await withSecurityScopedAccess(input.bookmark, () => copyFile(sourcePath, storedPath));
   } else if (input.bytes) {
     await writeFile(storedPath, Buffer.from(input.bytes));
   } else {

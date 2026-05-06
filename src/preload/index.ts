@@ -22,6 +22,7 @@ const api = {
   openProject: (): Promise<OpenProjectResult | null> => ipcRenderer.invoke("scatter:open-project"),
   openKnownProject: (projectPath: string): Promise<OpenProjectResult> =>
     ipcRenderer.invoke("scatter:open-known-project", projectPath),
+  chooseAttachments: (projectPath: string): Promise<Attachment[]> => ipcRenderer.invoke("scatter:choose-attachments", projectPath),
   saveDocument: (projectPath: string, document: ScatterDocument): Promise<ScatterDocument> =>
     ipcRenderer.invoke("scatter:save-document", projectPath, document),
   saveAttachments: (projectPath: string, inputs: AttachmentInput[]): Promise<Attachment[]> =>
