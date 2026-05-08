@@ -124,7 +124,7 @@ AI 运行器启动行为变化：
 
 - 从 `src/main/assistantBridge.ts`、`src/main/codexBridge.ts` 和 `src/main/claudeBridge.ts` 开始。
 - 除非明确替换，否则保留 Codex desktop proxy 和 UI fallback 两条路径。
-- Claude CLI 优先复用 Terminal.app 里已经运行 `claude` 的 tab，或 Scatter 标记为 `Scatter Claude CLI`、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab；没有现有 tab 时通过 `claude` CLI 启动新会话，启动过程需要用 in-flight promise 去重，`xhigh` 映射到 `--effort max`，计划模式映射到 `--permission-mode plan`。
+- Claude CLI 优先复用 Terminal.app 里已经运行 `claude` 的 tab，或 Scatter 标记为 `Scatter Claude CLI`、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab；没有现有 tab 时通过 `claude` CLI 启动新会话，启动过程需要用 in-flight promise 去重，新会话必须先 `do script` 再激活 Terminal，避免额外空 shell 窗口；`xhigh` 映射到 `--effort max`，计划模式映射到 `--permission-mode plan`。
 - 不提供 Claude 桌面客户端运行器。Claude Desktop 没有类似 Codex `app-server proxy` 的本地接口，`claude://code/new?folder=...` 只能打开 Code tab，不能稳定提交完整 Markdown，且 UI 自动化会被“Trust this folder / 信任此文件夹”等弹窗打断。
 - 注意 Codex UI fallback 依赖 macOS 辅助功能权限；Claude CLI 路径通过 Terminal.app 打开临时脚本提交初始 prompt。
 - 保持 `cwd` 指向当前项目文件夹。
@@ -175,7 +175,7 @@ AI 运行器启动行为变化：
 - 撤销附件操作只移除节点引用，不删除 `.scatter/assets` 中的文件。
 - 运行当前运行器时，计划模式和推理强度只读取本次运行起始节点的配置。`flow` 模式的下游节点只提供上下文，下游节点自己的计划模式和推理强度不影响本次运行。
 - 使用 Codex 运行且起始节点开启计划模式时，必须使用 Codex UI fallback 触发真实 `⇧Tab` 计划模式，不要用 prompt 前缀模拟计划模式。该路径下附件通过 Markdown 中的 `.scatter/assets` 路径提供给 Codex 访问。
-- 使用 Claude CLI 运行时，必须优先复用 Terminal.app 里已有的 `claude` tab，或 Scatter 标记为 `Scatter Claude CLI`、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab；没有现有 tab 才启动 `claude`，启动中要去重避免多个 Terminal tab，计划模式使用 `--permission-mode plan`，Markdown 通过现有 tab 粘贴或新会话临时 prompt 文件传入，附件通过 Markdown 路径提供。
+- 使用 Claude CLI 运行时，必须优先复用 Terminal.app 里已有的 `claude` tab，或 Scatter 标记为 `Scatter Claude CLI`、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab；没有现有 tab 才启动 `claude`，启动中要去重且不要在 `do script` 前激活 Terminal，避免多个 Terminal tab 或额外空 shell 窗口，计划模式使用 `--permission-mode plan`，Markdown 通过现有 tab 粘贴或新会话临时 prompt 文件传入，附件通过 Markdown 路径提供。
 - `flow` 模式包含下游节点；`node` 模式只包含当前节点。
 - Markdown 导出会复制当前生成结果到剪贴板。
 

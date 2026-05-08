@@ -246,7 +246,7 @@ desktop proxy 当前使用：
 Claude CLI 路径使用本机 `claude` CLI 和 Terminal.app：
 
 - 如果 Terminal 中已经有进程列表包含 `claude` 的 tab，或存在 Scatter 标记过、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab，Scatter 会优先激活该 tab，并把本次 Markdown 作为下一条消息发送，避免重复打开 Claude CLI 会话。
-- Scatter 新建 Claude CLI 会话时会给 Terminal tab 设置自定义标题 `Scatter Claude CLI`，并在启动过程中复用同一个 in-flight promise，避免连续触发时重复打开多个 Terminal tab。
+- Scatter 新建 Claude CLI 会话时会给 Terminal tab 设置自定义标题 `Scatter Claude CLI`，并在启动过程中复用同一个 in-flight promise；新会话通过 `do script` 创建后再激活 Terminal，避免 Terminal 先生成空 shell 窗口。
 - 优先使用 `CLAUDE_CODE_PATH`，否则查找常见安装路径，最后通过登录 shell 执行 `command -v claude`。
 - 在 Terminal 中 `cd` 到当前项目路径后启动 `claude`；如果当前 Claude CLI 支持 `--name`，会设置会话名为 Scatter 生成的任务名。
 - `data.effort` 会传给 `--effort`，其中 Scatter 的 `xhigh` 映射为 Claude CLI 的 `max`。

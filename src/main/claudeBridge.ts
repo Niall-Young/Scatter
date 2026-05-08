@@ -109,10 +109,10 @@ async function supportsSessionName(command: string): Promise<boolean> {
 async function runTerminalScript(command: string): Promise<void> {
   const script = [
     "tell application \"Terminal\"",
-    "  activate",
     `  set scatterClaudeTab to do script ${appleScriptString(command)}`,
     `  set custom title of scatterClaudeTab to ${appleScriptString(SCATTER_CLAUDE_TERMINAL_TITLE)}`,
     "  set title displays custom title of scatterClaudeTab to true",
+    "  activate",
     "end tell"
   ].join("\n");
 

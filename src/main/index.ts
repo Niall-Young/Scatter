@@ -31,6 +31,10 @@ protocol.registerSchemesAsPrivileged([
   }
 ]);
 
+if (process.env.SCATTER_USER_DATA_DIR) {
+  app.setPath("userData", process.env.SCATTER_USER_DATA_DIR);
+}
+
 function isScatterAssetPath(filePath: string): boolean {
   return filePath.includes(`${path.sep}.scatter${path.sep}assets${path.sep}`);
 }
