@@ -4,6 +4,7 @@ export type RunMode = "flow" | "node";
 export type EffortLevel = "low" | "medium" | "high" | "xhigh";
 export type LanguagePreference = "zh" | "en";
 export type ThemePreference = "system" | "light" | "dark";
+export type AssistantProvider = "codex" | "claude-code";
 export const achievementIds = [
   "oneshot",
   "gunslinger",
@@ -20,12 +21,14 @@ export interface AppSettings {
   themePreference: ThemePreference;
   language: LanguagePreference;
   translucentBackground: boolean;
+  assistantProvider: AssistantProvider;
 }
 
 export const defaultAppSettings = {
   themePreference: "system",
   language: "zh",
-  translucentBackground: true
+  translucentBackground: true,
+  assistantProvider: "codex"
 } satisfies AppSettings;
 
 export interface AchievementState {
@@ -109,7 +112,8 @@ export interface OpenProjectResult {
   document: ScatterDocument;
 }
 
-export interface CodexRunInput {
+export interface AssistantRunInput {
+  provider: AssistantProvider;
   projectPath: string;
   threadName: string;
   markdown: string;
@@ -118,8 +122,12 @@ export interface CodexRunInput {
   planMode: boolean;
 }
 
-export interface CodexRunResult {
+export interface AssistantRunResult {
+  provider: AssistantProvider;
   threadId: string;
   turnId?: string;
   cwd: string;
 }
+
+export type CodexRunInput = Omit<AssistantRunInput, "provider">;
+export type CodexRunResult = Omit<AssistantRunResult, "provider">;

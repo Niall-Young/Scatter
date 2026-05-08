@@ -1,12 +1,12 @@
 # Scatter Agent 说明
 
-更新时间：2026-05-04
+更新时间：2026-05-08
 
 这份文件给后续参与 Scatter 的 AI agent 使用，记录项目概况、命令、目录、约定和容易踩坑的位置。修改架构、命令或协作规则时要同步更新。
 
 ## 项目概况
 
-Scatter 是一个本地 Electron 桌面应用，用任务画布把节点、附件和连线关系转换成结构化 Codex 提示词。项目数据保存在用户选择的本地文件夹 `.scatter` 目录中，附件会复制到 `.scatter/assets`，运行时把生成的 Markdown 和图片输入发送给 Codex Desktop。
+Scatter 是一个本地 Electron 桌面应用，用任务画布把节点、附件和连线关系转换成结构化提示词。项目数据保存在用户选择的本地文件夹 `.scatter` 目录中，附件会复制到 `.scatter/assets`，运行时把生成的 Markdown 发送给当前设置里的 AI 运行器。当前运行器支持 Codex Desktop 和 Claude Code。
 
 主要技术栈：
 
@@ -42,7 +42,9 @@ npm run dist:mac
 - `src/shared/types.ts`：main、preload、renderer 共享的数据契约。
 - `src/main/index.ts`：Electron 启动和 IPC 注册。
 - `src/main/projectStore.ts`：项目文档、最近项目、附件持久化。
+- `src/main/assistantBridge.ts`：AI 运行器分发。
 - `src/main/codexBridge.ts`：Codex Desktop 集成。
+- `src/main/claudeBridge.ts`：Claude Code CLI / Terminal 集成。
 - `src/main/settingsStore.ts`：应用级设置持久化。
 - `src/main/i18n.ts`：main process 用户可见文案。
 - `src/preload/index.ts`：类型化的 `window.scatter` API。
@@ -82,7 +84,7 @@ npm run dist:mac
 - 更新 `src/main/projectStore.ts` 的默认值和 hydrate 逻辑。
 - 更新 `src/renderer/src/store/scatterStore.ts`。
 - 更新 `src/renderer/src/App.tsx` 中的保存和加载使用方式。
-- 如果影响 Codex 上下文，更新 `src/renderer/src/lib/markdown.ts`。
+- 如果影响运行器上下文，更新 `src/renderer/src/lib/markdown.ts`。
 - 同步更新 `design.md` 和 `agents.md`。
 
 新增 IPC 能力：
@@ -95,7 +97,7 @@ npm run dist:mac
 
 应用设置变化：
 
-- 更新 `src/shared/types.ts` 的 `AppSettings`、`LanguagePreference` 或 `ThemePreference`。
+- 更新 `src/shared/types.ts` 的 `AppSettings`、`AssistantProvider`、`LanguagePreference` 或 `ThemePreference`。
 - 更新 `src/main/settingsStore.ts` 的默认值和 hydrate 逻辑。
 - 更新 `src/main/index.ts` 和 `src/preload/index.ts` 的设置 IPC。
 - 更新 `src/renderer/src/lib/translations.ts`、`src/renderer/src/lib/i18n.tsx` 和相关组件。
@@ -106,7 +108,7 @@ Markdown 或执行范围变化：
 - 从 `src/renderer/src/lib/markdown.ts` 开始。
 - 同时验证 `flow` 和 `node` 两种模式。
 - 检查环形 flow 的行为。
-- 确保附件路径对 Codex 仍然明确可用。
+- 确保附件路径对当前运行器仍然明确可用。
 - Markdown 模板文案属于语言切换范围；修改模板标题、说明、警告或状态时要同时覆盖中英文。
 
 画布撤销/重做变化：
@@ -117,11 +119,12 @@ Markdown 或执行范围变化：
 - 不要把 `selected`、抽屉、主题、视口、保存状态或 `data.lastRunAt` 做成撤销历史。
 - 左下角撤销/重做按钮必须由 `canUndo`、`canRedo` 控制禁用态；快捷键保持 `⌘Z` 和 `⌘⇧Z`。新增或调整全局快捷键时同步更新 `src/renderer/src/lib/shortcuts.ts`、相关 tooltip 和 `design.md`。快捷键展示必须使用 macOS 符号：`⌘`、`⇧`、`⌥`、`⌃`，不要写成英文按键名称。
 
-Codex 启动行为变化：
+AI 运行器启动行为变化：
 
-- 从 `src/main/codexBridge.ts` 开始。
-- 除非明确替换，否则保留 desktop proxy 和 UI fallback 两条路径。
-- 注意 AppleScript fallback 依赖 macOS 辅助功能权限。
+- 从 `src/main/assistantBridge.ts`、`src/main/codexBridge.ts` 和 `src/main/claudeBridge.ts` 开始。
+- 除非明确替换，否则保留 Codex desktop proxy 和 UI fallback 两条路径。
+- Claude Code 优先复用 Terminal.app 里已经运行 `claude` 的 tab；没有现有 tab 时通过 `claude` CLI 启动新会话，`xhigh` 映射到 `--effort max`，计划模式映射到 `--permission-mode plan`。
+- 注意 Codex UI fallback 依赖 macOS 辅助功能权限；Claude Code 路径通过 Terminal.app 打开临时脚本提交初始 prompt。
 - 保持 `cwd` 指向当前项目文件夹。
 
 视觉改动：
@@ -155,9 +158,9 @@ Codex 启动行为变化：
 - 左侧栏“添加项目”或 `⌘⇧N` 打开添加项目流程。
 - 左侧栏“搜索”或 `⌘F` 打开居中项目搜索弹窗，输入框默认聚焦，按项目名称或路径过滤最近项目；点击结果关闭弹窗并打开对应项目。
 - 左侧栏“成就”打开成就墙视图，侧边栏中成就入口显示选中态；成就墙展示标题、搜索框和成就卡片，右侧任务清单和 Markdown 预览按钮在该视图中禁用。每个成就资源保留无背景、带背景和 fade 三态；英文名以资源文件名前缀为准。已达成成就可点击打开居中详情弹窗，未达成成就不可点击。成就状态保存在 Electron `userData/achievements.json`，项目数量成就按成功进入画布的唯一项目路径计数，连续使用成就按本机本地日期记录，首次移出项目和首次成功联动 Codex 在对应操作成功后解锁；成就一旦达成不回退。本次操作新解锁的成就会弹出 toast，初始加载已有成就不补弹。
-- 左侧栏“设置”或 `⌘,` 打开居中弹窗，包含主题、语言、半透明背景、恢复默认和保存设置；设置项切换后实时预览，未保存关闭时回退到打开弹窗前的设置；保存后的设置写入 Electron `userData/settings.json`，不写入项目文件。
+- 左侧栏“设置”或 `⌘,` 打开居中弹窗，包含主题、语言、默认运行器、半透明背景、恢复默认和保存设置；设置项切换后实时预览，未保存关闭时回退到打开弹窗前的设置；保存后的设置写入 Electron `userData/settings.json`，不写入项目文件。
 - 左侧栏可以通过顶部栏按钮收起；收起状态只保存在 renderer 内存中，不写入项目文件。收起后工作区铺满窗口宽度并保留左右 12px 边距，顶部栏左侧保留侧栏按钮和添加项目按钮，展开/收起需要有短过渡动画。
-- 顶部栏右侧的任务清单和 Markdown 预览按钮打开工作区右侧侧边栏，不使用浮层。右侧侧边栏展开和收起需要有短过渡动画。任务清单侧栏固定 288px 并复用 `TaskItem`；清单只展示没有入边且有出边的 `flow` 流程起始节点任务，以及没有任何连线的 `node` 落单节点任务。被连接的子节点不要单独显示；落单节点有正文时显示可发送给 Codex，没有正文时显示暂未编辑。Markdown 预览侧栏和画布并排占用剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮；对应顶部栏按钮要显示选中态。
+- 顶部栏右侧的任务清单和 Markdown 预览按钮打开工作区右侧侧边栏，不使用浮层。右侧侧边栏展开和收起需要有短过渡动画。任务清单侧栏固定 288px 并复用 `TaskItem`；清单只展示没有入边且有出边的 `flow` 流程起始节点任务，以及没有任何连线的 `node` 落单节点任务。被连接的子节点不要单独显示；落单节点有正文时显示可发送给运行器，没有正文时显示暂未编辑。Markdown 预览侧栏和画布并排占用剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮；对应顶部栏按钮要显示选中态。
 - Markdown 预览侧栏和画布之间需要有可拖拽分隔条；悬停和拖拽时使用横向 resize 光标，比例状态只保存在 renderer 内存中。
 - 节点和连线变化后会短防抖自动保存；打开或切换项目后的首次 hydrate 不做无变化自动保存。
 - 附件先复制到项目目录，再挂到节点上；节点上传按钮必须走 main process 的附件选择 IPC，让系统文件选择和复制发生在同一次主进程流程里，避免 macOS 重复请求同一文件权限。拖拽和粘贴附件继续走 renderer 收集输入后交给 main process 保存的路径。
@@ -166,8 +169,9 @@ Codex 启动行为变化：
 - 画布缩放使用触控板捏合、`⌘` + 滚轮或缩放比例下拉菜单；画布平移使用触控板双指滑动、手形工具或空格键临时进入；框选使用 `⇧` + 拖拽，复制节点可按住 `⌥` 拖拽任意节点。画布快捷键包括 `⌘N` 新建节点、`⌘0` 定位画布、`V` 选择工具、`H` 手形工具。
 - 画布撤销/重做历史不写入项目文件；打开或切换项目时清空。
 - 撤销附件操作只移除节点引用，不删除 `.scatter/assets` 中的文件。
-- 运行 Codex 时，计划模式和推理强度只读取本次运行起始节点的配置。`flow` 模式的下游节点只提供上下文，下游节点自己的计划模式和推理强度不影响本次运行。
-- 起始节点开启计划模式时，必须使用 Codex UI fallback 触发真实 `⇧Tab` 计划模式，不要用 prompt 前缀模拟计划模式。该路径下附件通过 Markdown 中的 `.scatter/assets` 路径提供给 Codex 访问。
+- 运行当前运行器时，计划模式和推理强度只读取本次运行起始节点的配置。`flow` 模式的下游节点只提供上下文，下游节点自己的计划模式和推理强度不影响本次运行。
+- 使用 Codex 运行且起始节点开启计划模式时，必须使用 Codex UI fallback 触发真实 `⇧Tab` 计划模式，不要用 prompt 前缀模拟计划模式。该路径下附件通过 Markdown 中的 `.scatter/assets` 路径提供给 Codex 访问。
+- 使用 Claude Code 运行时，必须优先复用 Terminal.app 里已有的 `claude` tab；没有现有 tab 才启动 `claude`，计划模式使用 `--permission-mode plan`，Markdown 通过现有 tab 粘贴或新会话临时 prompt 文件传入，附件通过 Markdown 路径提供。
 - `flow` 模式包含下游节点；`node` 模式只包含当前节点。
 - Markdown 导出会复制当前生成结果到剪贴板。
 
@@ -176,7 +180,7 @@ Codex 启动行为变化：
 - 文档 schema 里有 viewport，但 React Flow 视口还没实际持久化。
 - 还没有附件移除和 asset 清理。
 - 暂无针对项目持久化、Markdown 遍历或撤销/重做历史的自动化测试。
-- Codex UI fallback 依赖 macOS Accessibility 权限。
+- Codex UI fallback 依赖 macOS Accessibility 权限；Claude Code 路径依赖 macOS 允许 Scatter 打开 Terminal。
 - 当前是桌面应用最小尺寸设计，不是响应式移动网页。
 
 ## 文档维护规则

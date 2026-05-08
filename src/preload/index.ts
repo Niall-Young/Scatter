@@ -2,10 +2,10 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   AchievementState,
   AppSettings,
+  AssistantRunInput,
+  AssistantRunResult,
   Attachment,
   AttachmentInput,
-  CodexRunInput,
-  CodexRunResult,
   OpenProjectResult,
   ScatterDocument,
   ScatterProjectInfo
@@ -32,7 +32,7 @@ const api = {
   saveClipboardFiles: (projectPath: string): Promise<Attachment[]> =>
     ipcRenderer.invoke("scatter:save-clipboard-files", projectPath),
   showInFolder: (targetPath: string): Promise<void> => ipcRenderer.invoke("scatter:show-in-folder", targetPath),
-  runCodex: (input: CodexRunInput): Promise<CodexRunResult> => ipcRenderer.invoke("scatter:run-codex", input)
+  runAssistant: (input: AssistantRunInput): Promise<AssistantRunResult> => ipcRenderer.invoke("scatter:run-assistant", input)
 };
 
 contextBridge.exposeInMainWorld("scatter", api);

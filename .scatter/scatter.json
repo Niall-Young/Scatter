@@ -1,7 +1,7 @@
 {
   "version": 1,
   "projectName": "Scatter",
-  "updatedAt": "2026-05-06T09:11:02.450Z",
+  "updatedAt": "2026-05-08T06:57:59.980Z",
   "viewport": {
     "x": 0,
     "y": 0,
@@ -19,6 +19,7 @@
         "width": 400,
         "height": 227
       },
+      "dragging": false,
       "data": {
         "title": "新建任务 1",
         "body": "",
@@ -27,15 +28,14 @@
         "runMode": "flow",
         "attachments": []
       },
-      "selected": false,
-      "dragging": false
+      "selected": false
     },
     {
       "id": "KzNdA6K6SojlxIlrX1kWF",
       "type": "task",
       "position": {
-        "x": 907.0431161351263,
-        "y": 456.7928012150127
+        "x": 921.3624636541311,
+        "y": 453.2129643352614
       },
       "measured": {
         "width": 400,

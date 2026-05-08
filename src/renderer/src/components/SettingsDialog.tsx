@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 import * as RadixDialog from "@radix-ui/react-dialog";
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
-import { defaultAppSettings, type AppSettings, type LanguagePreference, type ThemePreference } from "../../../shared/types";
+import { defaultAppSettings, type AppSettings, type AssistantProvider, type LanguagePreference, type ThemePreference } from "../../../shared/types";
 import { useI18n } from "../lib/i18n";
 import { DropdownMenu, DropdownMenuItem } from "./ui/dropdown-menu";
 import { IconButton } from "./ui/icon-button";
@@ -63,6 +63,7 @@ function SettingsSelect<TValue extends string>({
 }
 
 export function SettingsDialog({
+  assistantProvider,
   language,
   onOpenChange,
   onPreview,
@@ -75,6 +76,7 @@ export function SettingsDialog({
   const [draftThemePreference, setDraftThemePreference] = useState(themePreference);
   const [draftLanguage, setDraftLanguage] = useState(language);
   const [draftTranslucentBackground, setDraftTranslucentBackground] = useState(translucentBackground);
+  const [draftAssistantProvider, setDraftAssistantProvider] = useState(assistantProvider);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const themeOptions: Array<SettingsOption<ThemePreference>> = [
@@ -86,21 +88,27 @@ export function SettingsDialog({
     { label: t("settings.language.zh"), value: "zh" },
     { label: t("settings.language.en"), value: "en" }
   ];
+  const assistantProviderOptions: Array<SettingsOption<AssistantProvider>> = [
+    { label: t("settings.assistantProvider.codex"), value: "codex" },
+    { label: t("settings.assistantProvider.claudeCode"), value: "claude-code" }
+  ];
 
   useEffect(() => {
     setDraftThemePreference(themePreference);
     setDraftLanguage(language);
     setDraftTranslucentBackground(translucentBackground);
+    setDraftAssistantProvider(assistantProvider);
     setSaveError(null);
-  }, [language, themePreference, translucentBackground]);
+  }, [assistantProvider, language, themePreference, translucentBackground]);
 
   const saveValues = useMemo(
     () => ({
       themePreference: draftThemePreference,
       language: draftLanguage,
-      translucentBackground: draftTranslucentBackground
+      translucentBackground: draftTranslucentBackground,
+      assistantProvider: draftAssistantProvider
     }),
-    [draftLanguage, draftThemePreference, draftTranslucentBackground]
+    [draftAssistantProvider, draftLanguage, draftThemePreference, draftTranslucentBackground]
   );
 
   useEffect(() => {
@@ -143,6 +151,15 @@ export function SettingsDialog({
               <SettingsSelect ariaLabel={t("settings.language")} options={languageOptions} value={draftLanguage} onChange={setDraftLanguage} />
             </div>
             <div className="settings-dialog-row">
+              <span className="settings-dialog-row-label">{t("settings.assistantProvider")}</span>
+              <SettingsSelect
+                ariaLabel={t("settings.assistantProvider")}
+                options={assistantProviderOptions}
+                value={draftAssistantProvider}
+                onChange={setDraftAssistantProvider}
+              />
+            </div>
+            <div className="settings-dialog-row">
               <span className="settings-dialog-row-label">{t("settings.translucentBackground")}</span>
               <Switch checked={draftTranslucentBackground} onCheckedChange={setDraftTranslucentBackground} />
             </div>
@@ -159,6 +176,7 @@ export function SettingsDialog({
                   setDraftThemePreference(defaultAppSettings.themePreference);
                   setDraftLanguage(defaultAppSettings.language);
                   setDraftTranslucentBackground(defaultAppSettings.translucentBackground);
+                  setDraftAssistantProvider(defaultAppSettings.assistantProvider);
                 }}
               >
                 {t("settings.restoreDefaults")}

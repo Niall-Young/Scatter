@@ -21,6 +21,7 @@ import {
 import { nanoid } from "nanoid";
 import type {
   AchievementState,
+  AssistantProvider,
   Attachment,
   AttachmentInput,
   LanguagePreference,
@@ -310,6 +311,7 @@ function App(): ReactElement {
   const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() => systemColorTheme());
   const [language, setLanguage] = useState<LanguagePreference>(defaultAppSettings.language);
   const [translucentBackground, setTranslucentBackground] = useState<boolean>(defaultAppSettings.translucentBackground);
+  const [assistantProvider, setAssistantProvider] = useState<AssistantProvider>(defaultAppSettings.assistantProvider);
   const [markdownPanelRatio, setMarkdownPanelRatio] = useState(MARKDOWN_PANEL_DEFAULT_RATIO);
   const [isResizingMarkdownPanel, setIsResizingMarkdownPanel] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -433,6 +435,7 @@ function App(): ReactElement {
     setThemePreference(values.themePreference);
     setLanguage(values.language);
     setTranslucentBackground(values.translucentBackground);
+    setAssistantProvider(values.assistantProvider);
   }, []);
 
   useEffect(() => {
@@ -457,10 +460,11 @@ function App(): ReactElement {
     settingsSnapshotRef.current = {
       themePreference,
       language,
-      translucentBackground
+      translucentBackground,
+      assistantProvider
     };
     setSettingsOpen(true);
-  }, [language, themePreference, translucentBackground]);
+  }, [assistantProvider, language, themePreference, translucentBackground]);
 
   const handleSettingsOpenChange = useCallback(
     (open: boolean): void => {
@@ -712,9 +716,10 @@ function App(): ReactElement {
         return;
       }
       const threadName = mode === "flow" ? `Scatter Flow: ${node.data.title || t("drawer.unnamedTask")}` : `Scatter: ${node.data.title || t("drawer.unnamedTask")}`;
-      setStatus(t("status.sendingCodex"));
+      setStatus(t("status.sendingAssistant"));
       try {
-        await window.scatter.runCodex({
+        const runResult = await window.scatter.runAssistant({
+          provider: assistantProvider,
           projectPath: project.path,
           threadName,
           markdown: result.markdown,
@@ -723,13 +728,15 @@ function App(): ReactElement {
           planMode: result.planMode
         });
         markNodeRun(nodeId, mode);
-        await refreshAchievements({ notify: true });
-        setStatus(t("status.sentCodex"));
+        if (runResult.provider === "codex") {
+          await refreshAchievements({ notify: true });
+        }
+        setStatus(t("status.sentAssistant"));
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : t("status.sendCodexFailed"));
+        setStatus(error instanceof Error ? error.message : t("status.sendAssistantFailed"));
       }
     },
-    [edges, language, markNodeRun, nodes, project, refreshAchievements, setStatus, t]
+    [assistantProvider, edges, language, markNodeRun, nodes, project, refreshAchievements, setStatus, t]
   );
 
   const duplicateNode = useCallback(
@@ -1503,6 +1510,7 @@ function App(): ReactElement {
         themePreference={themePreference}
         language={language}
         translucentBackground={translucentBackground}
+        assistantProvider={assistantProvider}
         onOpenChange={handleSettingsOpenChange}
         onPreview={applySettingsValues}
         onSave={handleSaveSettings}

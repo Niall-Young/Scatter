@@ -2,7 +2,13 @@ import { app } from "electron";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { defaultAppSettings, type AppSettings, type LanguagePreference, type ThemePreference } from "../shared/types";
+import {
+  defaultAppSettings,
+  type AppSettings,
+  type AssistantProvider,
+  type LanguagePreference,
+  type ThemePreference
+} from "../shared/types";
 
 const settingsFileName = "settings.json";
 
@@ -18,6 +24,10 @@ function isLanguagePreference(value: unknown): value is LanguagePreference {
   return value === "zh" || value === "en";
 }
 
+function isAssistantProvider(value: unknown): value is AssistantProvider {
+  return value === "codex" || value === "claude-code";
+}
+
 function normalizeSettings(input: unknown): AppSettings {
   if (!input || typeof input !== "object") return defaultAppSettings;
   const candidate = input as Partial<AppSettings>;
@@ -28,7 +38,10 @@ function normalizeSettings(input: unknown): AppSettings {
     translucentBackground:
       typeof candidate.translucentBackground === "boolean"
         ? candidate.translucentBackground
-        : defaultAppSettings.translucentBackground
+        : defaultAppSettings.translucentBackground,
+    assistantProvider: isAssistantProvider(candidate.assistantProvider)
+      ? candidate.assistantProvider
+      : defaultAppSettings.assistantProvider
   };
 }
 

@@ -14,9 +14,9 @@ import {
   saveDocument
 } from "./projectStore";
 import { getAchievements, recordUsageToday, unlockAchievement } from "./achievementStore";
-import { runInCodex } from "./codexBridge";
+import { runAssistant } from "./assistantBridge";
 import { getSettings, saveSettings } from "./settingsStore";
-import type { AppSettings, AttachmentInput, CodexRunInput, ScatterDocument } from "../shared/types";
+import type { AppSettings, AssistantRunInput, AttachmentInput, ScatterDocument } from "../shared/types";
 
 const SPLASH_MIN_DURATION_MS = 5000;
 
@@ -194,9 +194,11 @@ app.whenReady().then(async () => {
   ipcMain.handle("scatter:save-clipboard-image", (_event, projectPath: string) => saveClipboardImage(projectPath));
   ipcMain.handle("scatter:save-clipboard-files", (_event, projectPath: string) => saveClipboardFiles(projectPath));
   ipcMain.handle("scatter:show-in-folder", (_event, targetPath: string) => shell.showItemInFolder(targetPath));
-  ipcMain.handle("scatter:run-codex", async (_event, input: CodexRunInput) => {
-    const result = await runInCodex(input);
-    await unlockAchievement("codex-rookie").catch(() => undefined);
+  ipcMain.handle("scatter:run-assistant", async (_event, input: AssistantRunInput) => {
+    const result = await runAssistant(input);
+    if (input.provider === "codex") {
+      await unlockAchievement("codex-rookie").catch(() => undefined);
+    }
     return result;
   });
 
