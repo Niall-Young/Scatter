@@ -64,6 +64,7 @@ function SettingsSelect<TValue extends string>({
 
 export function SettingsDialog({
   assistantProvider,
+  assistantProviderOnboardingCompleted,
   language,
   onOpenChange,
   onPreview,
@@ -106,9 +107,10 @@ export function SettingsDialog({
       themePreference: draftThemePreference,
       language: draftLanguage,
       translucentBackground: draftTranslucentBackground,
-      assistantProvider: draftAssistantProvider
+      assistantProvider: draftAssistantProvider,
+      assistantProviderOnboardingCompleted
     }),
-    [draftAssistantProvider, draftLanguage, draftThemePreference, draftTranslucentBackground]
+    [assistantProviderOnboardingCompleted, draftAssistantProvider, draftLanguage, draftThemePreference, draftTranslucentBackground]
   );
 
   useEffect(() => {

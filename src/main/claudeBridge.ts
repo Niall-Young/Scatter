@@ -9,6 +9,9 @@ import type { CodexRunInput, CodexRunResult, EffortLevel } from "../shared/types
 import { tMain } from "./i18n";
 import { getSettings } from "./settingsStore";
 
+const SCATTER_CLAUDE_TERMINAL_TITLE = "Scatter Claude CLI";
+let claudeLaunchInFlight: Promise<CodexRunResult> | null = null;
+
 function runCommand(command: string, args: string[], timeoutMs = 5000): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     const child = spawn(command, args, {
@@ -107,7 +110,9 @@ async function runTerminalScript(command: string): Promise<void> {
   const script = [
     "tell application \"Terminal\"",
     "  activate",
-    `  do script ${appleScriptString(command)}`,
+    `  set scatterClaudeTab to do script ${appleScriptString(command)}`,
+    `  set custom title of scatterClaudeTab to ${appleScriptString(SCATTER_CLAUDE_TERMINAL_TITLE)}`,
+    "  set title displays custom title of scatterClaudeTab to true",
     "end tell"
   ].join("\n");
 
@@ -122,7 +127,18 @@ async function focusExistingClaudeTerminal(): Promise<boolean> {
     "  repeat with terminalWindow in windows",
     "    repeat with terminalTab in tabs of terminalWindow",
     "      try",
-    "        if processes of terminalTab contains \"claude\" then",
+    "        set terminalProcesses to processes of terminalTab",
+    "        set terminalCustomTitle to custom title of terminalTab as text",
+    "        set terminalTitle to title of terminalTab as text",
+    "        set terminalContents to contents of terminalTab as text",
+    `        set isScatterClaudeTab to terminalCustomTitle contains ${appleScriptString(SCATTER_CLAUDE_TERMINAL_TITLE)} or terminalTitle contains ${appleScriptString(SCATTER_CLAUDE_TERMINAL_TITLE)}`,
+    "        set hasClaudeSurface to terminalTitle contains \"claude\" or terminalTitle contains \"Claude\" or terminalContents contains \"Claude Code\"",
+    "        set isClaudeProcess to terminalProcesses contains \"claude\"",
+    "        set isMarkedClaudeProcess to isScatterClaudeTab and (terminalProcesses contains \"node\" or terminalProcesses contains \"bun\")",
+    "        set isVisibleClaudeProcess to hasClaudeSurface and (terminalProcesses contains \"node\" or terminalProcesses contains \"bun\")",
+    "        if isClaudeProcess or isMarkedClaudeProcess or isVisibleClaudeProcess then",
+    `          set custom title of terminalTab to ${appleScriptString(SCATTER_CLAUDE_TERMINAL_TITLE)}`,
+    "          set title displays custom title of terminalTab to true",
     "          set selected tab of terminalWindow to terminalTab",
     "          set index of terminalWindow to 1",
     "          activate",
@@ -175,6 +191,18 @@ export async function runInClaudeCode(input: CodexRunInput): Promise<CodexRunRes
     };
   }
 
+  if (claudeLaunchInFlight) {
+    return claudeLaunchInFlight;
+  }
+
+  claudeLaunchInFlight = launchClaudeTerminal(input).finally(() => {
+    claudeLaunchInFlight = null;
+  });
+
+  return claudeLaunchInFlight;
+}
+
+async function launchClaudeTerminal(input: CodexRunInput): Promise<CodexRunResult> {
   const executable = await claudeExecutable();
   const runDir = await mkdtemp(path.join(tmpdir(), "scatter-claude-"));
   const promptPath = path.join(runDir, "prompt.md");

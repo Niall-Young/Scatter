@@ -57,6 +57,7 @@ npm run dist:mac
 - `src/renderer/src/components`：业务组件。
 - `src/renderer/src/components/AchievementsWall.tsx`：成就墙视图。
 - `src/renderer/src/components/AchievementToast.tsx`：成就达成 toast。
+- `src/renderer/src/components/AssistantProviderPreferenceDialog.tsx`：首次打开客户端时选择默认 AI 工具的偏好弹窗。
 - `src/renderer/src/components/SearchDialog.tsx`：居中项目搜索弹窗。
 - `src/renderer/src/components/SettingsDialog.tsx`：居中设置弹窗。
 - `src/renderer/src/assets/achievements`：成就墙静态图片资源。
@@ -123,7 +124,7 @@ AI 运行器启动行为变化：
 
 - 从 `src/main/assistantBridge.ts`、`src/main/codexBridge.ts` 和 `src/main/claudeBridge.ts` 开始。
 - 除非明确替换，否则保留 Codex desktop proxy 和 UI fallback 两条路径。
-- Claude CLI 优先复用 Terminal.app 里已经运行 `claude` 的 tab；没有现有 tab 时通过 `claude` CLI 启动新会话，`xhigh` 映射到 `--effort max`，计划模式映射到 `--permission-mode plan`。
+- Claude CLI 优先复用 Terminal.app 里已经运行 `claude` 的 tab，或 Scatter 标记为 `Scatter Claude CLI`、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab；没有现有 tab 时通过 `claude` CLI 启动新会话，启动过程需要用 in-flight promise 去重，`xhigh` 映射到 `--effort max`，计划模式映射到 `--permission-mode plan`。
 - 不提供 Claude 桌面客户端运行器。Claude Desktop 没有类似 Codex `app-server proxy` 的本地接口，`claude://code/new?folder=...` 只能打开 Code tab，不能稳定提交完整 Markdown，且 UI 自动化会被“Trust this folder / 信任此文件夹”等弹窗打断。
 - 注意 Codex UI fallback 依赖 macOS 辅助功能权限；Claude CLI 路径通过 Terminal.app 打开临时脚本提交初始 prompt。
 - 保持 `cwd` 指向当前项目文件夹。
@@ -136,6 +137,7 @@ AI 运行器启动行为变化：
 - 左侧栏“搜索”按钮打开居中搜索项目弹窗，只搜索左侧最近项目列表；不要恢复成系统文件夹选择器。
 - 左侧栏“成就”按钮打开工作区内成就墙，成就墙不依赖当前项目，不写入项目文件；已达成成就展示无背景资源和达成日期，点击后打开居中弹窗展示带背景资源、名称、达成条件、达成日期和“继续加油”按钮；未达成成就展示 fade 资源和达成条件；选择或创建项目时切回画布。成就刚达成时弹出专用 toast，图片使用 default 带背景资源，主文案是“{成就名}已达成！”，副文案是达成条件，“查看”按钮打开成就墙。
 - 左侧栏“设置”按钮打开居中设置弹窗，不要恢复成直接切换主题。
+- 首次打开客户端且尚未生成 `settings.json` 时，主窗口显示“偏好选择”弹窗，让用户选择 Codex 或 Claude；选择结果写入应用设置里的默认运行器。关闭弹窗会保留当前默认 Codex 并标记首启偏好已完成。已有旧设置文件缺少首启标记时视为已完成，不要打断升级用户。
 - 验证启动页、无项目空状态、画布、任务节点、右侧侧边栏和深色模式。
 - 顶部栏左侧的侧栏按钮使用 `IconButton`；展开态显示侧栏收起按钮，收起态显示侧栏展开按钮和添加项目按钮。侧栏切换快捷键是 `⌘B`，任务清单是 `⌘⇧T`，Markdown 预览是 `⌘⇧M`，运行当前任务是 `⌘↩`。
 
@@ -160,8 +162,9 @@ AI 运行器启动行为变化：
 - 左侧栏“搜索”或 `⌘F` 打开居中项目搜索弹窗，输入框默认聚焦，按项目名称或路径过滤最近项目；点击结果关闭弹窗并打开对应项目。
 - 左侧栏“成就”打开成就墙视图，侧边栏中成就入口显示选中态；成就墙展示标题、搜索框和成就卡片，右侧任务清单和 Markdown 预览按钮在该视图中禁用。每个成就资源保留无背景、带背景和 fade 三态；英文名以资源文件名前缀为准。已达成成就可点击打开居中详情弹窗，未达成成就不可点击。成就状态保存在 Electron `userData/achievements.json`，项目数量成就按成功进入画布的唯一项目路径计数，连续使用成就按本机本地日期记录，首次移出项目和首次成功联动 Codex 在对应操作成功后解锁；成就一旦达成不回退。本次操作新解锁的成就会弹出 toast，初始加载已有成就不补弹。
 - 左侧栏“设置”或 `⌘,` 打开居中弹窗，包含主题、语言、默认运行器、半透明背景、恢复默认和保存设置；设置项切换后实时预览，未保存关闭时回退到打开弹窗前的设置；保存后的设置写入 Electron `userData/settings.json`，不写入项目文件。
+- 第一次打开客户端且没有历史设置文件时，会弹出居中的“偏好选择”弹窗；点击 Codex 或 Claude 后点“选好了”会同步写入设置的默认运行器，并把首启偏好标记为已完成。关闭弹窗不改变默认 Codex，但同样不再重复弹出。
 - 左侧栏可以通过顶部栏按钮收起；收起状态只保存在 renderer 内存中，不写入项目文件。收起后工作区铺满窗口宽度并保留左右 12px 边距，顶部栏左侧保留侧栏按钮和添加项目按钮，展开/收起需要有短过渡动画。
-- 顶部栏右侧的任务清单和 Markdown 预览按钮打开工作区右侧侧边栏，不使用浮层。右侧侧边栏展开和收起需要有短过渡动画。任务清单侧栏固定 288px 并复用 `TaskItem`；清单只展示没有入边且有出边的 `flow` 流程起始节点任务，以及没有任何连线的 `node` 落单节点任务。被连接的子节点不要单独显示；落单节点有正文时显示可发送给运行器，没有正文时显示暂未编辑。Markdown 预览侧栏和画布并排占用剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮；对应顶部栏按钮要显示选中态。
+- 顶部栏右侧的任务清单和 Markdown 预览按钮打开工作区右侧侧边栏，不使用浮层。右侧侧边栏展开和收起需要有短过渡动画。顶部栏运行按钮和 Markdown 预览按钮必须依赖当前选中节点；没有选中节点时禁用。顶部栏运行始终发送选中节点及其下游子节点，Markdown 预览也只展示选中节点及其下游子节点，不在未选中时生成全画布 Markdown。任务清单侧栏固定 288px 并复用 `TaskItem`；清单只展示没有入边且有出边的 `flow` 流程起始节点任务，以及没有任何连线的 `node` 落单节点任务。被连接的子节点不要单独显示；落单节点有正文时显示可发送给运行器，没有正文时显示暂未编辑。Markdown 预览侧栏和画布并排占用剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮；对应顶部栏按钮要显示选中态。
 - Markdown 预览侧栏和画布之间需要有可拖拽分隔条；悬停和拖拽时使用横向 resize 光标，比例状态只保存在 renderer 内存中。
 - 节点和连线变化后会短防抖自动保存；打开或切换项目后的首次 hydrate 不做无变化自动保存。
 - 附件先复制到项目目录，再挂到节点上；节点上传按钮必须走 main process 的附件选择 IPC，让系统文件选择和复制发生在同一次主进程流程里，避免 macOS 重复请求同一文件权限。拖拽和粘贴附件继续走 renderer 收集输入后交给 main process 保存的路径。
@@ -172,7 +175,7 @@ AI 运行器启动行为变化：
 - 撤销附件操作只移除节点引用，不删除 `.scatter/assets` 中的文件。
 - 运行当前运行器时，计划模式和推理强度只读取本次运行起始节点的配置。`flow` 模式的下游节点只提供上下文，下游节点自己的计划模式和推理强度不影响本次运行。
 - 使用 Codex 运行且起始节点开启计划模式时，必须使用 Codex UI fallback 触发真实 `⇧Tab` 计划模式，不要用 prompt 前缀模拟计划模式。该路径下附件通过 Markdown 中的 `.scatter/assets` 路径提供给 Codex 访问。
-- 使用 Claude CLI 运行时，必须优先复用 Terminal.app 里已有的 `claude` tab；没有现有 tab 才启动 `claude`，计划模式使用 `--permission-mode plan`，Markdown 通过现有 tab 粘贴或新会话临时 prompt 文件传入，附件通过 Markdown 路径提供。
+- 使用 Claude CLI 运行时，必须优先复用 Terminal.app 里已有的 `claude` tab，或 Scatter 标记为 `Scatter Claude CLI`、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab；没有现有 tab 才启动 `claude`，启动中要去重避免多个 Terminal tab，计划模式使用 `--permission-mode plan`，Markdown 通过现有 tab 粘贴或新会话临时 prompt 文件传入，附件通过 Markdown 路径提供。
 - `flow` 模式包含下游节点；`node` 模式只包含当前节点。
 - Markdown 导出会复制当前生成结果到剪贴板。
 

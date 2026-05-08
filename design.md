@@ -19,7 +19,7 @@ Scatter 是一个本地优先的多模态任务画布，用来把零散任务节
 
 ## 当前用户流程
 
-应用启动时会先显示一个独立无边框启动窗口，展示 Scatter 品牌、启动状态和工具箱视觉图。主窗口隐藏加载；主窗口 ready 且启动窗口至少显示 5 秒后，关闭启动窗口并显示主窗口。主窗口直接进入项目列表界面：左侧显示添加项目、搜索、成就、设置和最近项目列表；右侧工作区在未打开项目时居中显示文件夹图标和“选择或新建你的项目”（英文为“Select or create your project”）；如果没有最近项目，列表区域保持为空。用户可以选择或创建一个本地文件夹作为 Scatter 项目，也可以从最近项目列表重新打开；`⌘⇧N` 打开添加项目流程。从无项目状态首次打开或创建项目时，画布会从左到右展开出现；已经打开项目后再切换项目不触发这个进入动画。
+应用启动时会先显示一个独立无边框启动窗口，展示 Scatter 品牌、启动状态和工具箱视觉图。主窗口隐藏加载；主窗口 ready 且启动窗口至少显示 5 秒后，关闭启动窗口并显示主窗口。首次打开客户端且没有历史 `settings.json` 时，主窗口会先弹出居中的“偏好选择”弹窗，让用户在 Codex 和 Claude 之间选择偏好的 AI 工具；确认后会写入应用设置里的默认运行器，并标记首启偏好已完成。关闭该弹窗会保留默认 Codex，并同样标记完成，之后可在设置里调整。已有旧设置文件但缺少该标记时视为已完成，不会因升级打断用户。主窗口直接进入项目列表界面：左侧显示添加项目、搜索、成就、设置和最近项目列表；右侧工作区在未打开项目时居中显示文件夹图标和“选择或新建你的项目”（英文为“Select or create your project”）；如果没有最近项目，列表区域保持为空。用户可以选择或创建一个本地文件夹作为 Scatter 项目，也可以从最近项目列表重新打开；`⌘⇧N` 打开添加项目流程。从无项目状态首次打开或创建项目时，画布会从左到右展开出现；已经打开项目后再切换项目不触发这个进入动画。
 
 启动窗口和主窗口使用透明 Electron 窗口配合 macOS 背景模糊。应用外层、启动页面板和画布区域都使用带透明度的背景色，不要改回完全不透明的窗口底色。
 
@@ -42,7 +42,7 @@ Scatter 是一个本地优先的多模态任务画布，用来把零散任务节
 
 顶部栏左侧的侧栏按钮或 `⌘B` 可以收起或展开左侧栏。左侧栏收起后，项目列表区域隐藏，工作区铺满窗口宽度并保留左右 12px 边距；顶部栏左侧显示侧栏按钮和添加项目按钮。侧栏展开和收起带短过渡动画，这个折叠状态只保存在 renderer 内存中，不写入项目文件。
 
-顶部栏右侧的任务清单和 Markdown 预览按钮会在工作区右侧打开侧边栏，不是悬浮弹出层；快捷键分别是 `⌘⇧T` 和 `⌘⇧M`。右侧侧边栏展开和收起带短过渡动画。任务清单侧栏宽度为 288px，复用任务列表项组件；清单包含没有入边且有出边的流程起始节点任务，以及没有任何连线的落单节点任务。落单节点有正文时显示可发送给运行器，没有正文时显示暂未编辑；已经接入流程的子节点不单独出现在任务清单里。Markdown 预览侧栏与画布并排分配剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮。打开任一右侧侧栏时，画布在同一行内收缩，顶部栏对应按钮显示选中态。Markdown 预览侧栏和画布之间的分隔区域悬停时显示横向调整光标，并支持拖拽调整两侧比例。
+顶部栏右侧的任务清单和 Markdown 预览按钮会在工作区右侧打开侧边栏，不是悬浮弹出层；快捷键分别是 `⌘⇧T` 和 `⌘⇧M`。右侧侧边栏展开和收起带短过渡动画。顶部栏运行按钮和 Markdown 预览按钮都依赖当前选中节点；没有选中节点时禁用。顶部栏运行始终发送选中节点及其下游子节点，Markdown 预览也只展示选中节点及其下游子节点，不在未选中时生成全画布 Markdown。任务清单侧栏宽度为 288px，复用任务列表项组件；清单包含没有入边且有出边的流程起始节点任务，以及没有任何连线的落单节点任务。落单节点有正文时显示可发送给运行器，没有正文时显示暂未编辑；已经接入流程的子节点不单独出现在任务清单里。Markdown 预览侧栏与画布并排分配剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮。打开任一右侧侧栏时，画布在同一行内收缩，顶部栏对应按钮显示选中态。Markdown 预览侧栏和画布之间的分隔区域悬停时显示横向调整光标，并支持拖拽调整两侧比例。
 
 画布交互约定：普通滚轮不缩放画布；触控板双指滑动会平移画布，触控板捏合会缩放画布；按住 `⌘` 加滚轮也可以缩放，右下角缩放比例下拉菜单提供 50%、75%、100%、150%、200%。`⌘N` 在当前项目中创建节点，`⌘0` 定位画布；`V` 切到选择工具，`H` 切到手形工具。手形工具进入画布平移模式，按住空格键会临时进入同一平移状态；按住 `⇧` 拖拽临时框选节点。按住 `⌥` 拖拽任意单个节点，会在松手位置复制该节点，原节点保留在原位。框选完成后只保留节点选中态，不显示持续存在的群组选框。
 
@@ -97,6 +97,7 @@ Scatter 是一个 Electron 桌面应用，使用 Electron Vite、React、TypeScr
 - `src/renderer/src/components/AchievementsWall.tsx`：成就墙视图。
 - `src/renderer/src/components/AchievementToast.tsx`：成就达成 toast。
 - `src/renderer/src/lib/achievements.ts`：成就静态资源、名称、条件和展示顺序。
+- `src/renderer/src/components/AssistantProviderPreferenceDialog.tsx`：首次打开客户端时选择默认 AI 工具的偏好弹窗。
 - `src/renderer/src/components/SearchDialog.tsx`：居中项目搜索弹窗。
 - `src/renderer/src/components/SettingsDialog.tsx`：居中设置弹窗。
 - `src/renderer/src/components/Topbar.tsx`：工作区顶部操作栏。
@@ -145,7 +146,7 @@ Scatter 项目就是用户选择的普通本地文件夹。Scatter 自己的数�
 - Renderer 预览使用的 file URL。
 - 类型：`image` 或 `file`。
 
-最近项目列表保存在 Electron `userData/recent-projects.json` 中，最多保留 24 个。应用设置保存在 Electron `userData/settings.json` 中，包含 `themePreference`、`language`、`assistantProvider` 和 `translucentBackground`；缺失或损坏时回退到中文、跟随系统主题、Codex 运行器和开启半透明背景。旧设置中的 `claude-code` 会迁移为 `claude-cli`，旧 `claude` 客户端运行器会回退为默认 Codex。成就状态保存在 Electron `userData/achievements.json` 中，不写入项目目录。
+最近项目列表保存在 Electron `userData/recent-projects.json` 中，最多保留 24 个。应用设置保存在 Electron `userData/settings.json` 中，包含 `themePreference`、`language`、`assistantProvider`、`translucentBackground` 和 `assistantProviderOnboardingCompleted`；缺失或损坏时回退到中文、跟随系统主题、Codex 运行器、开启半透明背景和未完成首启偏好。旧设置中的 `claude-code` 会迁移为 `claude-cli`，旧 `claude` 客户端运行器会回退为默认 Codex；已有设置文件缺少 `assistantProviderOnboardingCompleted` 时会 hydrate 为已完成。成就状态保存在 Electron `userData/achievements.json` 中，不写入项目目录。
 
 成就墙名称和达成条件随应用语言切换，英文名称使用成就资源文件名前缀的正式名称。成就按当前 UI 顺序展示；项目数量成就按成功进入画布的唯一项目路径计数，连续使用成就按本机本地日期记录，首次移出项目和首次成功联动 Codex 会在对应操作成功后解锁。成就一旦达成永久保留；Claude CLI 运行不会解锁 Codex 命名的成就。
 
@@ -244,7 +245,8 @@ desktop proxy 当前使用：
 
 Claude CLI 路径使用本机 `claude` CLI 和 Terminal.app：
 
-- 如果 Terminal 中已经有进程列表包含 `claude` 的 tab，Scatter 会优先激活该 tab，并把本次 Markdown 作为下一条消息发送，避免重复打开 Claude CLI 会话。
+- 如果 Terminal 中已经有进程列表包含 `claude` 的 tab，或存在 Scatter 标记过、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab，Scatter 会优先激活该 tab，并把本次 Markdown 作为下一条消息发送，避免重复打开 Claude CLI 会话。
+- Scatter 新建 Claude CLI 会话时会给 Terminal tab 设置自定义标题 `Scatter Claude CLI`，并在启动过程中复用同一个 in-flight promise，避免连续触发时重复打开多个 Terminal tab。
 - 优先使用 `CLAUDE_CODE_PATH`，否则查找常见安装路径，最后通过登录 shell 执行 `command -v claude`。
 - 在 Terminal 中 `cd` 到当前项目路径后启动 `claude`；如果当前 Claude CLI 支持 `--name`，会设置会话名为 Scatter 生成的任务名。
 - `data.effort` 会传给 `--effort`，其中 Scatter 的 `xhigh` 映射为 Claude CLI 的 `max`。

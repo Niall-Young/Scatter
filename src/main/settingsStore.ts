@@ -33,7 +33,7 @@ function normalizeAssistantProvider(value: unknown): AssistantProvider {
   return isAssistantProvider(value) ? value : defaultAppSettings.assistantProvider;
 }
 
-function normalizeSettings(input: unknown): AppSettings {
+function normalizeSettings(input: unknown, onboardingCompletedDefault: boolean): AppSettings {
   if (!input || typeof input !== "object") return defaultAppSettings;
   const candidate = input as Partial<AppSettings>;
 
@@ -44,7 +44,11 @@ function normalizeSettings(input: unknown): AppSettings {
       typeof candidate.translucentBackground === "boolean"
         ? candidate.translucentBackground
         : defaultAppSettings.translucentBackground,
-    assistantProvider: normalizeAssistantProvider(candidate.assistantProvider)
+    assistantProvider: normalizeAssistantProvider(candidate.assistantProvider),
+    assistantProviderOnboardingCompleted:
+      typeof candidate.assistantProviderOnboardingCompleted === "boolean"
+        ? candidate.assistantProviderOnboardingCompleted
+        : onboardingCompletedDefault
   };
 }
 
@@ -54,14 +58,14 @@ export async function getSettings(): Promise<AppSettings> {
 
   try {
     const raw = await readFile(filePath, "utf8");
-    return normalizeSettings(JSON.parse(raw));
+    return normalizeSettings(JSON.parse(raw), true);
   } catch {
     return defaultAppSettings;
   }
 }
 
 export async function saveSettings(settings: AppSettings): Promise<AppSettings> {
-  const next = normalizeSettings(settings);
+  const next = normalizeSettings(settings, true);
   await mkdir(app.getPath("userData"), { recursive: true });
   await writeFile(settingsPath(), JSON.stringify(next, null, 2), "utf8");
   return next;

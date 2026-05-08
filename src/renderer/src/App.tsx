@@ -42,6 +42,7 @@ import { createTranslator } from "./lib/translations";
 import { achievements, type AchievementDefinition } from "./lib/achievements";
 import { AchievementToast } from "./components/AchievementToast";
 import { AchievementsWall } from "./components/AchievementsWall";
+import { AssistantProviderPreferenceDialog } from "./components/AssistantProviderPreferenceDialog";
 import { Sidebar } from "./components/Sidebar";
 import { ScatterEdge as ScatterFlowEdge } from "./components/ScatterEdge";
 import { SearchDialog } from "./components/SearchDialog";
@@ -312,6 +313,10 @@ function App(): ReactElement {
   const [language, setLanguage] = useState<LanguagePreference>(defaultAppSettings.language);
   const [translucentBackground, setTranslucentBackground] = useState<boolean>(defaultAppSettings.translucentBackground);
   const [assistantProvider, setAssistantProvider] = useState<AssistantProvider>(defaultAppSettings.assistantProvider);
+  const [assistantProviderOnboardingCompleted, setAssistantProviderOnboardingCompleted] = useState<boolean>(
+    defaultAppSettings.assistantProviderOnboardingCompleted
+  );
+  const [assistantProviderPreferenceOpen, setAssistantProviderPreferenceOpen] = useState(false);
   const [markdownPanelRatio, setMarkdownPanelRatio] = useState(MARKDOWN_PANEL_DEFAULT_RATIO);
   const [isResizingMarkdownPanel, setIsResizingMarkdownPanel] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -336,6 +341,7 @@ function App(): ReactElement {
   const achievementsLoadedRef = useRef(false);
   const settingsSnapshotRef = useRef<SettingsValues | null>(null);
   const settingsSaveRequestedRef = useRef(false);
+  const assistantRunInFlightRef = useRef(false);
   const [taskRunModeOverride, setTaskRunModeOverride] = useState<{ nodeId: string; mode: RunMode } | null>(null);
   const t = useMemo(() => createTranslator(language), [language]);
 
@@ -352,8 +358,8 @@ function App(): ReactElement {
   const zoomPercent = Math.round(viewportZoom * 100);
   const markdownResult = useMemo(
     () =>
-      project
-        ? buildMarkdown(nodes, edges, selectedNodeId, selectedRunMode, project.name, project.path, language)
+      project && selectedNode
+        ? buildMarkdown(nodes, edges, selectedNode.id, "flow", project.name, project.path, language)
         : {
             markdown: "",
             nodes: [],
@@ -362,8 +368,14 @@ function App(): ReactElement {
             planMode: false,
             hasCycle: false
           },
-    [edges, language, nodes, project, selectedNodeId, selectedRunMode]
+    [edges, language, nodes, project, selectedNode]
   );
+
+  useEffect(() => {
+    if (drawer === "markdown" && !selectedNode) {
+      setDrawer(null);
+    }
+  }, [drawer, selectedNode, setDrawer]);
 
   useEffect(() => {
     if (!canvasRevealActive) return;
@@ -436,6 +448,7 @@ function App(): ReactElement {
     setLanguage(values.language);
     setTranslucentBackground(values.translucentBackground);
     setAssistantProvider(values.assistantProvider);
+    setAssistantProviderOnboardingCompleted(values.assistantProviderOnboardingCompleted);
   }, []);
 
   useEffect(() => {
@@ -444,16 +457,26 @@ function App(): ReactElement {
     window.scatter
       .getSettings()
       .then((settings) => {
-        if (!cancelled) applySettingsValues(settings);
+        if (!cancelled) {
+          applySettingsValues(settings);
+          if (!isSplashWindow && !settings.assistantProviderOnboardingCompleted) {
+            setAssistantProviderPreferenceOpen(true);
+          }
+        }
       })
       .catch(() => {
-        if (!cancelled) applySettingsValues(defaultAppSettings);
+        if (!cancelled) {
+          applySettingsValues(defaultAppSettings);
+          if (!isSplashWindow) {
+            setAssistantProviderPreferenceOpen(true);
+          }
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [applySettingsValues]);
+  }, [applySettingsValues, isSplashWindow]);
 
   const openSettingsDialog = useCallback((): void => {
     settingsSaveRequestedRef.current = false;
@@ -461,10 +484,11 @@ function App(): ReactElement {
       themePreference,
       language,
       translucentBackground,
-      assistantProvider
+      assistantProvider,
+      assistantProviderOnboardingCompleted
     };
     setSettingsOpen(true);
-  }, [assistantProvider, language, themePreference, translucentBackground]);
+  }, [assistantProvider, assistantProviderOnboardingCompleted, language, themePreference, translucentBackground]);
 
   const handleSettingsOpenChange = useCallback(
     (open: boolean): void => {
@@ -506,6 +530,33 @@ function App(): ReactElement {
     [applySettingsValues, setStatus, t]
   );
 
+  const saveAssistantProviderPreference = useCallback(
+    async (nextAssistantProvider: AssistantProvider): Promise<void> => {
+      const savedSettings = await window.scatter.saveSettings({
+        themePreference,
+        language,
+        translucentBackground,
+        assistantProvider: nextAssistantProvider,
+        assistantProviderOnboardingCompleted: true
+      });
+      applySettingsValues(savedSettings);
+      setAssistantProviderPreferenceOpen(false);
+    },
+    [applySettingsValues, language, themePreference, translucentBackground]
+  );
+
+  const dismissAssistantProviderPreference = useCallback(async (): Promise<void> => {
+    const savedSettings = await window.scatter.saveSettings({
+      themePreference,
+      language,
+      translucentBackground,
+      assistantProvider,
+      assistantProviderOnboardingCompleted: true
+    });
+    applySettingsValues(savedSettings);
+    setAssistantProviderPreferenceOpen(false);
+  }, [applySettingsValues, assistantProvider, language, themePreference, translucentBackground]);
+
   useEffect(() => {
     if (!isSplashWindow) {
       void refreshRecentProjects();
@@ -545,7 +596,7 @@ function App(): ReactElement {
     }
 
     function handleKeyDown(event: KeyboardEvent): void {
-      if (!isCanvasView || settingsOpen || searchOpen || !isSpaceKey(event) || isEditableTarget(event.target)) return;
+      if (!isCanvasView || assistantProviderPreferenceOpen || settingsOpen || searchOpen || !isSpaceKey(event) || isEditableTarget(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setSpacePanActive(true);
@@ -570,7 +621,7 @@ function App(): ReactElement {
       window.removeEventListener("keyup", handleKeyUp, { capture: true });
       window.removeEventListener("blur", handleBlur);
     };
-  }, [isCanvasView, searchOpen, settingsOpen]);
+  }, [assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen]);
 
   const hydrateProject = useCallback(
     async (result: OpenProjectResult | null) => {
@@ -715,7 +766,12 @@ function App(): ReactElement {
         setStatus(t("status.cannotSendEmpty"));
         return;
       }
+      if (assistantRunInFlightRef.current) {
+        setStatus(t("status.sendingAssistant"));
+        return;
+      }
       const threadName = mode === "flow" ? `Scatter Flow: ${node.data.title || t("drawer.unnamedTask")}` : `Scatter: ${node.data.title || t("drawer.unnamedTask")}`;
+      assistantRunInFlightRef.current = true;
       setStatus(t("status.sendingAssistant"));
       try {
         const runResult = await window.scatter.runAssistant({
@@ -734,6 +790,8 @@ function App(): ReactElement {
         setStatus(t("status.sentAssistant"));
       } catch (error) {
         setStatus(error instanceof Error ? error.message : t("status.sendAssistantFailed"));
+      } finally {
+        assistantRunInFlightRef.current = false;
       }
     },
     [assistantProvider, edges, language, markNodeRun, nodes, project, refreshAchievements, setStatus, t]
@@ -973,7 +1031,7 @@ function App(): ReactElement {
 
   const handlePaste = useCallback(
     async (event: React.ClipboardEvent) => {
-      if (!project || !isCanvasView || settingsOpen || searchOpen) return;
+      if (!project || !isCanvasView || assistantProviderPreferenceOpen || settingsOpen || searchOpen) return;
 
       const files = event.clipboardData.files;
       if (files.length > 0) {
@@ -1041,6 +1099,7 @@ function App(): ReactElement {
     [
       addFilesToNode,
       appendAttachments,
+      assistantProviderPreferenceOpen,
       beginHistoryTransaction,
       cancelHistoryTransaction,
       commitHistoryTransaction,
@@ -1057,7 +1116,7 @@ function App(): ReactElement {
 
   const handleDrop = useCallback(
     async (event: React.DragEvent) => {
-      if (!project || !isCanvasView || settingsOpen || searchOpen || event.dataTransfer.files.length === 0) return;
+      if (!project || !isCanvasView || assistantProviderPreferenceOpen || settingsOpen || searchOpen || event.dataTransfer.files.length === 0) return;
       event.preventDefault();
       beginHistoryTransaction();
       const target = ensureTargetNode();
@@ -1074,15 +1133,15 @@ function App(): ReactElement {
         setStatus(error instanceof Error ? error.message : t("status.addAttachmentFailed"));
       }
     },
-    [addFilesToNode, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, isCanvasView, project, searchOpen, settingsOpen, setStatus, t]
+    [addFilesToNode, assistantProviderPreferenceOpen, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, isCanvasView, project, searchOpen, settingsOpen, setStatus, t]
   );
 
   const runActiveNode = useCallback(() => {
     if (!isCanvasView) return;
-    const target = selectedNode || nodes[0];
-    if (!target) return;
-    void runNode(target.id, selectedNode ? selectedRunMode : target.data.runMode || "flow");
-  }, [isCanvasView, nodes, runNode, selectedNode, selectedRunMode]);
+    if (!selectedNode) return;
+    setTaskRunModeOverride({ nodeId: selectedNode.id, mode: "flow" });
+    void runNode(selectedNode.id, "flow");
+  }, [isCanvasView, runNode, selectedNode]);
 
   const fitCanvas = useCallback(() => {
     if (!isCanvasView) return;
@@ -1095,13 +1154,13 @@ function App(): ReactElement {
   }, [drawer, isCanvasView, project, setDrawer]);
 
   const toggleMarkdownDrawer = useCallback(() => {
-    if (!project || !isCanvasView) return;
+    if (!project || !isCanvasView || !selectedNode) return;
     setDrawer(drawer === "markdown" ? null : "markdown");
-  }, [drawer, isCanvasView, project, setDrawer]);
+  }, [drawer, isCanvasView, project, selectedNode, setDrawer]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
-      if (settingsOpen || searchOpen || isEditableTarget(event.target)) {
+      if (assistantProviderPreferenceOpen || settingsOpen || searchOpen || isEditableTarget(event.target)) {
         return;
       }
 
@@ -1202,6 +1261,7 @@ function App(): ReactElement {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     addNode,
+    assistantProviderPreferenceOpen,
     createProject,
     deleteNode,
     fitCanvas,
@@ -1320,7 +1380,8 @@ function App(): ReactElement {
       <section className="workspace">
         <Topbar
           activeDrawer={isCanvasView ? drawer : null}
-          canRun={isCanvasView && nodes.length > 0}
+          canOpenMarkdown={isCanvasView && Boolean(selectedNode)}
+          canRun={isCanvasView && Boolean(selectedNode)}
           sidebarCollapsed={sidebarCollapsed}
           disabled={!project || !isCanvasView}
           onCreateProject={createProject}
@@ -1511,9 +1572,16 @@ function App(): ReactElement {
         language={language}
         translucentBackground={translucentBackground}
         assistantProvider={assistantProvider}
+        assistantProviderOnboardingCompleted={assistantProviderOnboardingCompleted}
         onOpenChange={handleSettingsOpenChange}
         onPreview={applySettingsValues}
         onSave={handleSaveSettings}
+      />
+      <AssistantProviderPreferenceDialog
+        assistantProvider={assistantProvider}
+        open={assistantProviderPreferenceOpen}
+        onDismiss={dismissAssistantProviderPreference}
+        onSave={saveAssistantProviderPreference}
       />
       <SearchDialog
         open={searchOpen}

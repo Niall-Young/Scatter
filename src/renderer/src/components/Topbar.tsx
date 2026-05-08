@@ -6,6 +6,7 @@ import { TooltipAnchor } from "./ui/tooltip";
 
 interface TopbarProps {
   activeDrawer: "tasks" | "markdown" | null;
+  canOpenMarkdown: boolean;
   canRun: boolean;
   sidebarCollapsed: boolean;
   disabled?: boolean;
@@ -18,6 +19,7 @@ interface TopbarProps {
 
 export function Topbar({
   activeDrawer,
+  canOpenMarkdown,
   canRun,
   sidebarCollapsed,
   disabled = false,
@@ -45,7 +47,7 @@ export function Topbar({
           />
         </TooltipAnchor>
         {sidebarCollapsed ? (
-          <TooltipAnchor label={t("topbar.addProject")} side="bottom" align="start">
+          <TooltipAnchor label={t("topbar.addProject")} shortcut={shortcuts.addProject} side="bottom" align="start">
             <IconButton className="topbar-icon-button topbar-leading-button" filled={false} icon="topbar-folder-plus" size="md" aria-label={t("topbar.addProject")} onClick={onCreateProject} />
           </TooltipAnchor>
         ) : null}
@@ -74,7 +76,7 @@ export function Topbar({
             size="lg"
             aria-label={t("topbar.openMarkdown")}
             aria-pressed={activeDrawer === "markdown"}
-            disabled={disabled}
+            disabled={!canOpenMarkdown || disabled}
             onClick={onOpenMarkdown}
           />
         </TooltipAnchor>

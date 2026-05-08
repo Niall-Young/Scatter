@@ -22,13 +22,15 @@ export interface AppSettings {
   language: LanguagePreference;
   translucentBackground: boolean;
   assistantProvider: AssistantProvider;
+  assistantProviderOnboardingCompleted: boolean;
 }
 
 export const defaultAppSettings = {
   themePreference: "system",
   language: "zh",
   translucentBackground: true,
-  assistantProvider: "codex"
+  assistantProvider: "codex",
+  assistantProviderOnboardingCompleted: false
 } satisfies AppSettings;
 
 export interface AchievementState {
