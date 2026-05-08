@@ -25,7 +25,12 @@ function isLanguagePreference(value: unknown): value is LanguagePreference {
 }
 
 function isAssistantProvider(value: unknown): value is AssistantProvider {
-  return value === "codex" || value === "claude-code";
+  return value === "codex" || value === "claude-cli";
+}
+
+function normalizeAssistantProvider(value: unknown): AssistantProvider {
+  if (value === "claude-code") return "claude-cli";
+  return isAssistantProvider(value) ? value : defaultAppSettings.assistantProvider;
 }
 
 function normalizeSettings(input: unknown): AppSettings {
@@ -39,9 +44,7 @@ function normalizeSettings(input: unknown): AppSettings {
       typeof candidate.translucentBackground === "boolean"
         ? candidate.translucentBackground
         : defaultAppSettings.translucentBackground,
-    assistantProvider: isAssistantProvider(candidate.assistantProvider)
-      ? candidate.assistantProvider
-      : defaultAppSettings.assistantProvider
+    assistantProvider: normalizeAssistantProvider(candidate.assistantProvider)
   };
 }
 

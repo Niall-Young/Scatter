@@ -90,7 +90,7 @@ export function SettingsDialog({
   ];
   const assistantProviderOptions: Array<SettingsOption<AssistantProvider>> = [
     { label: t("settings.assistantProvider.codex"), value: "codex" },
-    { label: t("settings.assistantProvider.claudeCode"), value: "claude-code" }
+    { label: t("settings.assistantProvider.claudeCli"), value: "claude-cli" }
   ];
 
   useEffect(() => {

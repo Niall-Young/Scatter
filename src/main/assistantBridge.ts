@@ -23,7 +23,7 @@ function assistantResult(provider: AssistantRunInput["provider"], result: CodexR
 }
 
 export async function runAssistant(input: AssistantRunInput): Promise<AssistantRunResult> {
-  if (input.provider === "claude-code") {
+  if (input.provider === "claude-cli") {
     return assistantResult(input.provider, await runInClaudeCode(codexInput(input)));
   }
 

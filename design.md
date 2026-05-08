@@ -6,7 +6,7 @@
 
 ## 产品定位
 
-Scatter 是一个本地优先的多模态任务画布，用来把零散任务节点、文件、图片和节点关系整理成结构化上下文，再发送给选定的本地 AI 运行器执行。当前运行器支持 Codex Desktop 和 Claude Code。
+Scatter 是一个本地优先的多模态任务画布，用来把零散任务节点、文件、图片和节点关系整理成结构化上下文，再发送给选定的本地 AI 运行器执行。当前运行器支持 Codex 和 Claude CLI。
 
 当前核心目标：
 
@@ -38,7 +38,7 @@ Scatter 是一个本地优先的多模态任务画布，用来把零散任务节
 - 画布：基于 React Flow 的任务节点画布，支持拖拽节点、连线、缩放、定位画布以及撤销/重做。
 - 右侧侧边栏：任务清单或 Markdown 预览。
 
-点击左侧栏“设置”或按 `⌘,` 会打开居中的设置弹窗。弹窗包含主题、语言、默认运行器和半透明背景设置，底部提供恢复默认和保存设置。设置项切换后会实时预览；如果关闭弹窗而没有点击保存设置，会回退到打开弹窗前的设置。设置保存到 Electron `userData/settings.json`，不写入项目文件；主题支持跟随系统、浅色和深色，语言支持中文和英文，默认运行器支持 Codex 和 Claude Code，半透明背景默认开启。语言切换覆盖应用 UI、状态提示、无障碍标签和 Scatter 生成的 Markdown 模板；用户输入的项目名、节点标题、节点正文、附件名和路径不会被自动翻译。
+点击左侧栏“设置”或按 `⌘,` 会打开居中的设置弹窗。弹窗包含主题、语言、默认运行器和半透明背景设置，底部提供恢复默认和保存设置。设置项切换后会实时预览；如果关闭弹窗而没有点击保存设置，会回退到打开弹窗前的设置。设置保存到 Electron `userData/settings.json`，不写入项目文件；主题支持跟随系统、浅色和深色，语言支持中文和英文，默认运行器支持 Codex 和 Claude CLI，半透明背景默认开启。语言切换覆盖应用 UI、状态提示、无障碍标签和 Scatter 生成的 Markdown 模板；用户输入的项目名、节点标题、节点正文、附件名和路径不会被自动翻译。
 
 顶部栏左侧的侧栏按钮或 `⌘B` 可以收起或展开左侧栏。左侧栏收起后，项目列表区域隐藏，工作区铺满窗口宽度并保留左右 12px 边距；顶部栏左侧显示侧栏按钮和添加项目按钮。侧栏展开和收起带短过渡动画，这个折叠状态只保存在 renderer 内存中，不写入项目文件。
 
@@ -80,9 +80,9 @@ Scatter 是一个 Electron 桌面应用，使用 Electron Vite、React、TypeScr
 - `src/main/index.ts`：Electron 窗口创建和 IPC handler 注册。
 - `resources/app-icon.png`、`resources/app-icon.icns`、`resources/app-icon.iconset`：macOS 应用图标源和导出尺寸。
 - `src/main/projectStore.ts`：项目初始化、`.scatter` 存储、附件保存、最近项目列表。
-- `src/main/assistantBridge.ts`：根据设置分发到 Codex Desktop 或 Claude Code。
+- `src/main/assistantBridge.ts`：根据设置分发到 Codex 或 Claude CLI。
 - `src/main/codexBridge.ts`：Codex Desktop 启动、app-server proxy 调用、URL fallback、AppleScript 粘贴 fallback。
-- `src/main/claudeBridge.ts`：Claude Code CLI 定位、Terminal 启动和初始 prompt 脚本提交。
+- `src/main/claudeBridge.ts`：Claude CLI 定位、Terminal 启动和初始 prompt 脚本提交。
 - `src/main/settingsStore.ts`：应用级设置的 `userData/settings.json` 读写和默认值 hydrate。
 - `src/main/i18n.ts`：main process 用户可见文案的中英文模板。
 - `src/preload/index.ts`：Renderer 可调用的安全 API。
@@ -145,9 +145,9 @@ Scatter 项目就是用户选择的普通本地文件夹。Scatter 自己的数�
 - Renderer 预览使用的 file URL。
 - 类型：`image` 或 `file`。
 
-最近项目列表保存在 Electron `userData/recent-projects.json` 中，最多保留 24 个。应用设置保存在 Electron `userData/settings.json` 中，包含 `themePreference`、`language`、`assistantProvider` 和 `translucentBackground`；缺失或损坏时回退到中文、跟随系统主题、Codex 运行器和开启半透明背景。成就状态保存在 Electron `userData/achievements.json` 中，不写入项目目录。
+最近项目列表保存在 Electron `userData/recent-projects.json` 中，最多保留 24 个。应用设置保存在 Electron `userData/settings.json` 中，包含 `themePreference`、`language`、`assistantProvider` 和 `translucentBackground`；缺失或损坏时回退到中文、跟随系统主题、Codex 运行器和开启半透明背景。旧设置中的 `claude-code` 会迁移为 `claude-cli`，旧 `claude` 客户端运行器会回退为默认 Codex。成就状态保存在 Electron `userData/achievements.json` 中，不写入项目目录。
 
-成就墙名称和达成条件随应用语言切换，英文名称使用成就资源文件名前缀的正式名称。成就按当前 UI 顺序展示；项目数量成就按成功进入画布的唯一项目路径计数，连续使用成就按本机本地日期记录，首次移出项目和首次成功联动 Codex 会在对应操作成功后解锁。成就一旦达成永久保留；Claude Code 运行不会解锁 Codex 命名的成就。
+成就墙名称和达成条件随应用语言切换，英文名称使用成就资源文件名前缀的正式名称。成就按当前 UI 顺序展示；项目数量成就按成功进入画布的唯一项目路径计数，连续使用成就按本机本地日期记录，首次移出项目和首次成功联动 Codex 会在对应操作成功后解锁。成就一旦达成永久保留；Claude CLI 运行不会解锁 Codex 命名的成就。
 
 ## 持久化逻辑
 
@@ -205,11 +205,11 @@ Renderer 在 `scatterStore.ts` 中维护非持久化的内存历史栈，最多�
 
 Markdown 模板中的标题、运行模式、计划模式状态、附件说明、环形警告和执行请求会随语言切换；节点标题、提示词正文、附件文件名和路径保持用户原始内容。
 
-通过 Codex desktop proxy 路径发送时，图片附件的绝对路径也会作为 local image input 一起传给 Codex。通过 Codex UI fallback 或 Claude Code 路径发送时，附件通过 Markdown 中的相对路径和绝对路径提供给运行器访问。
+通过 Codex desktop proxy 路径发送时，图片附件的绝对路径也会作为 local image input 一起传给 Codex。通过 Codex UI fallback 或 Claude CLI 路径发送时，附件通过 Markdown 中的相对路径和绝对路径提供给运行器访问。
 
 ## 运行器集成
 
-运行节点时，Renderer 调用 `window.scatter.runAssistant`，main process 根据应用级 `assistantProvider` 分发到 Codex Desktop 或 Claude Code。计划模式和推理强度只读取本次运行起始节点配置。
+运行节点时，Renderer 调用 `window.scatter.runAssistant`，main process 根据应用级 `assistantProvider` 分发到 Codex 或 Claude CLI。计划模式和推理强度只读取本次运行起始节点配置。
 
 ### Codex Desktop
 
@@ -240,17 +240,19 @@ desktop proxy 当前使用：
 - sandbox: `workspace-write`
 - `cwd`: 当前项目路径
 
-### Claude Code
+### Claude CLI
 
-Claude Code 路径使用本机 `claude` CLI 和 Terminal.app：
+Claude CLI 路径使用本机 `claude` CLI 和 Terminal.app：
 
-- 如果 Terminal 中已经有进程列表包含 `claude` 的 tab，Scatter 会优先激活该 tab，并把本次 Markdown 作为下一条消息发送，避免重复打开 Claude Code 会话。
+- 如果 Terminal 中已经有进程列表包含 `claude` 的 tab，Scatter 会优先激活该 tab，并把本次 Markdown 作为下一条消息发送，避免重复打开 Claude CLI 会话。
 - 优先使用 `CLAUDE_CODE_PATH`，否则查找常见安装路径，最后通过登录 shell 执行 `command -v claude`。
-- 在 Terminal 中 `cd` 到当前项目路径后启动 `claude`；如果当前 Claude Code CLI 支持 `--name`，会设置会话名为 Scatter 生成的任务名。
-- `data.effort` 会传给 `--effort`，其中 Scatter 的 `xhigh` 映射为 Claude Code 的 `max`。
+- 在 Terminal 中 `cd` 到当前项目路径后启动 `claude`；如果当前 Claude CLI 支持 `--name`，会设置会话名为 Scatter 生成的任务名。
+- `data.effort` 会传给 `--effort`，其中 Scatter 的 `xhigh` 映射为 Claude CLI 的 `max`。
 - 起始节点开启计划模式时使用 `--permission-mode plan`，否则使用 `--permission-mode default`。
-- 把 Markdown 写入临时 prompt 文件，再通过临时 shell 脚本作为初始 prompt 传给 Terminal 中的 Claude Code 会话。
+- 把 Markdown 写入临时 prompt 文件，再通过临时 shell 脚本作为初始 prompt 传给 Terminal 中的 Claude CLI 会话。
 - 附件通过 Markdown 中的相对路径和绝对路径提供；不会作为独立图片 input 发送。
+
+Claude 桌面客户端当前不作为运行器选项。Claude Desktop 没有暴露类似 Codex `app-server proxy` 的本地集成接口，`claude://code/new?folder=...` 只能打开 Code tab，无法稳定提交完整 Markdown；依赖 UI 自动化会被“Trust this folder / 信任此文件夹”等客户端弹窗打断。因此 Scatter 只保留官方 CLI 路径作为 Claude 集成。
 
 ## 视觉设计
 

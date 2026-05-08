@@ -4,7 +4,7 @@ export type RunMode = "flow" | "node";
 export type EffortLevel = "low" | "medium" | "high" | "xhigh";
 export type LanguagePreference = "zh" | "en";
 export type ThemePreference = "system" | "light" | "dark";
-export type AssistantProvider = "codex" | "claude-code";
+export type AssistantProvider = "codex" | "claude-cli";
 export const achievementIds = [
   "oneshot",
   "gunslinger",

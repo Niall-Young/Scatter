@@ -85,6 +85,15 @@ function setAppIcon(iconPath: string): void {
   app.dock?.setIcon(nativeImage.createFromPath(iconPath));
 }
 
+function preloadScriptPath(): string {
+  const candidates = [
+    path.join(__dirname, "../preload/index.mjs"),
+    path.join(__dirname, "../preload/index.js")
+  ];
+
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+}
+
 function createSplashWindow(iconPath: string): BrowserWindow {
   const splashWindow = new BrowserWindow({
     width: 936,
@@ -101,7 +110,7 @@ function createSplashWindow(iconPath: string): BrowserWindow {
     icon: iconPath,
     title: "Scatter",
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.mjs"),
+      preload: preloadScriptPath(),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
@@ -134,7 +143,7 @@ function createWindow(showWhenReady = false, iconPath = appIconPath()): BrowserW
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 20, y: 16 },
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.mjs"),
+      preload: preloadScriptPath(),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false

@@ -9,3 +9,23 @@ script = ""
 name = "运行"
 icon = "run"
 command = "npm run dev"
+
+[[actions]]
+name = "run"
+icon = "run"
+command = "npm run dev"
+
+[[actions]]
+name = "运行"
+icon = "run"
+command = '''
+cd /Users/niallyoung/Desktop/Scatter
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+if [ ! -x ./node_modules/.bin/electron-vite ]; then
+  echo "node_modules 里没有 electron-vite，请先恢复 Scatter 的 package.json 后运行 npm install"
+  exit 1
+fi
+
+./node_modules/.bin/electron-vite dev --entry out/main/index.js
+'''
