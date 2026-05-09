@@ -105,15 +105,20 @@ async function focusCodex(): Promise<void> {
   await delay(250);
 }
 
-async function pasteAndSubmitInCodex(planMode: boolean): Promise<void> {
+function pasteSettleDelaySeconds(markdown: string): string {
+  const seconds = Math.min(8, Math.max(0.6, markdown.length / 6000));
+  return seconds.toFixed(2);
+}
+
+async function pasteAndSubmitInCodex(markdown: string, planMode: boolean): Promise<void> {
   const script = [
     'tell application "Codex" to activate',
-    "delay 0.7",
+    "delay 0.9",
     'tell application "System Events"',
     '  tell process "Codex" to set frontmost to true',
     ...(planMode ? ['  key code 48 using {shift down}', "  delay 0.2"] : []),
     '  keystroke "v" using {command down}',
-    "  delay 0.2",
+    `  delay ${pasteSettleDelaySeconds(markdown)}`,
     "  key code 36",
     "end tell"
   ].join("\n");
@@ -324,9 +329,9 @@ async function runViaDesktopProxy(input: CodexRunInput): Promise<CodexRunResult 
 }
 
 async function runViaDesktopUi(input: CodexRunInput): Promise<CodexRunResult> {
-  await openCodexUrl(codexNewThreadUrl(input.projectPath), 900);
+  await openCodexUrl(codexNewThreadUrl(input.projectPath), 1200);
   clipboard.writeText(input.markdown);
-  await pasteAndSubmitInCodex(input.planMode);
+  await pasteAndSubmitInCodex(input.markdown, input.planMode);
   await focusCodex();
 
   return {

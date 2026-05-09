@@ -57,6 +57,11 @@ function appleScriptString(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
+function pasteSettleDelaySeconds(markdown: string): string {
+  const seconds = Math.min(8, Math.max(0.6, markdown.length / 6000));
+  return seconds.toFixed(2);
+}
+
 function claudeEffort(effort: EffortLevel): string {
   return effort === "xhigh" ? "max" : effort;
 }
@@ -162,11 +167,11 @@ async function sendPromptToFocusedTerminal(markdown: string): Promise<void> {
   clipboard.writeText(markdown);
   const script = [
     "tell application \"Terminal\" to activate",
-    "delay 0.2",
+    "delay 0.4",
     "tell application \"System Events\"",
     "  tell process \"Terminal\" to set frontmost to true",
     "  keystroke \"v\" using {command down}",
-    "  delay 0.2",
+    `  delay ${pasteSettleDelaySeconds(markdown)}`,
     "  key code 36",
     "end tell"
   ].join("\n");
