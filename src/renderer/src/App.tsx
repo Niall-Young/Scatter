@@ -11,6 +11,8 @@ import {
   type EdgeChange,
   type OnSelectionChangeParams,
   type OnNodeDrag,
+  type OnConnectEnd,
+  type OnConnectStart,
   PanOnScrollMode,
   type ReactFlowInstance,
   applyNodeChanges,
@@ -78,6 +80,10 @@ const zoomOptions = [
 type FlowPosition = { x: number; y: number };
 type AppView = "canvas" | "achievements";
 type CanvasTool = "select" | "pan";
+interface ConnectionStart {
+  nodeId: string;
+  handleType: "source" | "target";
+}
 interface OptionDuplicateDrag {
   sourceId: string;
   duplicateId: string;
@@ -96,6 +102,15 @@ function roundPosition(position: FlowPosition): FlowPosition {
     x: Math.round(position.x),
     y: Math.round(position.y)
   };
+}
+
+function eventClientPosition(event: MouseEvent | TouchEvent): FlowPosition | null {
+  if ("changedTouches" in event) {
+    const touch = event.changedTouches[0];
+    return touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  return { x: event.clientX, y: event.clientY };
 }
 
 function nodeBounds(node: ScatterNode): { width: number; height: number } {
@@ -122,6 +137,62 @@ function positionOverlapsNode(position: FlowPosition, node: ScatterNode): boolea
 
 function isOpenPosition(position: FlowPosition, nodes: ScatterNode[]): boolean {
   return nodes.every((node) => !positionOverlapsNode(position, node));
+}
+
+function positionIntersectsNode(position: FlowPosition, node: ScatterNode): boolean {
+  const bounds = nodeBounds(node);
+  const left = position.x;
+  const right = position.x + TASK_NODE_WIDTH;
+  const top = position.y;
+  const bottom = position.y + TASK_NODE_HEIGHT;
+  const nodeLeft = node.position.x;
+  const nodeRight = node.position.x + bounds.width;
+  const nodeTop = node.position.y;
+  const nodeBottom = node.position.y + bounds.height;
+
+  return left < nodeRight && right > nodeLeft && top < nodeBottom && bottom > nodeTop;
+}
+
+function isConnectionDropPositionOpen(position: FlowPosition, nodes: ScatterNode[]): boolean {
+  return nodes.every((node) => !positionIntersectsNode(position, node));
+}
+
+function findConnectionDropPosition(dropPosition: FlowPosition, handleType: ConnectionStart["handleType"], sourceNode: ScatterNode, nodes: ScatterNode[]): FlowPosition {
+  const sourceBounds = nodeBounds(sourceNode);
+  const directionalGap = 16;
+  const base = roundPosition({
+    x: handleType === "source" ? dropPosition.x : dropPosition.x - TASK_NODE_WIDTH,
+    y: dropPosition.y - TASK_NODE_HEIGHT / 2
+  });
+
+  const directionAdjusted = positionIntersectsNode(base, sourceNode)
+    ? roundPosition({
+        ...base,
+        x: handleType === "source" ? sourceNode.position.x + sourceBounds.width + directionalGap : sourceNode.position.x - TASK_NODE_WIDTH - directionalGap
+      })
+    : base;
+  if (isConnectionDropPositionOpen(directionAdjusted, nodes)) return directionAdjusted;
+
+  const offsets = [0, 48, -48, 96, -96, 144, -144, 192, -192, 240, -240, 288, -288];
+  for (const yOffset of offsets) {
+    const candidate = roundPosition({
+      x: directionAdjusted.x,
+      y: directionAdjusted.y + yOffset
+    });
+    if (isConnectionDropPositionOpen(candidate, nodes)) return candidate;
+  }
+
+  for (const xOffset of offsets.slice(1)) {
+    for (const yOffset of offsets) {
+      const candidate = roundPosition({
+        x: directionAdjusted.x + xOffset,
+        y: directionAdjusted.y + yOffset
+      });
+      if (isConnectionDropPositionOpen(candidate, nodes)) return candidate;
+    }
+  }
+
+  return directionAdjusted;
 }
 
 function findOpenPositionNear(preferred: FlowPosition, nodes: ScatterNode[]): FlowPosition {
@@ -337,6 +408,8 @@ function App(): ReactElement {
   const nodeDragHistoryOpenRef = useRef(false);
   const optionDuplicateDragRef = useRef<OptionDuplicateDrag | null>(null);
   const optionDuplicateSettledSourceRef = useRef<string | null>(null);
+  const connectionStartRef = useRef<ConnectionStart | null>(null);
+  const connectionSucceededRef = useRef(false);
   const achievementStateRef = useRef<AchievementState>(achievementState);
   const achievementsLoadedRef = useRef(false);
   const settingsSnapshotRef = useRef<SettingsValues | null>(null);
@@ -933,6 +1006,7 @@ function App(): ReactElement {
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      connectionSucceededRef.current = true;
       const next = addEdge(
           {
             ...connection,
@@ -945,6 +1019,73 @@ function App(): ReactElement {
       commitCanvasChange({ edges: next.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target })) });
     },
     [commitCanvasChange, edges]
+  );
+
+  const handleConnectStart = useCallback<OnConnectStart>(
+    (_event, params) => {
+      setIsConnecting(true);
+      connectionSucceededRef.current = false;
+
+      if (!params.nodeId || !params.handleType) {
+        connectionStartRef.current = null;
+        return;
+      }
+
+      const hasExistingParent = params.handleType === "target" && edges.some((edge) => edge.target === params.nodeId);
+      connectionStartRef.current = hasExistingParent
+        ? null
+        : {
+            nodeId: params.nodeId,
+            handleType: params.handleType
+          };
+    },
+    [edges]
+  );
+
+  const handleConnectEnd = useCallback<OnConnectEnd>(
+    (event, connectionState) => {
+      setIsConnecting(false);
+
+      const connectionStart = connectionStartRef.current;
+      const connectedSuccessfully = connectionSucceededRef.current || connectionState.isValid === true;
+      connectionStartRef.current = null;
+      connectionSucceededRef.current = false;
+
+      if (connectedSuccessfully || !project || !isCanvasView || !connectionStart || connectionState.toHandle || connectionState.toNode) return;
+
+      const clientPosition = eventClientPosition(event);
+      const canvasRect = canvasShellRef.current?.getBoundingClientRect();
+      if (!clientPosition || !canvasRect) return;
+      const isInsideCanvas =
+        clientPosition.x >= canvasRect.left &&
+        clientPosition.x <= canvasRect.right &&
+        clientPosition.y >= canvasRect.top &&
+        clientPosition.y <= canvasRect.bottom;
+      if (!isInsideCanvas) return;
+
+      const flowPosition = flowInstanceRef.current?.screenToFlowPosition(clientPosition);
+      if (!flowPosition) return;
+
+      const sourceNode = nodes.find((node) => node.id === connectionStart.nodeId);
+      if (!sourceNode) return;
+
+      const nodePosition = findConnectionDropPosition(flowPosition, connectionStart.handleType, sourceNode, nodes);
+      const newNode = {
+        ...emptyNode(nodePosition, nodes, t),
+        selected: true
+      };
+      const newEdge =
+        connectionStart.handleType === "source"
+          ? { id: nanoid(), source: sourceNode.id, target: newNode.id }
+          : { id: nanoid(), source: newNode.id, target: sourceNode.id };
+
+      commitCanvasChange({
+        nodes: [...nodes.map((node) => ({ ...node, selected: false })), newNode],
+        edges: [...edges, newEdge]
+      });
+      setSelectedNodeId(newNode.id);
+    },
+    [commitCanvasChange, edges, isCanvasView, nodes, project, setSelectedNodeId, t]
   );
 
   const handleNodeDragStart = useCallback<OnNodeDrag<Node>>(
@@ -1445,8 +1586,8 @@ function App(): ReactElement {
                   zoomOnDoubleClick={false}
                   zoomActivationKeyCode="Meta"
                   nodesDraggable={!panModeActive}
-                  onConnectStart={() => setIsConnecting(true)}
-                  onConnectEnd={() => setIsConnecting(false)}
+                  onConnectStart={handleConnectStart}
+                  onConnectEnd={handleConnectEnd}
                   onNodeMouseEnter={handleNodeMouseEnter}
                   onNodeMouseLeave={() => setHoveredNodeId(null)}
                   onNodeDragStart={handleNodeDragStart}
