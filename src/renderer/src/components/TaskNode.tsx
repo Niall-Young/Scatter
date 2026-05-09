@@ -1,5 +1,5 @@
-import { memo, useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactElement } from "react";
+import { Handle, Position, useUpdateNodeInternals, type Node, type NodeProps } from "@xyflow/react";
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { EffortLevel, RunMode, ScatterNodeData } from "../../../shared/types";
 import { useI18n } from "../lib/i18n";
@@ -21,6 +21,12 @@ type EditableField = "title" | "body";
 
 const effortOptions: EffortLevel[] = ["low", "medium", "high", "xhigh"];
 
+function fitTextareaHeight(textarea: HTMLTextAreaElement | null): void {
+  if (!textarea) return;
+  textarea.style.height = "auto";
+  textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
 interface RuntimeActions {
   updateNodeData: (nodeId: string, patch: Partial<ScatterNodeData>) => void;
   beginNodeEdit: () => void;
@@ -41,6 +47,7 @@ export function setTaskNodeActions(actions: RuntimeActions): void {
 
 function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement {
   const { t } = useI18n();
+  const updateNodeInternals = useUpdateNodeInternals();
   const rootRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -54,6 +61,15 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
   const hasBody = data.body.trim().length > 0;
   const hasParent = useScatterStore((state) => state.edges.some((edge) => edge.target === id));
   const hasChild = useScatterStore((state) => state.edges.some((edge) => edge.source === id));
+
+  const fitBodyTextarea = useCallback(() => {
+    fitTextareaHeight(bodyRef.current);
+    updateNodeInternals(id);
+  }, [id, updateNodeInternals]);
+
+  useLayoutEffect(() => {
+    fitBodyTextarea();
+  }, [data.body, fitBodyTextarea]);
 
   useEffect(() => {
     if (!selected && editingField) {
@@ -122,6 +138,15 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
       event.currentTarget.blur();
     }
   }, []);
+
+  const handleBodyChange = useCallback(
+    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+      fitTextareaHeight(event.currentTarget);
+      updateNodeInternals(id);
+      taskNodeActions?.updateNodeData(id, { body: event.target.value });
+    },
+    [id, updateNodeInternals]
+  );
 
   return (
     <div ref={rootRef} className={`task-node ${selected ? "is-selected" : ""}`}>
@@ -199,7 +224,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
           onFocus={(event) => handleEditableFocus(event, "body")}
           onBlur={() => handleEditableBlur("body")}
           onKeyDown={handleEditableKeyDown}
-          onChange={(event) => taskNodeActions?.updateNodeData(id, { body: event.target.value })}
+          onChange={handleBodyChange}
         />
 
         {data.attachments.length ? (
@@ -268,7 +293,6 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
           <Icon name="plus-lg" size={16} />
         </span>
       </Handle>
-      {data.attachments.some((item) => item.kind === "image") ? <Icon name="image-icon" className="node-corner-icon" size={16} /> : null}
     </div>
   );
 }

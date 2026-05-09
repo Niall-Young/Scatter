@@ -1813,8 +1813,11 @@ button.achievement-card.is-unlocked:focus-visible {
 }
 
 .task-body {
+  display: block;
+  box-sizing: border-box;
   min-height: 96px;
-  max-height: 180px;
+  height: auto;
+  overflow: hidden;
   resize: none;
   padding: 0;
   color: var(--color-text-subtlest);
@@ -1997,14 +2000,6 @@ button.achievement-card.is-unlocked:focus-visible {
 
 .react-flow__handle.node-handle:hover .node-connect-button {
   background: var(--color-background-dark-hover);
-}
-
-.node-corner-icon {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  color: var(--color-icon-subtle);
-  pointer-events: none;
 }
 
 .dropdown-content {

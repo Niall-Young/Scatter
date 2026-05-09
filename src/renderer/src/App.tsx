@@ -82,6 +82,7 @@ const zoomOptions = [
 ];
 
 type FlowPosition = { x: number; y: number };
+type MeasuredScatterNode = ScatterNode & { measured?: { width?: number; height?: number } };
 type AppView = "canvas" | "achievements";
 type CanvasTool = "select" | "pan";
 interface ConnectionStart {
@@ -147,9 +148,11 @@ function eventClientPosition(event: MouseEvent | TouchEvent): FlowPosition | nul
 }
 
 function nodeBounds(node: ScatterNode): { width: number; height: number } {
+  const measured = (node as MeasuredScatterNode).measured;
+
   return {
-    width: node.width ?? TASK_NODE_WIDTH,
-    height: node.height ?? TASK_NODE_HEIGHT
+    width: node.width ?? measured?.width ?? TASK_NODE_WIDTH,
+    height: node.height ?? measured?.height ?? TASK_NODE_HEIGHT
   };
 }
 
