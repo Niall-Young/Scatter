@@ -1595,6 +1595,14 @@ button.achievement-card.is-unlocked:focus-visible {
   display: none;
 }
 
+.react-flow svg.react-flow__connectionline {
+  z-index: 0;
+}
+
+.react-flow .react-flow__nodes {
+  z-index: 1;
+}
+
 .react-flow__edge .scatter-edge-path {
   stroke: var(--color-border-connecting);
   stroke-width: 2.4;
@@ -1608,6 +1616,15 @@ button.achievement-card.is-unlocked:focus-visible {
 
 .scatter-edge-cap {
   fill: var(--color-primary);
+  pointer-events: none;
+}
+
+.scatter-connection-path {
+  fill: none;
+  stroke: var(--color-border-connecting);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 
@@ -1950,6 +1967,25 @@ button.achievement-card.is-unlocked:focus-visible {
   pointer-events: none;
   transform: scale(0.92);
   transition: opacity 120ms ease, transform 120ms ease, background 120ms ease;
+  z-index: 1;
+}
+
+.node-edge-cap {
+  position: absolute;
+  width: 4px;
+  height: 20px;
+  background: var(--color-primary);
+  pointer-events: none;
+}
+
+.react-flow__handle-left.node-handle .node-edge-cap {
+  left: 6px;
+  border-radius: var(--radius-xs) 0 0 var(--radius-xs);
+}
+
+.react-flow__handle-right.node-handle .node-edge-cap {
+  left: 10px;
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
 }
 
 .task-node:hover .node-connect-button,

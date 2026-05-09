@@ -18,7 +18,10 @@ import {
   applyNodeChanges,
   applyEdgeChanges,
   type EdgeTypes,
-  type NodeTypes
+  type NodeTypes,
+  getBezierPath,
+  Position,
+  type ConnectionLineComponentProps
 } from "@xyflow/react";
 import { nanoid } from "nanoid";
 import type {
@@ -67,6 +70,7 @@ const TASK_NODE_WIDTH = 400;
 const TASK_NODE_HEIGHT = 220;
 const TASK_NODE_HORIZONTAL_GAP = 180;
 const TASK_NODE_VERTICAL_GAP = 72;
+const NODE_CONNECT_BUTTON_SIZE = 20;
 const MARKDOWN_PANEL_DEFAULT_RATIO = 0.5;
 const MARKDOWN_PANEL_MIN_WIDTH = 360;
 const zoomOptions = [
@@ -90,6 +94,35 @@ interface OptionDuplicateDrag {
   originalNodes: ScatterNode[];
   lastPosition: FlowPosition;
   hasPreview: boolean;
+}
+
+function connectionLineStartX(x: number, position: Position): number {
+  const offset = NODE_CONNECT_BUTTON_SIZE / 2;
+  if (position === Position.Left) return x - offset;
+  if (position === Position.Right) return x + offset;
+  return x;
+}
+
+function ScatterConnectionLine({
+  connectionLineStyle,
+  fromPosition,
+  fromX,
+  fromY,
+  toPosition,
+  toX,
+  toY
+}: ConnectionLineComponentProps): ReactElement {
+  const [path] = getBezierPath({
+    sourceX: connectionLineStartX(fromX, fromPosition),
+    sourceY: fromY,
+    sourcePosition: fromPosition,
+    targetX: toX,
+    targetY: toY,
+    targetPosition: toPosition,
+    curvature: 0.45
+  });
+
+  return <path className="scatter-connection-path" d={path} style={connectionLineStyle} />;
 }
 
 function systemColorTheme(): "light" | "dark" {
@@ -1032,14 +1065,19 @@ function App(): ReactElement {
       }
 
       const hasExistingParent = params.handleType === "target" && edges.some((edge) => edge.target === params.nodeId);
-      connectionStartRef.current = hasExistingParent
-        ? null
-        : {
-            nodeId: params.nodeId,
-            handleType: params.handleType
-          };
+      if (hasExistingParent) {
+        connectionStartRef.current = null;
+        return;
+      }
+
+      connectionStartRef.current = {
+        nodeId: params.nodeId,
+        handleType: params.handleType
+      };
+      setSelectedNodeId(params.nodeId);
+      replaceCanvasLive({ nodes: nodes.map((node) => ({ ...node, selected: node.id === params.nodeId })) });
     },
-    [edges]
+    [edges, nodes, replaceCanvasLive, setSelectedNodeId]
   );
 
   const handleConnectEnd = useCallback<OnConnectEnd>(
@@ -1162,12 +1200,8 @@ function App(): ReactElement {
   const handleNodeMouseEnter = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       setHoveredNodeId(node.id);
-      if (isConnecting) {
-        selectCanvasNode(node.id);
-        replaceCanvasLive({ nodes: nodes.map((item) => ({ ...item, selected: item.id === node.id })) });
-      }
     },
-    [isConnecting, nodes, replaceCanvasLive, selectCanvasNode]
+    []
   );
 
   const handlePaste = useCallback(
@@ -1571,6 +1605,7 @@ function App(): ReactElement {
                   }
                   nodeTypes={nodeTypes}
                   edgeTypes={edgeTypes}
+                  connectionLineComponent={ScatterConnectionLine}
                   onNodesChange={onNodesChange as any}
                   onEdgesChange={onEdgesChange as any}
                   onConnect={onConnect}

@@ -53,6 +53,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
   const effortLabel = t(effortLabelKey(effort));
   const hasBody = data.body.trim().length > 0;
   const hasParent = useScatterStore((state) => state.edges.some((edge) => edge.target === id));
+  const hasChild = useScatterStore((state) => state.edges.some((edge) => edge.source === id));
 
   useEffect(() => {
     if (!selected && editingField) {
@@ -125,11 +126,13 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
   return (
     <div ref={rootRef} className={`task-node ${selected ? "is-selected" : ""}`}>
       <Handle type="target" position={Position.Left} className="node-handle">
-        {!hasParent ? (
+        {hasParent ? (
+          <span className="node-edge-cap" aria-hidden="true" />
+        ) : (
           <span className="node-connect-button" aria-hidden="true">
             <Icon name="plus-lg" size={16} />
           </span>
-        ) : null}
+        )}
       </Handle>
       <div className="task-node-header">
         <input
@@ -260,6 +263,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
         </div>
       </div>
       <Handle type="source" position={Position.Right} className="node-handle">
+        {hasChild ? <span className="node-edge-cap" aria-hidden="true" /> : null}
         <span className="node-connect-button" aria-hidden="true">
           <Icon name="plus-lg" size={16} />
         </span>
