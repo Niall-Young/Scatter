@@ -81,7 +81,7 @@ Scatter 是一个 Electron 桌面应用，使用 Electron Vite、React、TypeScr
 - `resources/app-icon.png`、`resources/app-icon.icns`、`resources/app-icon.iconset`：macOS 应用图标源和导出尺寸。
 - `src/main/projectStore.ts`：项目初始化、`.scatter` 存储、附件保存、最近项目列表。
 - `src/main/assistantBridge.ts`：根据设置分发到 Codex 或 Claude CLI。
-- `src/main/codexBridge.ts`：Codex Desktop 启动、app-server proxy 调用、URL fallback、AppleScript 粘贴 fallback。
+- `src/main/codexBridge.ts`：Codex Desktop 启动、app-server 运行偏好同步、可见新线程 URL 调用和 AppleScript 提交。
 - `src/main/claudeBridge.ts`：Claude CLI 定位、Terminal 启动和初始 prompt 脚本提交。
 - `src/main/settingsStore.ts`：应用级设置的 `userData/settings.json` 读写和默认值 hydrate。
 - `src/main/i18n.ts`：main process 用户可见文案的中英文模板。
@@ -206,7 +206,7 @@ Renderer 在 `scatterStore.ts` 中维护非持久化的内存历史栈，最多�
 
 Markdown 模板中的标题、运行模式、计划模式状态、附件说明、环形警告和执行请求会随语言切换；节点标题、提示词正文、附件文件名和路径保持用户原始内容。
 
-通过 Codex desktop proxy 路径发送时，图片附件的绝对路径也会作为 local image input 一起传给 Codex。通过 Codex UI fallback 或 Claude CLI 路径发送时，附件通过 Markdown 中的相对路径和绝对路径提供给运行器访问。
+通过 Codex 和 Claude CLI 路径发送时，附件都通过 Markdown 中的相对路径和绝对路径提供给运行器访问。
 
 ## 运行器集成
 
@@ -214,32 +214,24 @@ Markdown 模板中的标题、运行模式、计划模式状态、附件说明�
 
 ### Codex Desktop
 
-Scatter 会先为当前项目路径启动 Codex，然后尝试两条路径。
+Scatter 会先为当前项目路径启动 Codex，然后打开可见的新建 thread，把生成的 Markdown 放入 Codex 输入框并提交。正常运行不使用 app-server 的 `thread/start` 或 `turn/start` 提交任务，避免后台创建 turn 后用户只看到已经完成的对话。
 
-第一条是 desktop proxy：
+app-server 当前只用于同步可见运行前的偏好：
 
 - 优先使用 `/Applications/Codex.app/Contents/Resources/codex`，否则使用 PATH 中的 `codex`。
-- 通过默认 control socket 连接 `codex app-server proxy`。
+- 如果默认 control socket 存在，先尝试 `codex app-server proxy`。
+- 如果 control socket 不存在，或 proxy 请求失败，改用 `codex app-server --listen stdio://`。
 - 初始化 Scatter client。
-- 以项目文件夹作为 `cwd` 创建 Codex thread。
-- 设置 thread 名称。
-- 发送 Markdown 文本和本地图片路径。
-- 打开 `codex://threads/<id>`。
+- 通过 `config/batchWrite` 写入本次起始节点的推理强度，让随后打开的可见 Codex composer 使用相同配置。
 
-第二条是 UI fallback：
+可见提交路径：
 
-- 打开 `codex://threads/new?path=<projectPath>`。
+- 短 Markdown 直接打开 `codex://threads/new?path=<projectPath>&prompt=<markdown>`，让 Codex 自己预填输入框。
+- 较长 Markdown 先写入剪贴板，再打开 `codex://threads/new?path=<projectPath>`，然后粘贴到输入框。
 - 如果起始节点开启计划模式，先用 `⇧Tab` 切换 Codex 输入框的真实计划模式。
-- 把 Markdown 写入剪贴板。
-- 用 AppleScript 在 Codex 中粘贴并提交。
+- 用 AppleScript 激活 Codex、聚焦底部输入区并按回车提交。
 
-计划模式会作为运行参数从起始节点传入当前 Codex 运行链路。起始节点开启计划模式时，Scatter 跳过 desktop proxy 并使用 UI fallback，以触发 Codex 的真实 `⇧Tab` 计划模式；此时附件通过 Markdown 路径提供，不作为 proxy 的 local image input 发送。
-
-desktop proxy 当前使用：
-
-- `approvalPolicy`: `on-request`
-- sandbox: `workspace-write`
-- `cwd`: 当前项目路径
+计划模式会作为运行参数从起始节点传入当前 Codex 运行链路，但必须通过可见 composer 的真实 `⇧Tab` 触发，不使用 prompt 前缀模拟，也不使用 app-server `collaborationMode: plan` 后台提交。附件通过 Markdown 路径提供，不作为 app-server local image input 发送。
 
 ### Claude CLI
 

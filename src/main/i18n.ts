@@ -7,6 +7,7 @@ const mainText = {
     chooseAttachmentsTitle: "选择要添加到 Scatter 的附件",
     codexAccessibilityError:
       "Codex 已打开新线程，但 Scatter 没有权限自动粘贴并发送。请在 macOS“系统设置 > 隐私与安全性 > 辅助功能”里允许当前终端或 Scatter 控制 Codex。原始错误：{detail}",
+    codexClipboardError: "Scatter 没能把提示词写入系统剪贴板，请重试一次。",
     claudeCliMissingError:
       "没有找到 Claude CLI。请先安装并登录 Claude CLI，或确保 `claude` 在 PATH 中可用。",
     claudeTerminalError:
@@ -18,6 +19,7 @@ const mainText = {
     chooseAttachmentsTitle: "Choose attachments for Scatter",
     codexAccessibilityError:
       "Codex opened a new thread, but Scatter does not have permission to paste and submit automatically. Allow the current terminal or Scatter to control Codex in macOS System Settings > Privacy & Security > Accessibility. Original error: {detail}",
+    codexClipboardError: "Scatter could not write the prompt to the system clipboard. Please try again.",
     claudeCliMissingError:
       "Claude CLI was not found. Install and sign in to Claude CLI first, or make sure `claude` is available in PATH.",
     claudeTerminalError:

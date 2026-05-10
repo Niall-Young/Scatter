@@ -1,4 +1,4 @@
-import { app, clipboard } from "electron";
+import { app, clipboard, systemPreferences } from "electron";
 import { access } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
@@ -14,6 +14,13 @@ interface PendingRequest {
   timer: NodeJS.Timeout;
 }
 
+interface AppServerTransport {
+  kind: "desktop-proxy" | "stdio";
+  proxy: CodexProxy;
+}
+
+const PROMPT_DEEP_LINK_MAX_LENGTH = 8000;
+
 function codexExecutable(): string {
   return "/Applications/Codex.app/Contents/Resources/codex";
 }
@@ -22,12 +29,11 @@ function defaultControlSocket(): string {
   return path.join(process.env.CODEX_HOME || path.join(homedir(), ".codex"), "app-server-control", "app-server-control.sock");
 }
 
-function codexThreadUrl(threadId: string): string {
-  return `codex://threads/${encodeURIComponent(threadId)}`;
-}
-
-function codexNewThreadUrl(projectPath: string): string {
+function codexNewThreadUrl(projectPath: string, prompt?: string): string {
   const params = new URLSearchParams({ path: projectPath });
+  if (prompt) {
+    params.set("prompt", prompt);
+  }
   return `codex://threads/new?${params.toString()}`;
 }
 
@@ -105,26 +111,50 @@ async function focusCodex(): Promise<void> {
   await delay(250);
 }
 
+function requestAccessibilityPermission(): void {
+  if (process.platform !== "darwin") return;
+  systemPreferences.isTrustedAccessibilityClient(true);
+}
+
 function pasteSettleDelaySeconds(markdown: string): string {
   const seconds = Math.min(8, Math.max(0.6, markdown.length / 6000));
   return seconds.toFixed(2);
 }
 
-async function pasteAndSubmitInCodex(markdown: string, planMode: boolean): Promise<void> {
+async function submitInVisibleCodexComposer(markdown: string, planMode: boolean, pastePrompt: boolean): Promise<void> {
+  requestAccessibilityPermission();
   const script = [
     'tell application "Codex" to activate',
-    "delay 0.9",
+    "delay 1.2",
     'tell application "System Events"',
-    '  tell process "Codex" to set frontmost to true',
+    '  if not (exists process "Codex") then error "Codex process is not available."',
+    '  tell process "Codex"',
+    '    set frontmost to true',
+    '    repeat 30 times',
+    '      if (count of windows) > 0 then exit repeat',
+    "      delay 0.2",
+    "    end repeat",
+    '    if (count of windows) = 0 then error "Codex window did not open."',
+    '    set codexWindow to window 1',
+    "    try",
+    '      perform action "AXRaise" of codexWindow',
+    "    end try",
+    "    delay 0.2",
+    "    set {windowX, windowY} to position of codexWindow",
+    "    set {windowWidth, windowHeight} to size of codexWindow",
+    "    set composerX to windowX + (windowWidth / 2)",
+    "    set composerY to windowY + windowHeight - 90",
+    "    click at {composerX as integer, composerY as integer}",
+    "  end tell",
+    "  delay 0.25",
     ...(planMode ? ['  key code 48 using {shift down}', "  delay 0.2"] : []),
-    '  keystroke "v" using {command down}',
-    `  delay ${pasteSettleDelaySeconds(markdown)}`,
+    ...(pastePrompt ? ['  keystroke "v" using {command down}', `  delay ${pasteSettleDelaySeconds(markdown)}`] : ["  delay 0.45"]),
     "  key code 36",
     "end tell"
   ].join("\n");
 
   try {
-    await runCommand("osascript", ["-e", script], 8000);
+    await runCommand("osascript", ["-e", script], pastePrompt ? 18000 : 10000);
   } catch (error) {
     const settings = await getSettings();
     throw new Error(tMain(settings.language, "codexAccessibilityError", {
@@ -137,11 +167,13 @@ class CodexProxy {
   private nextId = 1;
   private readonly pending = new Map<number, PendingRequest>();
   private readonly child;
+  private closed = false;
+  private initialized = false;
   private stdoutBuffer = "";
   private stderrBuffer = "";
 
-  constructor(command: string) {
-    this.child = spawn(command, ["app-server", "proxy"], {
+  constructor(command: string, args: string[]) {
+    this.child = spawn(command, args, {
       stdio: ["pipe", "pipe", "pipe"]
     });
 
@@ -155,19 +187,38 @@ class CodexProxy {
 
     this.child.stderr.on("data", (chunk: string) => {
       this.stderrBuffer += chunk;
+      if (this.stderrBuffer.length > 20000) {
+        this.stderrBuffer = this.stderrBuffer.slice(-20000);
+      }
+    });
+
+    this.child.on("error", (error) => {
+      this.closed = true;
+      this.failPending(error instanceof Error ? error : new Error(String(error)));
     });
 
     this.child.on("exit", () => {
-      const error = new Error(this.stderrBuffer.trim() || "Codex app-server proxy exited.");
-      for (const request of this.pending.values()) {
-        clearTimeout(request.timer);
-        request.reject(error);
-      }
-      this.pending.clear();
+      this.closed = true;
+      this.failPending(new Error(this.stderrBuffer.trim() || "Codex app-server exited."));
     });
   }
 
+  isClosed(): boolean {
+    return this.closed;
+  }
+
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  markInitialized(): void {
+    this.initialized = true;
+  }
+
   async request<T>(method: string, params: unknown, timeoutMs = 30000): Promise<T> {
+    if (this.closed) {
+      throw new Error(this.stderrBuffer.trim() || "Codex app-server is not running.");
+    }
     const id = this.nextId++;
     const payload = { jsonrpc: "2.0", id, method, params };
     const promise = new Promise<T>((resolve, reject) => {
@@ -188,6 +239,7 @@ class CodexProxy {
   }
 
   dispose(): void {
+    this.closed = true;
     for (const request of this.pending.values()) {
       clearTimeout(request.timer);
     }
@@ -226,100 +278,63 @@ class CodexProxy {
 
     request.resolve(message.result);
   }
+
+  private failPending(error: Error): void {
+    for (const request of this.pending.values()) {
+      clearTimeout(request.timer);
+      request.reject(error);
+    }
+    this.pending.clear();
+  }
 }
 
-interface ThreadStartResponse {
-  thread: { id: string };
-  model: string;
-  serviceTier?: string | null;
-  cwd: string;
-  approvalPolicy?: string;
-  sandbox?: Record<string, unknown>;
-  reasoningEffort?: string | null;
+async function createAppServerTransport(command: string, useDesktopProxy: boolean): Promise<AppServerTransport> {
+  if (useDesktopProxy) {
+    return {
+      kind: "desktop-proxy",
+      proxy: new CodexProxy(command, ["app-server", "proxy"])
+    };
+  }
+
+  return {
+    kind: "stdio",
+    proxy: new CodexProxy(command, ["app-server", "--listen", "stdio://"])
+  };
 }
 
-interface TurnStartResponse {
-  turn?: { id?: string };
+async function initializeProxy(proxy: CodexProxy): Promise<void> {
+  if (proxy.isInitialized()) return;
+  await proxy.request("initialize", {
+    clientInfo: {
+      name: "Scatter",
+      title: "Scatter",
+      version: app.getVersion()
+    },
+    capabilities: {
+      experimentalApi: true,
+      optOutNotificationMethods: []
+    }
+  });
+  proxy.markInitialized();
 }
 
-async function runViaDesktopProxy(input: CodexRunInput): Promise<CodexRunResult | null> {
-  if (!(await canUseDesktopProxy())) return null;
-
+async function withAppServer(run: (proxy: CodexProxy) => Promise<void>): Promise<void> {
   const command = (await canUseBundledCodex()) ? codexExecutable() : "codex";
+  const shouldTryDesktopProxy = await canUseDesktopProxy();
+  const attempts = shouldTryDesktopProxy ? [true, false] : [false, false];
 
   let lastError: unknown;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const proxy = new CodexProxy(command);
+  for (const useDesktopProxy of attempts) {
+    const transport = await createAppServerTransport(command, useDesktopProxy);
+    const proxy = transport.proxy;
     try {
-      await proxy.request("initialize", {
-        clientInfo: {
-          name: "Scatter",
-          title: "Scatter",
-          version: app.getVersion()
-        },
-        capabilities: {
-          experimentalApi: true,
-          optOutNotificationMethods: []
-        }
-      });
-
-      const started = await proxy.request<ThreadStartResponse>("thread/start", {
-        cwd: input.projectPath,
-        serviceName: "Scatter",
-        approvalPolicy: "on-request",
-        sandbox: "workspace-write"
-      });
-
-      await proxy.request("thread/name/set", {
-        threadId: started.thread.id,
-        name: input.threadName
-      });
-
-      const userInput: Array<Record<string, unknown>> = [
-        {
-          type: "text",
-          text: input.markdown,
-          text_elements: []
-        },
-        ...input.imagePaths.map((imagePath) => ({
-          type: "localImage",
-          path: imagePath
-        }))
-      ];
-
-      const turnParams: Record<string, unknown> = {
-        threadId: started.thread.id,
-        input: userInput,
-        cwd: input.projectPath,
-        approvalPolicy: started.approvalPolicy ?? "on-request",
-        sandboxPolicy:
-          started.sandbox ?? {
-            type: "workspaceWrite",
-            writableRoots: [input.projectPath],
-            networkAccess: false,
-            excludeTmpdirEnvVar: false,
-            excludeSlashTmp: false
-          },
-        model: started.model,
-        serviceTier: started.serviceTier ?? null,
-        effort: input.effort || started.reasoningEffort || null,
-        summary: "auto",
-        personality: null,
-        outputSchema: null
-      };
-
-      const turn = await proxy.request<TurnStartResponse>("turn/start", turnParams, 10000);
-      await openCodexUrl(codexThreadUrl(started.thread.id), 400);
-      await focusCodex();
+      await initializeProxy(proxy);
+      await run(proxy);
       proxy.dispose();
-
-      return {
-        threadId: started.thread.id,
-        turnId: turn.turn?.id,
-        cwd: started.cwd || input.projectPath
-      };
+      return;
     } catch (error) {
       lastError = error;
+      console.warn(`Codex app-server ${transport.kind} failed.`, error);
       proxy.dispose();
       await delay(900);
     }
@@ -328,10 +343,39 @@ async function runViaDesktopProxy(input: CodexRunInput): Promise<CodexRunResult 
   throw lastError instanceof Error ? lastError : new Error("Unable to connect to Codex Desktop.");
 }
 
-async function runViaDesktopUi(input: CodexRunInput): Promise<CodexRunResult> {
-  await openCodexUrl(codexNewThreadUrl(input.projectPath), 1200);
-  clipboard.writeText(input.markdown);
-  await pasteAndSubmitInCodex(input.markdown, input.planMode);
+async function applyVisibleRunPreferences(input: CodexRunInput): Promise<void> {
+  await withAppServer(async (proxy) => {
+    await proxy.request("config/batchWrite", {
+      edits: [
+        {
+          keyPath: "model_reasoning_effort",
+          mergeStrategy: "upsert",
+          value: input.effort
+        }
+      ],
+      expectedVersion: null,
+      filePath: null,
+      reloadUserConfig: true
+    }, 5000);
+  });
+}
+
+async function runViaVisibleCodex(input: CodexRunInput): Promise<CodexRunResult> {
+  await applyVisibleRunPreferences(input).catch((error) => {
+    console.warn("Unable to apply Codex visible-run preferences.", error);
+  });
+
+  const canUsePromptDeepLink = input.markdown.length <= PROMPT_DEEP_LINK_MAX_LENGTH;
+  if (!canUsePromptDeepLink) {
+    clipboard.writeText(input.markdown);
+    if (clipboard.readText() !== input.markdown) {
+      const settings = await getSettings();
+      throw new Error(tMain(settings.language, "codexClipboardError"));
+    }
+  }
+
+  await openCodexUrl(codexNewThreadUrl(input.projectPath, canUsePromptDeepLink ? input.markdown : undefined), 2200);
+  await submitInVisibleCodexComposer(input.markdown, input.planMode, !canUsePromptDeepLink);
   await focusCodex();
 
   return {
@@ -342,8 +386,5 @@ async function runViaDesktopUi(input: CodexRunInput): Promise<CodexRunResult> {
 
 export async function runInCodex(input: CodexRunInput): Promise<CodexRunResult> {
   await spawnCodex(["app", input.projectPath], 1400);
-  if (input.planMode) return runViaDesktopUi(input);
-  const proxyResult = await runViaDesktopProxy(input);
-  if (proxyResult) return proxyResult;
-  return runViaDesktopUi(input);
+  return runViaVisibleCodex(input);
 }

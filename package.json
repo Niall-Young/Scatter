@@ -31,6 +31,9 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Scatter uses Apple Events to paste and submit prompts in Codex and Terminal when you run a task."
+      },
       "icon": "resources/app-icon.icns",
       "identity": null,
       "target": [
