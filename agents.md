@@ -30,7 +30,7 @@ npm run pack
 npm run dist:mac
 ```
 
-代码改动至少运行 `npm run typecheck`。涉及 UI 或交互时，运行 `npm run dev` 并手动验证相关流程。需要生成 macOS 可安装包时运行 `npm run dist:mac`，产物输出到 `release/`。
+代码改动至少运行 `npm run typecheck`。涉及 UI 或交互时，运行 `npm run dev` 并手动验证相关流程。需要生成 macOS 可安装包时运行 `npm run dist:mac`，产物输出到 `release/`。macOS 包必须保留 ad-hoc code signing，不要把 Electron Builder 的 `mac.identity` 改回 `null`，否则辅助功能权限可能无法稳定匹配运行中的 Scatter。
 
 ## 目录地图
 

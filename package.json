@@ -1,6 +1,6 @@
 {
   "name": "scatter",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "A local multimodal canvas that sends structured node flows to Codex.",
   "main": "out/main/index.js",
   "type": "module",
@@ -35,7 +35,7 @@
         "NSAppleEventsUsageDescription": "Scatter uses Apple Events to paste and submit prompts in Codex and Terminal when you run a task."
       },
       "icon": "resources/app-icon.icns",
-      "identity": null,
+      "identity": "-",
       "target": [
         {
           "target": "dmg",

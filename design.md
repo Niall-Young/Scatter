@@ -208,7 +208,7 @@ Renderer 在 `scatterStore.ts` 中维护非持久化的内存历史栈，最多�
 
 Markdown 模板中的标题、运行模式、计划模式状态、附件说明、环形警告和执行请求会随语言切换；节点标题、提示词正文、附件文件名和路径保持用户原始内容。
 
-通过 Codex 和 Claude CLI 路径发送时，附件都通过 Markdown 中的相对路径和绝对路径提供给运行器访问。
+通过 Codex 和 Claude CLI 路径发送时，附件都通过 Markdown 中的相对路径和绝对路径提供给运行器访问。macOS 产物使用 ad-hoc code signing；不要跳过签名，否则辅助功能权限可能在系统设置里显示已开启，但运行进程仍检测不到授权。
 
 ## 运行器集成
 
@@ -276,7 +276,7 @@ npm run dist:mac
 
 `npm run build` 会先运行 TypeScript 检查，再执行 Electron Vite build。
 
-`npm run dist:mac` 会先构建应用，再通过 Electron Builder 生成 macOS universal `.dmg` 和 `.zip` 安装产物，输出目录为 `release/`。当前本地打包配置不做代码签名和 notarization，适合内部试用分发；正式公开分发前需要接入 Apple Developer ID 签名和公证。
+`npm run dist:mac` 会先构建应用，再通过 Electron Builder 生成 macOS universal `.dmg` 和 `.zip` 安装产物，输出目录为 `release/`。当前本地打包配置使用 ad-hoc code signing，不做 notarization，适合内部试用分发；正式公开分发前需要接入 Apple Developer ID 签名和公证。
 
 ## 已知后续项
 
