@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type {
+  AccessibilityPermissionStatus,
   AchievementState,
   AppSettings,
   AssistantRunInput,
@@ -15,6 +16,11 @@ const api = {
   getAchievements: (): Promise<AchievementState> => ipcRenderer.invoke("scatter:get-achievements"),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke("scatter:get-settings"),
   saveSettings: (settings: AppSettings): Promise<AppSettings> => ipcRenderer.invoke("scatter:save-settings", settings),
+  accessibility: {
+    getStatus: (): Promise<AccessibilityPermissionStatus> => ipcRenderer.invoke("scatter:accessibility:get-status"),
+    request: (): Promise<AccessibilityPermissionStatus> => ipcRenderer.invoke("scatter:accessibility:request"),
+    openSettings: (): Promise<void> => ipcRenderer.invoke("scatter:accessibility:open-settings")
+  },
   getRecentProjects: (): Promise<ScatterProjectInfo[]> => ipcRenderer.invoke("scatter:get-recent-projects"),
   removeRecentProject: (projectPath: string): Promise<ScatterProjectInfo[]> =>
     ipcRenderer.invoke("scatter:remove-recent-project", projectPath),

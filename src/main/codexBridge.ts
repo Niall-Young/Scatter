@@ -1,10 +1,11 @@
-import { app, clipboard, systemPreferences } from "electron";
+import { app, clipboard } from "electron";
 import { access } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import type { CodexRunInput, CodexRunResult } from "../shared/types";
+import { requestAccessibilityPermission } from "./accessibilityPermission";
 import { tMain } from "./i18n";
 import { getSettings } from "./settingsStore";
 
@@ -109,11 +110,6 @@ async function focusCodex(): Promise<void> {
   });
   child.unref();
   await delay(250);
-}
-
-function requestAccessibilityPermission(): void {
-  if (process.platform !== "darwin") return;
-  systemPreferences.isTrustedAccessibilityClient(true);
 }
 
 function pasteSettleDelaySeconds(markdown: string): string {

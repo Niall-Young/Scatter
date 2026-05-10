@@ -14,6 +14,7 @@ import {
   saveDocument
 } from "./projectStore";
 import { getAchievements, recordUsageToday, unlockAchievement } from "./achievementStore";
+import { getAccessibilityPermissionStatus, openAccessibilitySettings, requestAccessibilityPermission } from "./accessibilityPermission";
 import { runAssistant } from "./assistantBridge";
 import { getSettings, saveSettings } from "./settingsStore";
 import type { AppSettings, AssistantRunInput, AttachmentInput, ScatterDocument } from "../shared/types";
@@ -192,6 +193,9 @@ app.whenReady().then(async () => {
   ipcMain.handle("scatter:get-achievements", () => getAchievements());
   ipcMain.handle("scatter:get-settings", () => getSettings());
   ipcMain.handle("scatter:save-settings", (_event, settings: AppSettings) => saveSettings(settings));
+  ipcMain.handle("scatter:accessibility:get-status", () => getAccessibilityPermissionStatus());
+  ipcMain.handle("scatter:accessibility:request", () => requestAccessibilityPermission());
+  ipcMain.handle("scatter:accessibility:open-settings", () => openAccessibilitySettings());
   ipcMain.handle("scatter:get-recent-projects", () => getRecentProjects());
   ipcMain.handle("scatter:remove-recent-project", (_event, projectPath: string) => removeRecentProject(projectPath));
   ipcMain.handle("scatter:create-project", () => chooseProject("create"));

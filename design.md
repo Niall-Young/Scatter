@@ -19,7 +19,7 @@ Scatter 是一个本地优先的多模态任务画布，用来把零散任务节
 
 ## 当前用户流程
 
-应用启动时会先显示一个独立无边框启动窗口，展示 Scatter 品牌、启动状态和工具箱视觉图。主窗口隐藏加载；主窗口 ready 且启动窗口至少显示 5 秒后，关闭启动窗口并显示主窗口。首次打开客户端且没有历史 `settings.json` 时，主窗口会先弹出居中的“偏好选择”弹窗，让用户在 Codex 和 Claude 之间选择偏好的 AI 工具；确认后会写入应用设置里的默认运行器，并标记首启偏好已完成。关闭该弹窗会保留默认 Codex，并同样标记完成，之后可在设置里调整。已有旧设置文件但缺少该标记时视为已完成，不会因升级打断用户。主窗口直接进入项目列表界面：左侧显示添加项目、搜索、成就、设置和最近项目列表；右侧工作区在未打开项目时居中显示文件夹图标和“选择或新建你的项目”（英文为“Select or create your project”）；如果没有最近项目，列表区域保持为空。用户可以选择或创建一个本地文件夹作为 Scatter 项目，也可以从最近项目列表重新打开；`⌘⇧N` 打开添加项目流程。从无项目状态首次打开或创建项目时，画布会从左到右展开出现；已经打开项目后再切换项目不触发这个进入动画。
+应用启动时会先显示一个独立无边框启动窗口，展示 Scatter 品牌、启动状态和工具箱视觉图。主窗口隐藏加载；主窗口 ready 且启动窗口至少显示 5 秒后，关闭启动窗口并显示主窗口。首次打开客户端且没有历史 `settings.json` 时，主窗口会先弹出居中的“偏好选择”弹窗，让用户在 Codex 和 Claude 之间选择偏好的 AI 工具；确认后会写入应用设置里的默认运行器，并标记首启偏好已完成。关闭该弹窗会保留默认 Codex，并同样标记完成，之后可在设置里调整。已有旧设置文件但缺少该标记时视为已完成，不会因升级打断用户。偏好弹窗结束后，Scatter 会检查 macOS 辅助功能权限；未授权时每次启动显示一次居中的权限引导，用户可以触发系统授权提示、打开系统设置或稍后处理。主窗口直接进入项目列表界面：左侧显示添加项目、搜索、成就、设置和最近项目列表；右侧工作区在未打开项目时居中显示文件夹图标和“选择或新建你的项目”（英文为“Select or create your project”）；如果没有最近项目，列表区域保持为空。用户可以选择或创建一个本地文件夹作为 Scatter 项目，也可以从最近项目列表重新打开；`⌘⇧N` 打开添加项目流程。从无项目状态首次打开或创建项目时，画布会从左到右展开出现；已经打开项目后再切换项目不触发这个进入动画。
 
 启动窗口和主窗口使用透明 Electron 窗口配合 macOS 背景模糊。应用外层、启动页面板和画布区域都使用带透明度的背景色，不要改回完全不透明的窗口底色。
 
@@ -80,6 +80,7 @@ Scatter 是一个 Electron 桌面应用，使用 Electron Vite、React、TypeScr
 - `src/main/index.ts`：Electron 窗口创建和 IPC handler 注册。
 - `resources/app-icon.png`、`resources/app-icon.icns`、`resources/app-icon.iconset`：macOS 应用图标源和导出尺寸。
 - `src/main/projectStore.ts`：项目初始化、`.scatter` 存储、附件保存、最近项目列表。
+- `src/main/accessibilityPermission.ts`：macOS 辅助功能权限检查、申请和系统设置跳转。
 - `src/main/assistantBridge.ts`：根据设置分发到 Codex 或 Claude CLI。
 - `src/main/codexBridge.ts`：Codex Desktop 启动、app-server 运行偏好同步、可见新线程 URL 调用和 AppleScript 提交。
 - `src/main/claudeBridge.ts`：Claude CLI 定位、Terminal 启动和初始 prompt 脚本提交。
@@ -98,6 +99,7 @@ Scatter 是一个 Electron 桌面应用，使用 Electron Vite、React、TypeScr
 - `src/renderer/src/components/AchievementToast.tsx`：成就达成 toast。
 - `src/renderer/src/lib/achievements.ts`：成就静态资源、名称、条件和展示顺序。
 - `src/renderer/src/components/AssistantProviderPreferenceDialog.tsx`：首次打开客户端时选择默认 AI 工具的偏好弹窗。
+- `src/renderer/src/components/AccessibilityPermissionDialog.tsx`：macOS 辅助功能权限引导弹窗。
 - `src/renderer/src/components/SearchDialog.tsx`：居中项目搜索弹窗。
 - `src/renderer/src/components/SettingsDialog.tsx`：居中设置弹窗。
 - `src/renderer/src/components/Topbar.tsx`：工作区顶部操作栏。
@@ -210,7 +212,7 @@ Markdown 模板中的标题、运行模式、计划模式状态、附件说明�
 
 ## 运行器集成
 
-运行节点时，Renderer 调用 `window.scatter.runAssistant`，main process 根据应用级 `assistantProvider` 分发到 Codex 或 Claude CLI。计划模式和推理强度只读取本次运行起始节点配置。
+运行节点时，Renderer 会先通过 `window.scatter.accessibility` 复查 macOS 辅助功能权限；未授权时阻止发送并打开权限引导弹窗。授权通过后，Renderer 调用 `window.scatter.runAssistant`，main process 根据应用级 `assistantProvider` 分发到 Codex 或 Claude CLI。计划模式和推理强度只读取本次运行起始节点配置。
 
 ### Codex Desktop
 

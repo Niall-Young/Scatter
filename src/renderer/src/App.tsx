@@ -47,6 +47,7 @@ import { createTranslator } from "./lib/translations";
 import { achievements, type AchievementDefinition } from "./lib/achievements";
 import { AchievementToast } from "./components/AchievementToast";
 import { AchievementsWall } from "./components/AchievementsWall";
+import { AccessibilityPermissionDialog } from "./components/AccessibilityPermissionDialog";
 import { AssistantProviderPreferenceDialog } from "./components/AssistantProviderPreferenceDialog";
 import { Sidebar } from "./components/Sidebar";
 import { ScatterEdge as ScatterFlowEdge } from "./components/ScatterEdge";
@@ -415,6 +416,7 @@ function App(): ReactElement {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [themePreference, setThemePreference] = useState<ThemePreference>(defaultAppSettings.themePreference);
   const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() => systemColorTheme());
   const [language, setLanguage] = useState<LanguagePreference>(defaultAppSettings.language);
@@ -424,6 +426,9 @@ function App(): ReactElement {
     defaultAppSettings.assistantProviderOnboardingCompleted
   );
   const [assistantProviderPreferenceOpen, setAssistantProviderPreferenceOpen] = useState(false);
+  const [accessibilityPermissionOpen, setAccessibilityPermissionOpen] = useState(false);
+  const [accessibilityPermissionError, setAccessibilityPermissionError] = useState<string | null>(null);
+  const [accessibilityTrusted, setAccessibilityTrusted] = useState<boolean | null>(null);
   const [markdownPanelRatio, setMarkdownPanelRatio] = useState(MARKDOWN_PANEL_DEFAULT_RATIO);
   const [isResizingMarkdownPanel, setIsResizingMarkdownPanel] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -451,6 +456,8 @@ function App(): ReactElement {
   const settingsSnapshotRef = useRef<SettingsValues | null>(null);
   const settingsSaveRequestedRef = useRef(false);
   const assistantRunInFlightRef = useRef(false);
+  const accessibilityStartupPromptShownRef = useRef(false);
+  const accessibilityPromptDismissedRef = useRef(false);
   const [taskRunModeOverride, setTaskRunModeOverride] = useState<{ nodeId: string; mode: RunMode } | null>(null);
   const t = useMemo(() => createTranslator(language), [language]);
 
@@ -568,6 +575,7 @@ function App(): ReactElement {
       .then((settings) => {
         if (!cancelled) {
           applySettingsValues(settings);
+          setSettingsLoaded(true);
           if (!isSplashWindow && !settings.assistantProviderOnboardingCompleted) {
             setAssistantProviderPreferenceOpen(true);
           }
@@ -576,6 +584,7 @@ function App(): ReactElement {
       .catch(() => {
         if (!cancelled) {
           applySettingsValues(defaultAppSettings);
+          setSettingsLoaded(true);
           if (!isSplashWindow) {
             setAssistantProviderPreferenceOpen(true);
           }
@@ -666,6 +675,91 @@ function App(): ReactElement {
     setAssistantProviderPreferenceOpen(false);
   }, [applySettingsValues, assistantProvider, language, themePreference, translucentBackground]);
 
+  const refreshAccessibilityPermission = useCallback(async (): Promise<boolean> => {
+    const status = await window.scatter.accessibility.getStatus();
+    setAccessibilityTrusted(status.trusted);
+    if (status.trusted) {
+      setAccessibilityPermissionOpen(false);
+      setAccessibilityPermissionError(null);
+    }
+    return status.trusted;
+  }, []);
+
+  const requestAccessibilityPermission = useCallback(async (): Promise<void> => {
+    const status = await window.scatter.accessibility.request();
+    setAccessibilityTrusted(status.trusted);
+    if (status.trusted) {
+      setAccessibilityPermissionOpen(false);
+      setAccessibilityPermissionError(null);
+      return;
+    }
+    setAccessibilityPermissionError(t("accessibilityPermission.notTrusted"));
+  }, [t]);
+
+  const openAccessibilitySettings = useCallback(async (): Promise<void> => {
+    await window.scatter.accessibility.openSettings();
+  }, []);
+
+  const dismissAccessibilityPermission = useCallback((): void => {
+    accessibilityPromptDismissedRef.current = true;
+    setAccessibilityPermissionOpen(false);
+    setAccessibilityPermissionError(null);
+  }, []);
+
+  const ensureAccessibilityPermission = useCallback(async (): Promise<boolean> => {
+    try {
+      const trusted = await refreshAccessibilityPermission();
+      if (trusted) return true;
+      accessibilityPromptDismissedRef.current = false;
+      setAccessibilityPermissionError(null);
+      setAccessibilityPermissionOpen(true);
+      setStatus(t("status.accessibilityPermissionRequired"));
+      return false;
+    } catch (error) {
+      setAccessibilityPermissionError(error instanceof Error ? error.message : t("accessibilityPermission.requestFailed"));
+      setAccessibilityPermissionOpen(true);
+      setStatus(t("status.accessibilityPermissionRequired"));
+      return false;
+    }
+  }, [refreshAccessibilityPermission, setStatus, t]);
+
+  useEffect(() => {
+    if (isSplashWindow || !settingsLoaded || assistantProviderPreferenceOpen || accessibilityStartupPromptShownRef.current) return;
+    accessibilityStartupPromptShownRef.current = true;
+    let cancelled = false;
+
+    window.scatter.accessibility
+      .getStatus()
+      .then((status) => {
+        if (cancelled) return;
+        setAccessibilityTrusted(status.trusted);
+        if (!status.trusted && !accessibilityPromptDismissedRef.current) {
+          setAccessibilityPermissionError(null);
+          setAccessibilityPermissionOpen(true);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setAccessibilityPermissionError(error instanceof Error ? error.message : t("accessibilityPermission.requestFailed"));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assistantProviderPreferenceOpen, isSplashWindow, settingsLoaded, t]);
+
+  useEffect(() => {
+    if (isSplashWindow) return undefined;
+
+    const handleFocus = (): void => {
+      void refreshAccessibilityPermission().catch(() => undefined);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [isSplashWindow, refreshAccessibilityPermission]);
+
   useEffect(() => {
     if (!isSplashWindow) {
       void refreshRecentProjects();
@@ -705,7 +799,7 @@ function App(): ReactElement {
     }
 
     function handleKeyDown(event: KeyboardEvent): void {
-      if (!isCanvasView || assistantProviderPreferenceOpen || settingsOpen || searchOpen || !isSpaceKey(event) || isEditableTarget(event.target)) return;
+      if (!isCanvasView || assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || searchOpen || !isSpaceKey(event) || isEditableTarget(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setSpacePanActive(true);
@@ -730,7 +824,7 @@ function App(): ReactElement {
       window.removeEventListener("keyup", handleKeyUp, { capture: true });
       window.removeEventListener("blur", handleBlur);
     };
-  }, [assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen]);
+  }, [accessibilityPermissionOpen, assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen]);
 
   const hydrateProject = useCallback(
     async (result: OpenProjectResult | null) => {
@@ -879,6 +973,9 @@ function App(): ReactElement {
         setStatus(t("status.sendingAssistant"));
         return;
       }
+      if (!(await ensureAccessibilityPermission())) {
+        return;
+      }
       const threadName = mode === "flow" ? `Scatter Flow: ${node.data.title || t("drawer.unnamedTask")}` : `Scatter: ${node.data.title || t("drawer.unnamedTask")}`;
       assistantRunInFlightRef.current = true;
       setStatus(t("status.sendingAssistant"));
@@ -903,7 +1000,7 @@ function App(): ReactElement {
         assistantRunInFlightRef.current = false;
       }
     },
-    [assistantProvider, edges, language, markNodeRun, nodes, project, refreshAchievements, setStatus, t]
+    [assistantProvider, edges, ensureAccessibilityPermission, language, markNodeRun, nodes, project, refreshAchievements, setStatus, t]
   );
 
   const duplicateNode = useCallback(
@@ -1209,7 +1306,7 @@ function App(): ReactElement {
 
   const handlePaste = useCallback(
     async (event: React.ClipboardEvent) => {
-      if (!project || !isCanvasView || assistantProviderPreferenceOpen || settingsOpen || searchOpen) return;
+      if (!project || !isCanvasView || assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || searchOpen) return;
 
       const files = event.clipboardData.files;
       if (files.length > 0) {
@@ -1277,6 +1374,7 @@ function App(): ReactElement {
     [
       addFilesToNode,
       appendAttachments,
+      accessibilityPermissionOpen,
       assistantProviderPreferenceOpen,
       beginHistoryTransaction,
       cancelHistoryTransaction,
@@ -1294,7 +1392,7 @@ function App(): ReactElement {
 
   const handleDrop = useCallback(
     async (event: React.DragEvent) => {
-      if (!project || !isCanvasView || assistantProviderPreferenceOpen || settingsOpen || searchOpen || event.dataTransfer.files.length === 0) return;
+      if (!project || !isCanvasView || assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || searchOpen || event.dataTransfer.files.length === 0) return;
       event.preventDefault();
       beginHistoryTransaction();
       const target = ensureTargetNode();
@@ -1311,7 +1409,7 @@ function App(): ReactElement {
         setStatus(error instanceof Error ? error.message : t("status.addAttachmentFailed"));
       }
     },
-    [addFilesToNode, assistantProviderPreferenceOpen, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, isCanvasView, project, searchOpen, settingsOpen, setStatus, t]
+    [accessibilityPermissionOpen, addFilesToNode, assistantProviderPreferenceOpen, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, isCanvasView, project, searchOpen, settingsOpen, setStatus, t]
   );
 
   const runActiveNode = useCallback(() => {
@@ -1338,7 +1436,7 @@ function App(): ReactElement {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
-      if (assistantProviderPreferenceOpen || settingsOpen || searchOpen || isEditableTarget(event.target)) {
+      if (assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || searchOpen || isEditableTarget(event.target)) {
         return;
       }
 
@@ -1438,6 +1536,7 @@ function App(): ReactElement {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
+    accessibilityPermissionOpen,
     addNode,
     assistantProviderPreferenceOpen,
     createProject,
@@ -1761,6 +1860,13 @@ function App(): ReactElement {
         open={assistantProviderPreferenceOpen}
         onDismiss={dismissAssistantProviderPreference}
         onSave={saveAssistantProviderPreference}
+      />
+      <AccessibilityPermissionDialog
+        error={accessibilityPermissionError}
+        open={accessibilityPermissionOpen && accessibilityTrusted !== true}
+        onDismiss={dismissAccessibilityPermission}
+        onOpenSettings={openAccessibilitySettings}
+        onRequest={requestAccessibilityPermission}
       />
       <SearchDialog
         open={searchOpen}

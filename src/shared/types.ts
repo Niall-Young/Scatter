@@ -131,5 +131,9 @@ export interface AssistantRunResult {
   cwd: string;
 }
 
+export interface AccessibilityPermissionStatus {
+  trusted: boolean;
+}
+
 export type CodexRunInput = Omit<AssistantRunInput, "provider">;
 export type CodexRunResult = Omit<AssistantRunResult, "provider">;

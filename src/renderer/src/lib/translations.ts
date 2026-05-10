@@ -33,6 +33,18 @@ const zh = {
   "onboarding.confirm": "选好了",
   "onboarding.saving": "保存中...",
   "onboarding.saveFailed": "保存偏好失败",
+  "accessibilityPermission.title": "开启辅助功能权限",
+  "accessibilityPermission.close": "关闭权限引导",
+  "accessibilityPermission.description": "Scatter 需要这项权限，才能把生成的提示词发送到 Codex 或 Claude CLI。",
+  "accessibilityPermission.hint": "点击开启权限后，在系统提示或系统设置里允许 Scatter 控制其他应用。",
+  "accessibilityPermission.request": "开启权限",
+  "accessibilityPermission.requesting": "正在打开...",
+  "accessibilityPermission.openSettings": "打开系统设置",
+  "accessibilityPermission.openingSettings": "打开中...",
+  "accessibilityPermission.later": "稍后",
+  "accessibilityPermission.notTrusted": "还没有检测到授权。请在系统设置里允许 Scatter 后回到应用。",
+  "accessibilityPermission.requestFailed": "申请权限失败",
+  "accessibilityPermission.openSettingsFailed": "打开系统设置失败",
   "searchDialog.title": "搜索项目",
   "searchDialog.close": "关闭搜索",
   "searchDialog.placeholder": "搜索项目名称",
@@ -138,6 +150,7 @@ const zh = {
   "status.sendingAssistant": "正在发送到运行器...",
   "status.sentAssistant": "已发送到运行器",
   "status.sendAssistantFailed": "发送到运行器失败",
+  "status.accessibilityPermissionRequired": "请先开启 macOS 辅助功能权限",
   "status.addAttachmentFailed": "添加附件失败"
 } as const;
 
@@ -174,6 +187,18 @@ const en = {
   "onboarding.confirm": "Done",
   "onboarding.saving": "Saving...",
   "onboarding.saveFailed": "Failed to save preference",
+  "accessibilityPermission.title": "Enable Accessibility permission",
+  "accessibilityPermission.close": "Close permission guide",
+  "accessibilityPermission.description": "Scatter needs this permission to send generated prompts to Codex or Claude CLI.",
+  "accessibilityPermission.hint": "After clicking enable, allow Scatter to control other apps in the system prompt or System Settings.",
+  "accessibilityPermission.request": "Enable permission",
+  "accessibilityPermission.requesting": "Opening...",
+  "accessibilityPermission.openSettings": "Open System Settings",
+  "accessibilityPermission.openingSettings": "Opening...",
+  "accessibilityPermission.later": "Later",
+  "accessibilityPermission.notTrusted": "Permission has not been detected yet. Allow Scatter in System Settings, then return to the app.",
+  "accessibilityPermission.requestFailed": "Failed to request permission",
+  "accessibilityPermission.openSettingsFailed": "Failed to open System Settings",
   "searchDialog.title": "Search projects",
   "searchDialog.close": "Close search",
   "searchDialog.placeholder": "Search project name",
@@ -279,6 +304,7 @@ const en = {
   "status.sendingAssistant": "Sending to runner...",
   "status.sentAssistant": "Sent to runner",
   "status.sendAssistantFailed": "Failed to send to runner",
+  "status.accessibilityPermissionRequired": "Enable macOS Accessibility permission first",
   "status.addAttachmentFailed": "Failed to add attachment"
 } satisfies Record<keyof typeof zh, string>;
 
