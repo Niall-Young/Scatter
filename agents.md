@@ -1,6 +1,6 @@
 # Scatter Agent 说明
 
-更新时间：2026-05-09
+更新时间：2026-05-10
 
 这份文件给后续参与 Scatter 的 AI agent 使用，记录项目概况、命令、目录、约定和容易踩坑的位置。修改架构、命令或协作规则时要同步更新。
 
@@ -23,6 +23,7 @@ Scatter 是一个本地 Electron 桌面应用，用任务画布把节点、附�
 
 ```bash
 npm run dev
+npm run build:accessibility-guide
 npm run typecheck
 npm run build
 npm run preview
@@ -30,11 +31,13 @@ npm run pack
 npm run dist:mac
 ```
 
-代码改动至少运行 `npm run typecheck`。涉及 UI 或交互时，运行 `npm run dev` 并手动验证相关流程。需要生成 macOS 可安装包时运行 `npm run dist:mac`，产物输出到 `release/`。macOS 包必须保留 ad-hoc code signing，不要把 Electron Builder 的 `mac.identity` 改回 `null`，否则辅助功能权限可能无法稳定匹配运行中的 Scatter。
+代码改动至少运行 `npm run typecheck`。涉及原生辅助功能权限引导时运行 `npm run build:accessibility-guide`。涉及 UI 或交互时，运行 `npm run dev` 并手动验证相关流程。需要生成 macOS 可安装包时运行 `npm run dist:mac`，产物输出到 `release/`。macOS 包必须保留 ad-hoc code signing，不要把 Electron Builder 的 `mac.identity` 改回 `null`，否则辅助功能权限可能无法稳定匹配运行中的 Scatter。
 
 ## 目录地图
 
 - `package.json`：脚本和依赖。
+- `native/accessibility-guide/AccessibilityGuide.swift`：macOS 原生辅助功能拖拽授权引导 helper。
+- `scripts/build-accessibility-guide.mjs`：编译 `ScatterAccessibilityGuide` helper 到 `build/accessibility-guide/`。
 - `release/`：Electron Builder 输出目录，包含本地打包出的 `.dmg`、`.zip` 和 unpacked app。
 - `electron.vite.config.ts`：main、preload、renderer 构建入口。
 - `tsconfig.json`：严格 TypeScript 配置。
@@ -42,7 +45,7 @@ npm run dist:mac
 - `src/shared/types.ts`：main、preload、renderer 共享的数据契约。
 - `src/main/index.ts`：Electron 启动和 IPC 注册。
 - `src/main/projectStore.ts`：项目文档、最近项目、附件持久化。
-- `src/main/accessibilityPermission.ts`：macOS 辅助功能权限检查、申请和系统设置跳转。
+- `src/main/accessibilityPermission.ts`：macOS 辅助功能权限检查、申请、原生引导 helper 启动和旧 TCC 授权重置。
 - `src/main/assistantBridge.ts`：AI 运行器分发。
 - `src/main/codexBridge.ts`：Codex Desktop 集成。
 - `src/main/claudeBridge.ts`：Claude CLI / Terminal 集成。
@@ -128,7 +131,7 @@ AI 运行器启动行为变化：
 - Codex 正常运行必须走可见新线程路径：先用 app-server 同步本次起始节点的推理强度，默认 control socket 可用时先试 `codex app-server proxy`，否则用 `codex app-server --listen stdio://`；随后打开 `codex://threads/new?path=<projectPath>&prompt=<markdown>` 或打开空新线程后粘贴长 Markdown，并在可见输入框中提交。不要用 app-server 的 `thread/start` 或 `turn/start` 作为正常运行提交路径。
 - Claude CLI 优先复用 Terminal.app 里已经运行 `claude` 的 tab，或 Scatter 标记为 `Scatter Claude CLI`、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab；没有现有 tab 时通过 `claude` CLI 启动新会话，启动过程需要用 in-flight promise 去重，新会话必须先 `do script` 再激活 Terminal，避免额外空 shell 窗口；`xhigh` 映射到 `--effort max`，计划模式映射到 `--permission-mode plan`。
 - 不提供 Claude 桌面客户端运行器。Claude Desktop 没有类似 Codex `app-server proxy` 的本地接口，`claude://code/new?folder=...` 只能打开 Code tab，不能稳定提交完整 Markdown，且 UI 自动化会被“Trust this folder / 信任此文件夹”等弹窗打断。
-- 启动后且首启运行器偏好弹窗结束后，renderer 通过 `window.scatter.accessibility.getStatus()` 检查 macOS 辅助功能权限；未授权时每次启动显示一次权限引导。运行 Codex 或 Claude CLI 前也要复查，未授权时阻止发送并显示同一弹窗，用户可触发系统授权提示或打开系统设置。
+- 启动后且首启运行器偏好弹窗结束后，renderer 通过 `window.scatter.accessibility.getStatus()` 检查 macOS 辅助功能权限；未授权时每次启动显示一次权限引导。运行 Codex 或 Claude CLI 前也要复查，未授权时阻止发送并显示同一弹窗。用户可打开 Swift/AppKit 原生引导小窗，把当前 Scatter.app 拖到系统设置的辅助功能列表；如果本地 ad-hoc 包旧授权失效，可先执行 `tccutil reset Accessibility com.scatter.desktop` 的一键重置，再重新授权。
 - 注意 Codex 可见提交依赖 macOS 辅助功能权限，会先激活 Codex、聚焦底部输入区、必要时切换计划模式，再提交；Claude CLI 路径通过 Terminal.app 打开临时脚本提交初始 prompt。
 - 保持 `cwd` 指向当前项目文件夹。
 
@@ -141,7 +144,7 @@ AI 运行器启动行为变化：
 - 左侧栏“成就”按钮打开工作区内成就墙，成就墙不依赖当前项目，不写入项目文件；已达成成就展示无背景资源和达成日期，点击后打开居中弹窗展示带背景资源、名称、达成条件、达成日期和“继续加油”按钮；未达成成就展示 fade 资源和达成条件；选择或创建项目时切回画布。成就刚达成时弹出专用 toast，图片使用 default 带背景资源，主文案是“{成就名}已达成！”，副文案是达成条件，“查看”按钮打开成就墙。
 - 左侧栏“设置”按钮打开居中设置弹窗，不要恢复成直接切换主题。
 - 首次打开客户端且尚未生成 `settings.json` 时，主窗口显示“偏好选择”弹窗，让用户选择 Codex 或 Claude；选择结果写入应用设置里的默认运行器。关闭弹窗会保留当前默认 Codex 并标记首启偏好已完成。已有旧设置文件缺少首启标记时视为已完成，不要打断升级用户。
-- macOS 辅助功能权限引导弹窗必须等“偏好选择”弹窗结束后再出现，避免两个居中弹窗叠加；用户点“稍后”后，本次会话不再因启动检查反复弹出，但运行前缺权限仍要拦截并展示。
+- macOS 辅助功能权限引导弹窗必须等“偏好选择”弹窗结束后再出现，避免两个居中弹窗叠加；用户点“稍后”后，本次会话不再因启动检查反复弹出，但运行前缺权限仍要拦截并展示。打开权限引导时 main process 会启动 `ScatterAccessibilityGuide` helper；helper 文案跟随 Scatter 当前语言设置，亮暗外观跟随 Scatter 当前主题设置，拖拽预览必须是完整 app cell 而不是被拉伸的图标；授权检测通过或用户关闭权限弹窗时要关闭 helper。
 - 任务节点正文保留最小高度；正文超过最小高度时节点自动增高，不在节点内部出现滚动条。
 - 验证启动页、无项目空状态、画布、任务节点、右侧侧边栏和深色模式。
 - 顶部栏左侧的侧栏按钮使用 `IconButton`；展开态显示侧栏收起按钮，收起态显示侧栏展开按钮和添加项目按钮。侧栏切换快捷键是 `⌘B`，任务清单是 `⌘⇧T`，Markdown 预览是 `⌘⇧M`，运行当前任务是 `⌘↩`。

@@ -829,7 +829,7 @@ button {
   top: 50%;
   left: 50%;
   display: flex;
-  width: 540px;
+  width: 640px;
   max-width: calc(100vw - 40px);
   max-height: calc(100vh - 80px);
   flex-direction: column;
@@ -936,6 +936,8 @@ button {
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .search-dialog-overlay {

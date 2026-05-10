@@ -9,52 +9,52 @@ interface AccessibilityPermissionDialogProps {
   error: string | null;
   open: boolean;
   onDismiss: () => void;
-  onOpenSettings: () => Promise<void>;
-  onRequest: () => Promise<void>;
+  onOpenGuide: () => Promise<void>;
+  onResetPermission: () => Promise<void>;
 }
 
 export function AccessibilityPermissionDialog({
   error,
   onDismiss,
-  onOpenSettings,
-  onRequest,
+  onOpenGuide,
+  onResetPermission,
   open
 }: AccessibilityPermissionDialogProps): ReactElement {
   const { t } = useI18n();
-  const [isOpeningSettings, setIsOpeningSettings] = useState(false);
-  const [isRequesting, setIsRequesting] = useState(false);
+  const [isOpeningGuide, setIsOpeningGuide] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setActionError(null);
-    setIsOpeningSettings(false);
-    setIsRequesting(false);
+    setIsOpeningGuide(false);
+    setIsResetting(false);
   }, [open]);
 
-  async function request(): Promise<void> {
-    if (isRequesting || isOpeningSettings) return;
-    setIsRequesting(true);
+  async function openGuide(): Promise<void> {
+    if (isOpeningGuide || isResetting) return;
+    setIsOpeningGuide(true);
     setActionError(null);
     try {
-      await onRequest();
+      await onOpenGuide();
     } catch (requestError) {
       setActionError(requestError instanceof Error ? requestError.message : t("accessibilityPermission.requestFailed"));
     } finally {
-      setIsRequesting(false);
+      setIsOpeningGuide(false);
     }
   }
 
-  async function openSettings(): Promise<void> {
-    if (isRequesting || isOpeningSettings) return;
-    setIsOpeningSettings(true);
+  async function resetPermission(): Promise<void> {
+    if (isOpeningGuide || isResetting) return;
+    setIsResetting(true);
     setActionError(null);
     try {
-      await onOpenSettings();
-    } catch (settingsError) {
-      setActionError(settingsError instanceof Error ? settingsError.message : t("accessibilityPermission.openSettingsFailed"));
+      await onResetPermission();
+    } catch (resetError) {
+      setActionError(resetError instanceof Error ? resetError.message : t("accessibilityPermission.resetFailed"));
     } finally {
-      setIsOpeningSettings(false);
+      setIsResetting(false);
     }
   }
 
@@ -77,7 +77,7 @@ export function AccessibilityPermissionDialog({
                 icon="x"
                 size="sm"
                 aria-label={t("accessibilityPermission.close")}
-                disabled={isRequesting || isOpeningSettings}
+                disabled={isOpeningGuide || isResetting}
               />
             </RadixDialog.Close>
           </header>
@@ -87,19 +87,20 @@ export function AccessibilityPermissionDialog({
               {t("accessibilityPermission.description")}
             </p>
             <p className="accessibility-permission-dialog-hint">{t("accessibilityPermission.hint")}</p>
+            <p className="accessibility-permission-dialog-hint">{t("accessibilityPermission.resetHint")}</p>
           </div>
 
           <footer className="accessibility-permission-dialog-footer">
             {error || actionError ? <p className="accessibility-permission-dialog-error">{error || actionError}</p> : null}
             <div className="accessibility-permission-dialog-actions">
-              <KitButton filled={false} size="md" disabled={isRequesting || isOpeningSettings} onClick={onDismiss}>
+              <KitButton filled={false} size="md" disabled={isOpeningGuide || isResetting} onClick={onDismiss}>
                 {t("accessibilityPermission.later")}
               </KitButton>
-              <KitButton filled={false} size="md" disabled={isRequesting || isOpeningSettings} onClick={() => void openSettings()}>
-                {isOpeningSettings ? t("accessibilityPermission.openingSettings") : t("accessibilityPermission.openSettings")}
+              <KitButton filled={false} size="md" disabled={isOpeningGuide || isResetting} onClick={() => void resetPermission()}>
+                {isResetting ? t("accessibilityPermission.resetting") : t("accessibilityPermission.reset")}
               </KitButton>
-              <KitButton filled size="md" disabled={isRequesting || isOpeningSettings} onClick={() => void request()}>
-                {isRequesting ? t("accessibilityPermission.requesting") : t("accessibilityPermission.request")}
+              <KitButton filled size="md" disabled={isOpeningGuide || isResetting} onClick={() => void openGuide()}>
+                {isOpeningGuide ? t("accessibilityPermission.openingGuide") : t("accessibilityPermission.openGuide")}
               </KitButton>
             </div>
           </footer>

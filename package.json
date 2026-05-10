@@ -6,9 +6,11 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "predev": "npm run build:accessibility-guide",
     "dev": "electron-vite dev",
+    "build:accessibility-guide": "node scripts/build-accessibility-guide.mjs",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && electron-vite build",
+    "build": "npm run build:accessibility-guide && npm run typecheck && electron-vite build",
     "preview": "electron-vite preview",
     "pack": "npm run build && electron-builder --dir",
     "dist:mac": "npm run build && electron-builder --mac"
@@ -24,6 +26,10 @@
       "package.json"
     ],
     "extraResources": [
+      {
+        "from": "build/accessibility-guide/ScatterAccessibilityGuide",
+        "to": "accessibility-guide/ScatterAccessibilityGuide"
+      },
       {
         "from": "resources/app-icon.png",
         "to": "app-icon.png"

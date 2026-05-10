@@ -14,10 +14,18 @@ import {
   saveDocument
 } from "./projectStore";
 import { getAchievements, recordUsageToday, unlockAchievement } from "./achievementStore";
-import { getAccessibilityPermissionStatus, openAccessibilitySettings, requestAccessibilityPermission } from "./accessibilityPermission";
+import {
+  closeAccessibilityPermissionGuide,
+  type AccessibilityGuideAppearance,
+  getAccessibilityPermissionStatus,
+  openAccessibilityPermissionGuide,
+  openAccessibilitySettings,
+  requestAccessibilityPermission,
+  resetAccessibilityPermission
+} from "./accessibilityPermission";
 import { runAssistant } from "./assistantBridge";
 import { getSettings, saveSettings } from "./settingsStore";
-import type { AppSettings, AssistantRunInput, AttachmentInput, ScatterDocument } from "../shared/types";
+import type { AppSettings, AssistantRunInput, AttachmentInput, LanguagePreference, ScatterDocument } from "../shared/types";
 
 const SPLASH_MIN_DURATION_MS = 5000;
 
@@ -88,6 +96,17 @@ function appIconPath(): string {
 function setAppIcon(iconPath: string): void {
   if (process.platform !== "darwin" || !existsSync(iconPath)) return;
   app.dock?.setIcon(nativeImage.createFromPath(iconPath));
+}
+
+async function accessibilityGuideOptions(): Promise<{
+  appearance: AccessibilityGuideAppearance;
+  language: LanguagePreference;
+}> {
+  const settings = await getSettings();
+  return {
+    appearance: settings.themePreference,
+    language: settings.language
+  };
 }
 
 function preloadScriptPath(): string {
@@ -196,6 +215,12 @@ app.whenReady().then(async () => {
   ipcMain.handle("scatter:accessibility:get-status", () => getAccessibilityPermissionStatus());
   ipcMain.handle("scatter:accessibility:request", () => requestAccessibilityPermission());
   ipcMain.handle("scatter:accessibility:open-settings", () => openAccessibilitySettings());
+  ipcMain.handle("scatter:accessibility:open-guide", async () => {
+    const options = await accessibilityGuideOptions();
+    return openAccessibilityPermissionGuide(iconPath, options.appearance, options.language);
+  });
+  ipcMain.handle("scatter:accessibility:close-guide", () => closeAccessibilityPermissionGuide());
+  ipcMain.handle("scatter:accessibility:reset-permission", () => resetAccessibilityPermission());
   ipcMain.handle("scatter:get-recent-projects", () => getRecentProjects());
   ipcMain.handle("scatter:remove-recent-project", (_event, projectPath: string) => removeRecentProject(projectPath));
   ipcMain.handle("scatter:create-project", () => chooseProject("create"));
@@ -245,4 +270,8 @@ app.whenReady().then(async () => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+app.on("before-quit", () => {
+  closeAccessibilityPermissionGuide();
 });

@@ -683,29 +683,42 @@ function App(): ReactElement {
     if (status.trusted) {
       setAccessibilityPermissionOpen(false);
       setAccessibilityPermissionError(null);
+      void window.scatter.accessibility.closeGuide().catch(() => undefined);
     }
     return status.trusted;
   }, []);
 
-  const requestAccessibilityPermission = useCallback(async (): Promise<void> => {
-    const status = await window.scatter.accessibility.request();
+  const openAccessibilityGuide = useCallback(async (): Promise<void> => {
+    const status = await window.scatter.accessibility.openGuide();
     setAccessibilityTrusted(status.trusted);
     if (status.trusted) {
       setAccessibilityPermissionOpen(false);
       setAccessibilityPermissionError(null);
+      void window.scatter.accessibility.closeGuide().catch(() => undefined);
       return;
     }
     setAccessibilityPermissionError(t("accessibilityPermission.notTrusted"));
   }, [t]);
 
-  const openAccessibilitySettings = useCallback(async (): Promise<void> => {
-    await window.scatter.accessibility.openSettings();
-  }, []);
+  const resetAccessibilityPermission = useCallback(async (): Promise<void> => {
+    const resetStatus = await window.scatter.accessibility.resetPermission();
+    setAccessibilityTrusted(resetStatus.trusted);
+    const guideStatus = await window.scatter.accessibility.openGuide();
+    setAccessibilityTrusted(guideStatus.trusted);
+    if (guideStatus.trusted) {
+      setAccessibilityPermissionOpen(false);
+      setAccessibilityPermissionError(null);
+      void window.scatter.accessibility.closeGuide().catch(() => undefined);
+      return;
+    }
+    setAccessibilityPermissionError(t("accessibilityPermission.notTrusted"));
+  }, [t]);
 
   const dismissAccessibilityPermission = useCallback((): void => {
     accessibilityPromptDismissedRef.current = true;
     setAccessibilityPermissionOpen(false);
     setAccessibilityPermissionError(null);
+    void window.scatter.accessibility.closeGuide().catch(() => undefined);
   }, []);
 
   const ensureAccessibilityPermission = useCallback(async (): Promise<boolean> => {
@@ -761,6 +774,16 @@ function App(): ReactElement {
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
   }, [isSplashWindow, refreshAccessibilityPermission]);
+
+  useEffect(() => {
+    if (isSplashWindow || !accessibilityPermissionOpen || accessibilityTrusted === true) return undefined;
+
+    const timer = window.setInterval(() => {
+      void refreshAccessibilityPermission().catch(() => undefined);
+    }, 1500);
+
+    return () => window.clearInterval(timer);
+  }, [accessibilityPermissionOpen, accessibilityTrusted, isSplashWindow, refreshAccessibilityPermission]);
 
   useEffect(() => {
     if (!isSplashWindow) {
@@ -1867,8 +1890,8 @@ function App(): ReactElement {
         error={accessibilityPermissionError}
         open={accessibilityPermissionOpen && accessibilityTrusted !== true}
         onDismiss={dismissAccessibilityPermission}
-        onOpenSettings={openAccessibilitySettings}
-        onRequest={requestAccessibilityPermission}
+        onOpenGuide={openAccessibilityGuide}
+        onResetPermission={resetAccessibilityPermission}
       />
       <SearchDialog
         open={searchOpen}

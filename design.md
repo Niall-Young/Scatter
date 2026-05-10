@@ -1,6 +1,6 @@
 # Scatter 设计文档
 
-更新时间：2026-05-09
+更新时间：2026-05-10
 
 这份文档记录当前项目的产品形态、技术结构和已知边界，先作为后续迭代的基线。以后功能变化时直接在这里继续改。
 
@@ -19,7 +19,7 @@ Scatter 是一个本地优先的多模态任务画布，用来把零散任务节
 
 ## 当前用户流程
 
-应用启动时会先显示一个独立无边框启动窗口，展示 Scatter 品牌、启动状态和工具箱视觉图。主窗口隐藏加载；主窗口 ready 且启动窗口至少显示 5 秒后，关闭启动窗口并显示主窗口。首次打开客户端且没有历史 `settings.json` 时，主窗口会先弹出居中的“偏好选择”弹窗，让用户在 Codex 和 Claude 之间选择偏好的 AI 工具；确认后会写入应用设置里的默认运行器，并标记首启偏好已完成。关闭该弹窗会保留默认 Codex，并同样标记完成，之后可在设置里调整。已有旧设置文件但缺少该标记时视为已完成，不会因升级打断用户。偏好弹窗结束后，Scatter 会检查 macOS 辅助功能权限；未授权时每次启动显示一次居中的权限引导，用户可以触发系统授权提示、打开系统设置或稍后处理。主窗口直接进入项目列表界面：左侧显示添加项目、搜索、成就、设置和最近项目列表；右侧工作区在未打开项目时居中显示文件夹图标和“选择或新建你的项目”（英文为“Select or create your project”）；如果没有最近项目，列表区域保持为空。用户可以选择或创建一个本地文件夹作为 Scatter 项目，也可以从最近项目列表重新打开；`⌘⇧N` 打开添加项目流程。从无项目状态首次打开或创建项目时，画布会从左到右展开出现；已经打开项目后再切换项目不触发这个进入动画。
+应用启动时会先显示一个独立无边框启动窗口，展示 Scatter 品牌、启动状态和工具箱视觉图。主窗口隐藏加载；主窗口 ready 且启动窗口至少显示 5 秒后，关闭启动窗口并显示主窗口。首次打开客户端且没有历史 `settings.json` 时，主窗口会先弹出居中的“偏好选择”弹窗，让用户在 Codex 和 Claude 之间选择偏好的 AI 工具；确认后会写入应用设置里的默认运行器，并标记首启偏好已完成。关闭该弹窗会保留默认 Codex，并同样标记完成，之后可在设置里调整。已有旧设置文件但缺少该标记时视为已完成，不会因升级打断用户。偏好弹窗结束后，Scatter 会检查 macOS 辅助功能权限；未授权时每次启动显示一次居中的权限引导，用户可以打开原生权限引导小窗、重置失效的旧授权或稍后处理。原生权限引导会打开系统设置的辅助功能页面，并提供可拖拽的当前 Scatter.app。主窗口直接进入项目列表界面：左侧显示添加项目、搜索、成就、设置和最近项目列表；右侧工作区在未打开项目时居中显示文件夹图标和“选择或新建你的项目”（英文为“Select or create your project”）；如果没有最近项目，列表区域保持为空。用户可以选择或创建一个本地文件夹作为 Scatter 项目，也可以从最近项目列表重新打开；`⌘⇧N` 打开添加项目流程。从无项目状态首次打开或创建项目时，画布会从左到右展开出现；已经打开项目后再切换项目不触发这个进入动画。
 
 启动窗口和主窗口使用透明 Electron 窗口配合 macOS 背景模糊。应用外层、启动页面板和画布区域都使用带透明度的背景色，不要改回完全不透明的窗口底色。
 
@@ -80,7 +80,7 @@ Scatter 是一个 Electron 桌面应用，使用 Electron Vite、React、TypeScr
 - `src/main/index.ts`：Electron 窗口创建和 IPC handler 注册。
 - `resources/app-icon.png`、`resources/app-icon.icns`、`resources/app-icon.iconset`：macOS 应用图标源和导出尺寸。
 - `src/main/projectStore.ts`：项目初始化、`.scatter` 存储、附件保存、最近项目列表。
-- `src/main/accessibilityPermission.ts`：macOS 辅助功能权限检查、申请和系统设置跳转。
+- `src/main/accessibilityPermission.ts`：macOS 辅助功能权限检查、申请、原生引导 helper 启动和旧 TCC 授权重置。
 - `src/main/assistantBridge.ts`：根据设置分发到 Codex 或 Claude CLI。
 - `src/main/codexBridge.ts`：Codex Desktop 启动、app-server 运行偏好同步、可见新线程 URL 调用和 AppleScript 提交。
 - `src/main/claudeBridge.ts`：Claude CLI 定位、Terminal 启动和初始 prompt 脚本提交。
@@ -208,11 +208,11 @@ Renderer 在 `scatterStore.ts` 中维护非持久化的内存历史栈，最多�
 
 Markdown 模板中的标题、运行模式、计划模式状态、附件说明、环形警告和执行请求会随语言切换；节点标题、提示词正文、附件文件名和路径保持用户原始内容。
 
-通过 Codex 和 Claude CLI 路径发送时，附件都通过 Markdown 中的相对路径和绝对路径提供给运行器访问。macOS 产物使用 ad-hoc code signing；不要跳过签名，否则辅助功能权限可能在系统设置里显示已开启，但运行进程仍检测不到授权。
+通过 Codex 和 Claude CLI 路径发送时，附件都通过 Markdown 中的相对路径和绝对路径提供给运行器访问。macOS 产物使用 ad-hoc code signing；不要跳过签名，否则辅助功能权限可能在系统设置里显示已开启，但运行进程仍检测不到授权。本地开发或重新打包导致授权失效时，权限弹窗提供“重置并重新授权”，只执行 `tccutil reset Accessibility com.scatter.desktop` 清掉 Scatter 的旧 TCC 记录，再引导用户拖入当前 Scatter.app。
 
 ## 运行器集成
 
-运行节点时，Renderer 会先通过 `window.scatter.accessibility` 复查 macOS 辅助功能权限；未授权时阻止发送并打开权限引导弹窗。授权通过后，Renderer 调用 `window.scatter.runAssistant`，main process 根据应用级 `assistantProvider` 分发到 Codex 或 Claude CLI。计划模式和推理强度只读取本次运行起始节点配置。
+运行节点时，Renderer 会先通过 `window.scatter.accessibility` 复查 macOS 辅助功能权限；未授权时阻止发送并打开权限引导弹窗。权限引导由 Electron 弹窗触发，main process 会先请求 Scatter 当前进程的辅助功能授权，再启动 `ScatterAccessibilityGuide` Swift/AppKit helper 显示原生拖拽小窗；helper 文案跟随 Scatter 当前语言设置，亮暗外观跟随 Scatter 当前主题设置，`system` 主题会解析为当前 macOS 外观。Renderer 会轮询授权状态，检测通过后关闭 helper。授权通过后，Renderer 调用 `window.scatter.runAssistant`，main process 根据应用级 `assistantProvider` 分发到 Codex 或 Claude CLI。计划模式和推理强度只读取本次运行起始节点配置。
 
 ### Codex Desktop
 
@@ -274,7 +274,7 @@ npm run pack
 npm run dist:mac
 ```
 
-`npm run build` 会先运行 TypeScript 检查，再执行 Electron Vite build。
+`npm run build` 会先编译 `ScatterAccessibilityGuide` Swift helper，再运行 TypeScript 检查和 Electron Vite build。
 
 `npm run dist:mac` 会先构建应用，再通过 Electron Builder 生成 macOS universal `.dmg` 和 `.zip` 安装产物，输出目录为 `release/`。当前本地打包配置使用 ad-hoc code signing，不做 notarization，适合内部试用分发；正式公开分发前需要接入 Apple Developer ID 签名和公证。
 

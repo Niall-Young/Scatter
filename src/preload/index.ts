@@ -19,7 +19,10 @@ const api = {
   accessibility: {
     getStatus: (): Promise<AccessibilityPermissionStatus> => ipcRenderer.invoke("scatter:accessibility:get-status"),
     request: (): Promise<AccessibilityPermissionStatus> => ipcRenderer.invoke("scatter:accessibility:request"),
-    openSettings: (): Promise<void> => ipcRenderer.invoke("scatter:accessibility:open-settings")
+    openSettings: (): Promise<void> => ipcRenderer.invoke("scatter:accessibility:open-settings"),
+    openGuide: (): Promise<AccessibilityPermissionStatus> => ipcRenderer.invoke("scatter:accessibility:open-guide"),
+    closeGuide: (): Promise<void> => ipcRenderer.invoke("scatter:accessibility:close-guide"),
+    resetPermission: (): Promise<AccessibilityPermissionStatus> => ipcRenderer.invoke("scatter:accessibility:reset-permission")
   },
   getRecentProjects: (): Promise<ScatterProjectInfo[]> => ipcRenderer.invoke("scatter:get-recent-projects"),
   removeRecentProject: (projectPath: string): Promise<ScatterProjectInfo[]> =>
