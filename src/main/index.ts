@@ -128,7 +128,7 @@ function createSplashWindow(iconPath: string): BrowserWindow {
     }
   });
 
-  loadRenderer(splashWindow, { window: "splash" });
+  loadRenderer(splashWindow, { window: "splash", version: app.getVersion() });
   return splashWindow;
 }
 

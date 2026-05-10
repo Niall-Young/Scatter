@@ -437,7 +437,9 @@ function App(): ReactElement {
   const [spacePanActive, setSpacePanActive] = useState(false);
   const [viewportZoom, setViewportZoom] = useState(1);
   const [canvasRevealActive, setCanvasRevealActive] = useState(false);
-  const isSplashWindow = new URLSearchParams(window.location.search).get("window") === "splash";
+  const windowSearchParams = new URLSearchParams(window.location.search);
+  const isSplashWindow = windowSearchParams.get("window") === "splash";
+  const appVersion = windowSearchParams.get("version")?.trim() || "0.0.0";
   const saveTimerRef = useRef<number | null>(null);
   const loadedProjectPathRef = useRef<string | null>(null);
   const skipNextAutosavePathRef = useRef<string | null>(null);
@@ -1618,7 +1620,7 @@ function App(): ReactElement {
                 <h1>Scatter</h1>
                 <p>{t("startup.tagline")}</p>
               </div>
-              <p className="startup-status">{t("startup.status")}</p>
+              <p className="startup-status">{t("startup.version", { version: appVersion })}</p>
             </div>
             <div className="startup-visual" aria-hidden="true">
               <div className="startup-image-frame">
