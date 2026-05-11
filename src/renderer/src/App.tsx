@@ -432,6 +432,7 @@ function App(): ReactElement {
   const [markdownPanelRatio, setMarkdownPanelRatio] = useState(MARKDOWN_PANEL_DEFAULT_RATIO);
   const [isResizingMarkdownPanel, setIsResizingMarkdownPanel] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [canvasTool, setCanvasTool] = useState<CanvasTool>("select");
   const [spacePanActive, setSpacePanActive] = useState(false);
@@ -473,6 +474,10 @@ function App(): ReactElement {
   const isCanvasView = activeView === "canvas";
   const isAchievementsView = activeView === "achievements";
   const panModeActive = canvasTool === "pan" || spacePanActive;
+
+  useEffect(() => {
+    setSelectedEdgeIds((current) => current.filter((id) => edges.some((edge) => edge.id === id)));
+  }, [edges]);
   const zoomPercent = Math.round(viewportZoom * 100);
   const markdownResult = useMemo(
     () =>
@@ -1062,6 +1067,16 @@ function App(): ReactElement {
     [commitCanvasChange, edges, nodes, selectedNodeId, setSelectedNodeId]
   );
 
+  const deleteSelectedEdges = useCallback(() => {
+    if (!selectedEdgeIds.length) return;
+
+    const selectedEdgeIdSet = new Set(selectedEdgeIds);
+    commitCanvasChange({
+      edges: edges.filter((edge) => !selectedEdgeIdSet.has(edge.id))
+    });
+    setSelectedEdgeIds([]);
+  }, [commitCanvasChange, edges, selectedEdgeIds]);
+
   useEffect(() => {
     setTaskNodeActions({
       updateNodeData,
@@ -1145,10 +1160,10 @@ function App(): ReactElement {
     (changes: EdgeChange<ScatterEdge>[]) => {
       const next = applyEdgeChanges(changes as EdgeChange[], edges as Edge[]);
       const nextEdges = next.map((edge) => ({
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-          label: typeof (edge as Edge).label === "string" ? ((edge as Edge).label as string) : undefined
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        label: typeof (edge as Edge).label === "string" ? ((edge as Edge).label as string) : undefined
       }));
       const hasDocumentChange = changes.some((change) => change.type !== "select");
 
@@ -1157,6 +1172,7 @@ function App(): ReactElement {
         return;
       }
 
+      setSelectedEdgeIds(next.filter((edge) => Boolean(edge.selected)).map((edge) => edge.id));
       replaceCanvasLive({ edges: nextEdges });
     },
     [commitCanvasChange, edges, replaceCanvasLive]
@@ -1315,9 +1331,10 @@ function App(): ReactElement {
   );
 
   const onSelectionChange = useCallback(
-    ({ nodes: selectedNodes }: OnSelectionChangeParams) => {
+    ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
       const first = selectedNodes[0] as ScatterNode | undefined;
       selectCanvasNode(first?.id || null);
+      setSelectedEdgeIds(selectedEdges.map((edge) => edge.id));
     },
     [selectCanvasNode]
   );
@@ -1552,7 +1569,15 @@ function App(): ReactElement {
         }
       }
 
-      if (!selectedNodeId || (event.key !== "Backspace" && event.key !== "Delete")) return;
+      if (event.key !== "Backspace" && event.key !== "Delete") return;
+
+      if (selectedEdgeIds.length) {
+        event.preventDefault();
+        deleteSelectedEdges();
+        return;
+      }
+
+      if (!selectedNodeId) return;
 
       event.preventDefault();
       deleteNode(selectedNodeId);
@@ -1566,6 +1591,7 @@ function App(): ReactElement {
     assistantProviderPreferenceOpen,
     createProject,
     deleteNode,
+    deleteSelectedEdges,
     fitCanvas,
     isCanvasView,
     openSettingsDialog,
@@ -1573,6 +1599,7 @@ function App(): ReactElement {
     redo,
     runActiveNode,
     searchOpen,
+    selectedEdgeIds,
     selectedNodeId,
     settingsOpen,
     toggleMarkdownDrawer,
@@ -1721,8 +1748,10 @@ function App(): ReactElement {
                     edges.map((edge) => ({
                       ...edge,
                       type: "scatter",
+                      selected: selectedEdgeIds.includes(edge.id),
                       data: {
                         active:
+                          selectedEdgeIds.includes(edge.id) ||
                           edge.source === selectedNodeId ||
                           edge.target === selectedNodeId ||
                           edge.source === hoveredNodeId ||
@@ -1761,6 +1790,7 @@ function App(): ReactElement {
                     setViewportZoom(viewport.zoom);
                   }}
                   fitView
+                  deleteKeyCode={null}
                   minZoom={0.2}
                   maxZoom={2}
                   proOptions={{ hideAttribution: true }}

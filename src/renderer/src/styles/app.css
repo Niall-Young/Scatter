@@ -1698,6 +1698,7 @@ button.achievement-card.is-unlocked:focus-visible {
 }
 
 .react-flow {
+  --xy-edge-stroke-selected: var(--color-primary);
   background: transparent;
 }
 
@@ -1738,9 +1739,20 @@ button.achievement-card.is-unlocked:focus-visible {
   stroke: var(--color-primary);
 }
 
+.react-flow__edge.selected .scatter-edge-path,
+.react-flow__edge.selectable:focus .scatter-edge-path,
+.react-flow__edge.selectable:focus-visible .scatter-edge-path,
+.scatter-edge-path.is-selected {
+  stroke: var(--color-primary);
+}
+
 .scatter-edge-cap {
   fill: var(--color-primary);
   pointer-events: none;
+}
+
+.scatter-edge-cap.is-selected {
+  fill: var(--color-primary);
 }
 
 .scatter-connection-path {
