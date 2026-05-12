@@ -8,29 +8,25 @@ interface AccessibilityPermissionDialogProps {
   open: boolean;
   onDismiss: () => void;
   onOpenGuide: () => Promise<void>;
-  onResetPermission: () => Promise<void>;
 }
 
 export function AccessibilityPermissionDialog({
   onDismiss,
   onOpenGuide,
-  onResetPermission,
   open
 }: AccessibilityPermissionDialogProps): ReactElement {
   const { t } = useI18n();
   const [isOpeningGuide, setIsOpeningGuide] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setActionError(null);
     setIsOpeningGuide(false);
-    setIsResetting(false);
   }, [open]);
 
   async function openGuide(): Promise<void> {
-    if (isOpeningGuide || isResetting) return;
+    if (isOpeningGuide) return;
     setIsOpeningGuide(true);
     setActionError(null);
     try {
@@ -39,19 +35,6 @@ export function AccessibilityPermissionDialog({
       setActionError(requestError instanceof Error ? requestError.message : t("accessibilityPermission.requestFailed"));
     } finally {
       setIsOpeningGuide(false);
-    }
-  }
-
-  async function resetPermission(): Promise<void> {
-    if (isOpeningGuide || isResetting) return;
-    setIsResetting(true);
-    setActionError(null);
-    try {
-      await onResetPermission();
-    } catch (resetError) {
-      setActionError(resetError instanceof Error ? resetError.message : t("accessibilityPermission.resetFailed"));
-    } finally {
-      setIsResetting(false);
     }
   }
 
@@ -71,7 +54,7 @@ export function AccessibilityPermissionDialog({
                 icon="x"
                 size="sm"
                 aria-label={t("accessibilityPermission.close")}
-                disabled={isOpeningGuide || isResetting}
+                disabled={isOpeningGuide}
               />
             </RadixDialog.Close>
           </header>
@@ -85,10 +68,7 @@ export function AccessibilityPermissionDialog({
           <footer className="accessibility-permission-dialog-footer">
             {actionError ? <p className="sr-only" role="alert">{actionError}</p> : null}
             <div className="accessibility-permission-dialog-actions">
-              <KitButton filled={false} size="md" disabled={isOpeningGuide || isResetting} onClick={() => void resetPermission()}>
-                {isResetting ? t("accessibilityPermission.resetting") : t("accessibilityPermission.reset")}
-              </KitButton>
-              <KitButton filled size="md" disabled={isOpeningGuide || isResetting} onClick={() => void openGuide()}>
+              <KitButton filled size="md" disabled={isOpeningGuide} onClick={() => void openGuide()}>
                 {isOpeningGuide ? t("accessibilityPermission.openingGuide") : t("accessibilityPermission.openGuide")}
               </KitButton>
             </div>

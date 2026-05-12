@@ -692,16 +692,6 @@ function App(): ReactElement {
   }, []);
 
   const openAccessibilityGuide = useCallback(async (): Promise<void> => {
-    const status = await window.scatter.accessibility.openGuide();
-    setAccessibilityTrusted(status.trusted);
-    if (status.trusted) {
-      setAccessibilityPermissionOpen(false);
-      void window.scatter.accessibility.closeGuide().catch(() => undefined);
-      return;
-    }
-  }, []);
-
-  const resetAccessibilityPermission = useCallback(async (): Promise<void> => {
     const resetStatus = await window.scatter.accessibility.resetPermission();
     setAccessibilityTrusted(resetStatus.trusted);
     const guideStatus = await window.scatter.accessibility.openGuide();
@@ -1910,7 +1900,6 @@ function App(): ReactElement {
         open={accessibilityPermissionOpen && accessibilityTrusted !== true}
         onDismiss={dismissAccessibilityPermission}
         onOpenGuide={openAccessibilityGuide}
-        onResetPermission={resetAccessibilityPermission}
       />
       <SearchDialog
         open={searchOpen}
