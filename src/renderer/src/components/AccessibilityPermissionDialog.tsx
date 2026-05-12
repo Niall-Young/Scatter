@@ -1,12 +1,10 @@
 import { useEffect, useState, type ReactElement } from "react";
 import * as RadixDialog from "@radix-ui/react-dialog";
 import { useI18n } from "../lib/i18n";
-import { Icon } from "./ui/icon";
 import { IconButton } from "./ui/icon-button";
 import { KitButton } from "./ui/kit-button";
 
 interface AccessibilityPermissionDialogProps {
-  error: string | null;
   open: boolean;
   onDismiss: () => void;
   onOpenGuide: () => Promise<void>;
@@ -14,7 +12,6 @@ interface AccessibilityPermissionDialogProps {
 }
 
 export function AccessibilityPermissionDialog({
-  error,
   onDismiss,
   onOpenGuide,
   onResetPermission,
@@ -66,9 +63,6 @@ export function AccessibilityPermissionDialog({
         <RadixDialog.Overlay className="accessibility-permission-dialog-overlay" />
         <RadixDialog.Content className="accessibility-permission-dialog-content" aria-describedby="accessibility-permission-description">
           <header className="accessibility-permission-dialog-header">
-            <div className="accessibility-permission-dialog-icon" aria-hidden="true">
-              <Icon name="app-permission" size={20} />
-            </div>
             <RadixDialog.Title className="accessibility-permission-dialog-title">{t("accessibilityPermission.title")}</RadixDialog.Title>
             <RadixDialog.Close asChild>
               <IconButton
@@ -86,16 +80,11 @@ export function AccessibilityPermissionDialog({
             <p id="accessibility-permission-description" className="accessibility-permission-dialog-copy">
               {t("accessibilityPermission.description")}
             </p>
-            <p className="accessibility-permission-dialog-hint">{t("accessibilityPermission.hint")}</p>
-            <p className="accessibility-permission-dialog-hint">{t("accessibilityPermission.resetHint")}</p>
           </div>
 
           <footer className="accessibility-permission-dialog-footer">
-            {error || actionError ? <p className="accessibility-permission-dialog-error">{error || actionError}</p> : null}
+            {actionError ? <p className="sr-only" role="alert">{actionError}</p> : null}
             <div className="accessibility-permission-dialog-actions">
-              <KitButton filled={false} size="md" disabled={isOpeningGuide || isResetting} onClick={onDismiss}>
-                {t("accessibilityPermission.later")}
-              </KitButton>
               <KitButton filled={false} size="md" disabled={isOpeningGuide || isResetting} onClick={() => void resetPermission()}>
                 {isResetting ? t("accessibilityPermission.resetting") : t("accessibilityPermission.reset")}
               </KitButton>

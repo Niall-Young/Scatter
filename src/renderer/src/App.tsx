@@ -427,7 +427,6 @@ function App(): ReactElement {
   );
   const [assistantProviderPreferenceOpen, setAssistantProviderPreferenceOpen] = useState(false);
   const [accessibilityPermissionOpen, setAccessibilityPermissionOpen] = useState(false);
-  const [accessibilityPermissionError, setAccessibilityPermissionError] = useState<string | null>(null);
   const [accessibilityTrusted, setAccessibilityTrusted] = useState<boolean | null>(null);
   const [markdownPanelRatio, setMarkdownPanelRatio] = useState(MARKDOWN_PANEL_DEFAULT_RATIO);
   const [isResizingMarkdownPanel, setIsResizingMarkdownPanel] = useState(false);
@@ -687,7 +686,6 @@ function App(): ReactElement {
     setAccessibilityTrusted(status.trusted);
     if (status.trusted) {
       setAccessibilityPermissionOpen(false);
-      setAccessibilityPermissionError(null);
       void window.scatter.accessibility.closeGuide().catch(() => undefined);
     }
     return status.trusted;
@@ -698,12 +696,10 @@ function App(): ReactElement {
     setAccessibilityTrusted(status.trusted);
     if (status.trusted) {
       setAccessibilityPermissionOpen(false);
-      setAccessibilityPermissionError(null);
       void window.scatter.accessibility.closeGuide().catch(() => undefined);
       return;
     }
-    setAccessibilityPermissionError(t("accessibilityPermission.notTrusted"));
-  }, [t]);
+  }, []);
 
   const resetAccessibilityPermission = useCallback(async (): Promise<void> => {
     const resetStatus = await window.scatter.accessibility.resetPermission();
@@ -712,17 +708,14 @@ function App(): ReactElement {
     setAccessibilityTrusted(guideStatus.trusted);
     if (guideStatus.trusted) {
       setAccessibilityPermissionOpen(false);
-      setAccessibilityPermissionError(null);
       void window.scatter.accessibility.closeGuide().catch(() => undefined);
       return;
     }
-    setAccessibilityPermissionError(t("accessibilityPermission.notTrusted"));
-  }, [t]);
+  }, []);
 
   const dismissAccessibilityPermission = useCallback((): void => {
     accessibilityPromptDismissedRef.current = true;
     setAccessibilityPermissionOpen(false);
-    setAccessibilityPermissionError(null);
     void window.scatter.accessibility.closeGuide().catch(() => undefined);
   }, []);
 
@@ -731,12 +724,10 @@ function App(): ReactElement {
       const trusted = await refreshAccessibilityPermission();
       if (trusted) return true;
       accessibilityPromptDismissedRef.current = false;
-      setAccessibilityPermissionError(null);
       setAccessibilityPermissionOpen(true);
       setStatus(t("status.accessibilityPermissionRequired"));
       return false;
-    } catch (error) {
-      setAccessibilityPermissionError(error instanceof Error ? error.message : t("accessibilityPermission.requestFailed"));
+    } catch {
       setAccessibilityPermissionOpen(true);
       setStatus(t("status.accessibilityPermissionRequired"));
       return false;
@@ -754,20 +745,19 @@ function App(): ReactElement {
         if (cancelled) return;
         setAccessibilityTrusted(status.trusted);
         if (!status.trusted && !accessibilityPromptDismissedRef.current) {
-          setAccessibilityPermissionError(null);
           setAccessibilityPermissionOpen(true);
         }
       })
-      .catch((error) => {
+      .catch(() => {
         if (!cancelled) {
-          setAccessibilityPermissionError(error instanceof Error ? error.message : t("accessibilityPermission.requestFailed"));
+          setAccessibilityPermissionOpen(true);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [assistantProviderPreferenceOpen, isSplashWindow, settingsLoaded, t]);
+  }, [assistantProviderPreferenceOpen, isSplashWindow, settingsLoaded]);
 
   useEffect(() => {
     if (isSplashWindow) return undefined;
@@ -1917,7 +1907,6 @@ function App(): ReactElement {
         onSave={saveAssistantProviderPreference}
       />
       <AccessibilityPermissionDialog
-        error={accessibilityPermissionError}
         open={accessibilityPermissionOpen && accessibilityTrusted !== true}
         onDismiss={dismissAccessibilityPermission}
         onOpenGuide={openAccessibilityGuide}
