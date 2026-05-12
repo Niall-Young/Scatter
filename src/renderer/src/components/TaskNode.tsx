@@ -18,6 +18,7 @@ import { UploadChip } from "./ui/upload-chip";
 
 type TaskNodeProps = NodeProps<Node<ScatterNodeData, "task">>;
 type EditableField = "title" | "body";
+type ConnectedNodeSide = "left" | "right";
 
 const effortOptions: EffortLevel[] = ["low", "medium", "high", "xhigh"];
 
@@ -34,6 +35,7 @@ interface RuntimeActions {
   chooseFilesForNode: (nodeId: string) => Promise<void>;
   addFilesToNode: (nodeId: string, files: FileList | File[], source: "upload" | "drop" | "paste") => Promise<void>;
   removeAttachment: (nodeId: string, attachmentId: string) => void;
+  createConnectedNode: (nodeId: string, side: ConnectedNodeSide) => void;
   duplicateNode: (nodeId: string) => void;
   deleteNode: (nodeId: string) => void;
   runNode: (nodeId: string, mode: RunMode) => Promise<void>;
@@ -52,6 +54,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
   const titleRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const pointerStartedSelectedRef = useRef(false);
+  const suppressConnectButtonClickRef = useRef(false);
   const [effortMenuOpen, setEffortMenuOpen] = useState(false);
   const [editingField, setEditingField] = useState<EditableField | null>(null);
 
@@ -59,8 +62,12 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
   const effort = data.effort || "xhigh";
   const effortLabel = t(effortLabelKey(effort));
   const hasBody = data.body.trim().length > 0;
-  const hasParent = useScatterStore((state) => state.edges.some((edge) => edge.target === id));
-  const hasChild = useScatterStore((state) => state.edges.some((edge) => edge.source === id));
+  const hasParent = useScatterStore((state) =>
+    state.edges.some((edge) => edge.target === id && state.nodes.some((node) => node.id === edge.source))
+  );
+  const hasChild = useScatterStore((state) =>
+    state.edges.some((edge) => edge.source === id && state.nodes.some((node) => node.id === edge.target))
+  );
 
   const fitBodyTextarea = useCallback(() => {
     fitTextareaHeight(bodyRef.current);
@@ -148,15 +155,69 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
     [id, updateNodeInternals]
   );
 
+  const handleConnectButtonMouseDown = useCallback(
+    (side: ConnectedNodeSide) => (event: React.MouseEvent<HTMLButtonElement>) => {
+      if (event.button !== 0) return;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      let dragged = false;
+
+      function removeListeners(): void {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      }
+
+      function handleMouseMove(moveEvent: MouseEvent): void {
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
+        if (deltaX * deltaX + deltaY * deltaY > 16) {
+          dragged = true;
+        }
+      }
+
+      function handleMouseUp(upEvent: MouseEvent): void {
+        removeListeners();
+        suppressConnectButtonClickRef.current = true;
+        if (dragged) return;
+        upEvent.preventDefault();
+        taskNodeActions?.createConnectedNode(id, side);
+      }
+
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    },
+    [id]
+  );
+
+  const handleConnectButtonClick = useCallback(
+    (side: ConnectedNodeSide) => (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      if (suppressConnectButtonClickRef.current) {
+        suppressConnectButtonClickRef.current = false;
+        event.preventDefault();
+        return;
+      }
+
+      taskNodeActions?.createConnectedNode(id, side);
+    },
+    [id]
+  );
+
   return (
     <div ref={rootRef} className={`task-node ${selected ? "is-selected" : ""}`}>
-      <Handle type="target" position={Position.Left} className="node-handle">
+      <Handle type="target" position={Position.Left} className="node-handle" isConnectableStart={!hasParent} isConnectableEnd={!hasParent}>
         {hasParent ? (
           <span className="node-edge-cap" aria-hidden="true" />
         ) : (
-          <span className="node-connect-button" aria-hidden="true">
+          <button
+            className="node-connect-button"
+            type="button"
+            aria-label={t("task.connectLeft")}
+            onMouseDown={handleConnectButtonMouseDown("left")}
+            onClick={handleConnectButtonClick("left")}
+          >
             <Icon name="plus-lg" size={16} />
-          </span>
+          </button>
         )}
       </Handle>
       <div className="task-node-header">
@@ -289,9 +350,15 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
       </div>
       <Handle type="source" position={Position.Right} className="node-handle">
         {hasChild ? <span className="node-edge-cap" aria-hidden="true" /> : null}
-        <span className="node-connect-button" aria-hidden="true">
+        <button
+          className="node-connect-button"
+          type="button"
+          aria-label={t("task.connectRight")}
+          onMouseDown={handleConnectButtonMouseDown("right")}
+          onClick={handleConnectButtonClick("right")}
+        >
           <Icon name="plus-lg" size={16} />
-        </span>
+        </button>
       </Handle>
     </div>
   );

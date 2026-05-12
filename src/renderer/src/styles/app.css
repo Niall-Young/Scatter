@@ -744,7 +744,6 @@ button {
     background 150ms ease;
 }
 
-.assistant-provider-card:hover,
 .assistant-provider-card:focus-visible {
   outline: none;
   border-color: var(--color-border-focus);
@@ -2049,6 +2048,12 @@ button.achievement-card.is-unlocked:focus-visible {
   justify-content: center;
   background: transparent;
   border: 0;
+  cursor: default;
+}
+
+.react-flow__handle.node-handle.connectablestart,
+.react-flow__handle.node-handle.connectableend {
+  cursor: pointer;
 }
 
 .react-flow__handle-left.node-handle {
@@ -2060,21 +2065,30 @@ button.achievement-card.is-unlocked:focus-visible {
 }
 
 .node-connect-button {
+  appearance: none;
   position: absolute;
   display: inline-flex;
   width: 20px;
   height: 20px;
   align-items: center;
   justify-content: center;
+  padding: 0;
   opacity: 0;
   color: var(--color-inverted);
+  border: 0;
   border-radius: var(--radius-xs);
   background: var(--color-background-dark);
   box-shadow: 0 2px 6px var(--color-shadow-sm);
-  pointer-events: none;
+  cursor: pointer;
+  pointer-events: auto;
   transform: scale(0.92);
   transition: opacity 120ms ease, transform 120ms ease, background 120ms ease;
   z-index: 1;
+}
+
+.node-connect-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .node-edge-cap {
@@ -2104,6 +2118,23 @@ button.achievement-card.is-unlocked:focus-visible {
 
 .react-flow__handle.node-handle:hover .node-connect-button {
   background: var(--color-background-dark-hover);
+}
+
+.react-flow__handle.node-handle:active .node-connect-button,
+.node-connect-button:active {
+  background: var(--color-background-dark-hover);
+  transform: scale(0.94);
+}
+
+.canvas-shell.is-connecting .react-flow,
+.canvas-shell.is-connecting .react-flow__pane,
+.canvas-shell.is-connecting .react-flow__handle.node-handle,
+.canvas-shell.is-connecting .node-connect-button {
+  cursor: crosshair;
+}
+
+.canvas-shell.has-connection-preview .scatter-connection-path {
+  display: none;
 }
 
 .dropdown-content {

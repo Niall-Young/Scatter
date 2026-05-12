@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactElement } from "react";
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
-  addEdge,
   Background,
   ReactFlow,
   type Connection,
@@ -86,9 +85,15 @@ type FlowPosition = { x: number; y: number };
 type MeasuredScatterNode = ScatterNode & { measured?: { width?: number; height?: number } };
 type AppView = "canvas" | "achievements";
 type CanvasTool = "select" | "pan";
+type ConnectedNodeSide = "left" | "right";
 interface ConnectionStart {
   nodeId: string;
   handleType: "source" | "target";
+}
+interface ConnectionPreview {
+  sourceId: string;
+  targetId: string;
+  hoveredNodeId: string;
 }
 interface OptionDuplicateDrag {
   sourceId: string;
@@ -97,6 +102,8 @@ interface OptionDuplicateDrag {
   lastPosition: FlowPosition;
   hasPreview: boolean;
 }
+
+const CONNECTION_PREVIEW_EDGE_ID = "__scatter-connection-preview__";
 
 function connectionLineStartX(x: number, position: Position): number {
   const offset = NODE_CONNECT_BUTTON_SIZE / 2;
@@ -274,6 +281,46 @@ function findOpenPositionToRight(preferred: FlowPosition, nodes: ScatterNode[]):
   return base;
 }
 
+function findOpenPositionToLeft(preferred: FlowPosition, nodes: ScatterNode[]): FlowPosition {
+  const base = roundPosition(preferred);
+  if (isOpenPosition(base, nodes)) return base;
+
+  const stepX = TASK_NODE_WIDTH + TASK_NODE_HORIZONTAL_GAP;
+  const stepY = TASK_NODE_HEIGHT + TASK_NODE_VERTICAL_GAP;
+  const rowOffsets = [0, 1, -1, 2, -2, 3, -3, 4, -4];
+  for (let column = 0; column <= 4; column += 1) {
+    for (const row of rowOffsets) {
+      const candidate = roundPosition({
+        x: preferred.x - column * stepX,
+        y: preferred.y + row * stepY
+      });
+      if (isOpenPosition(candidate, nodes)) return candidate;
+    }
+  }
+
+  return base;
+}
+
+function connectionFromStart(connectionStart: ConnectionStart, targetNodeId: string): Pick<ScatterEdge, "source" | "target"> | null {
+  if (connectionStart.nodeId === targetNodeId) return null;
+
+  return connectionStart.handleType === "source"
+    ? { source: connectionStart.nodeId, target: targetNodeId }
+    : { source: targetNodeId, target: connectionStart.nodeId };
+}
+
+function isConnectionAllowed(connection: Pick<ScatterEdge, "source" | "target">, edges: ScatterEdge[]): boolean {
+  if (!connection.source || !connection.target || connection.source === connection.target) return false;
+  if (edges.some((edge) => edge.source === connection.source && edge.target === connection.target)) return false;
+  if (edges.some((edge) => edge.target === connection.target)) return false;
+  return true;
+}
+
+function edgesForExistingNodes(edges: ScatterEdge[], nodes: ScatterNode[]): ScatterEdge[] {
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  return edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
+}
+
 function defaultTaskTitle(nodes: ScatterNode[], t: ReturnType<typeof createTranslator>): string {
   const nextNumber =
     nodes.reduce((max, node) => {
@@ -433,6 +480,7 @@ function App(): ReactElement {
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionPreview, setConnectionPreview] = useState<ConnectionPreview | null>(null);
   const [canvasTool, setCanvasTool] = useState<CanvasTool>("select");
   const [spacePanActive, setSpacePanActive] = useState(false);
   const [viewportZoom, setViewportZoom] = useState(1);
@@ -453,6 +501,7 @@ function App(): ReactElement {
   const optionDuplicateSettledSourceRef = useRef<string | null>(null);
   const connectionStartRef = useRef<ConnectionStart | null>(null);
   const connectionSucceededRef = useRef(false);
+  const connectionPreviewRef = useRef<ConnectionPreview | null>(null);
   const achievementStateRef = useRef<AchievementState>(achievementState);
   const achievementsLoadedRef = useRef(false);
   const settingsSnapshotRef = useRef<SettingsValues | null>(null);
@@ -474,9 +523,34 @@ function App(): ReactElement {
   const isAchievementsView = activeView === "achievements";
   const panModeActive = canvasTool === "pan" || spacePanActive;
 
+  const updateConnectionPreview = useCallback((preview: ConnectionPreview | null) => {
+    const current = connectionPreviewRef.current;
+    const unchanged =
+      current?.sourceId === preview?.sourceId &&
+      current?.targetId === preview?.targetId &&
+      current?.hoveredNodeId === preview?.hoveredNodeId;
+    if (unchanged) return;
+
+    connectionPreviewRef.current = preview;
+    setConnectionPreview(preview);
+  }, []);
+
+  const clearConnectionPreview = useCallback(() => {
+    updateConnectionPreview(null);
+  }, [updateConnectionPreview]);
+
   useEffect(() => {
     setSelectedEdgeIds((current) => current.filter((id) => edges.some((edge) => edge.id === id)));
   }, [edges]);
+
+  useEffect(() => {
+    if (!connectionPreview) return;
+    const nodeIds = new Set(nodes.map((node) => node.id));
+    if (!nodeIds.has(connectionPreview.sourceId) || !nodeIds.has(connectionPreview.targetId)) {
+      clearConnectionPreview();
+    }
+  }, [clearConnectionPreview, connectionPreview, nodes]);
+
   const zoomPercent = Math.round(viewportZoom * 100);
   const markdownResult = useMemo(
     () =>
@@ -492,6 +566,49 @@ function App(): ReactElement {
           },
     [edges, language, nodes, project, selectedNode]
   );
+
+  const flowNodes = useMemo(
+    () =>
+      connectionPreview
+        ? nodes.map((node) => ({
+            ...node,
+            selected: node.id === connectionPreview.hoveredNodeId
+          }))
+        : nodes,
+    [connectionPreview, nodes]
+  );
+
+  const flowEdges = useMemo(() => {
+    const nodeIds = new Set(nodes.map((node) => node.id));
+    const activeNodeIds = new Set(
+      [selectedNodeId, hoveredNodeId, connectionPreview?.sourceId, connectionPreview?.targetId].filter(Boolean) as string[]
+    );
+    const validEdges = edgesForExistingNodes(edges, nodes);
+    const renderedEdges = validEdges.map((edge) => ({
+      ...edge,
+      type: "scatter",
+      selected: selectedEdgeIds.includes(edge.id),
+      data: {
+        active: selectedEdgeIds.includes(edge.id) || activeNodeIds.has(edge.source) || activeNodeIds.has(edge.target)
+      }
+    })) as Edge[];
+
+    if (connectionPreview && nodeIds.has(connectionPreview.sourceId) && nodeIds.has(connectionPreview.targetId)) {
+      renderedEdges.push({
+        id: CONNECTION_PREVIEW_EDGE_ID,
+        source: connectionPreview.sourceId,
+        target: connectionPreview.targetId,
+        type: "scatter",
+        selectable: false,
+        data: {
+          active: true,
+          preview: true
+        }
+      } as Edge);
+    }
+
+    return renderedEdges;
+  }, [connectionPreview, edges, hoveredNodeId, nodes, selectedEdgeIds, selectedNodeId]);
 
   useEffect(() => {
     if (drawer === "markdown" && !selectedNode) {
@@ -931,6 +1048,50 @@ function App(): ReactElement {
     setSelectedNodeId(node.id);
   }, [commitCanvasChange, getVisibleCanvasCenterPosition, isCanvasView, nodes, project, selectedNode, setSelectedNodeId, t]);
 
+  const createConnectedNode = useCallback(
+    (nodeId: string, side: ConnectedNodeSide) => {
+      if (!project || !isCanvasView) return;
+      const sourceNode = nodes.find((node) => node.id === nodeId);
+      if (!sourceNode) return;
+      clearConnectionPreview();
+
+      const sourceBounds = nodeBounds(sourceNode);
+      const position =
+        side === "right"
+          ? findOpenPositionToRight(
+              {
+                x: sourceNode.position.x + sourceBounds.width + TASK_NODE_HORIZONTAL_GAP,
+                y: sourceNode.position.y
+              },
+              nodes
+            )
+          : findOpenPositionToLeft(
+              {
+                x: sourceNode.position.x - TASK_NODE_WIDTH - TASK_NODE_HORIZONTAL_GAP,
+                y: sourceNode.position.y
+              },
+              nodes
+            );
+      const newNode = {
+        ...emptyNode(position, nodes, t),
+        selected: true
+      };
+      const connection =
+        side === "right"
+          ? { source: sourceNode.id, target: newNode.id }
+          : { source: newNode.id, target: sourceNode.id };
+
+      if (!isConnectionAllowed(connection, edges)) return;
+
+      commitCanvasChange({
+        nodes: [...nodes.map((node) => ({ ...node, selected: false })), newNode],
+        edges: [...edges, { id: nanoid(), ...connection }]
+      });
+      setSelectedNodeId(newNode.id);
+    },
+    [clearConnectionPreview, commitCanvasChange, edges, isCanvasView, nodes, project, setSelectedNodeId, t]
+  );
+
   const chooseFilesForNode = useCallback(
     async (nodeId: string) => {
       if (!project) return;
@@ -1036,15 +1197,19 @@ function App(): ReactElement {
 
   const deleteNode = useCallback(
     (nodeId: string) => {
+      const nextNodes = nodes.filter((node) => node.id !== nodeId);
+      const nextEdges = edgesForExistingNodes(edges, nextNodes);
+      clearConnectionPreview();
       commitCanvasChange({
-        nodes: nodes.filter((node) => node.id !== nodeId),
-        edges: edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId)
+        nodes: nextNodes,
+        edges: nextEdges
       });
+      setSelectedEdgeIds((current) => current.filter((edgeId) => nextEdges.some((edge) => edge.id === edgeId)));
       if (selectedNodeId === nodeId) {
         setSelectedNodeId(null);
       }
     },
-    [commitCanvasChange, edges, nodes, selectedNodeId, setSelectedNodeId]
+    [clearConnectionPreview, commitCanvasChange, edges, nodes, selectedNodeId, setSelectedNodeId]
   );
 
   const deleteSelectedEdges = useCallback(() => {
@@ -1065,11 +1230,12 @@ function App(): ReactElement {
       chooseFilesForNode,
       addFilesToNode,
       removeAttachment,
+      createConnectedNode,
       duplicateNode,
       deleteNode,
       runNode
     });
-  }, [addFilesToNode, beginHistoryTransaction, chooseFilesForNode, commitHistoryTransaction, deleteNode, duplicateNode, removeAttachment, runNode, updateNodeData]);
+  }, [addFilesToNode, beginHistoryTransaction, chooseFilesForNode, commitHistoryTransaction, createConnectedNode, deleteNode, duplicateNode, removeAttachment, runNode, updateNodeData]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<ScatterNode>[]) => {
@@ -1081,11 +1247,10 @@ function App(): ReactElement {
       const removedNodeIds = changes.flatMap((change) => (change.type === "remove" ? [change.id] : []));
 
       if (hasStructuralChange) {
+        clearConnectionPreview();
         commitCanvasChange({
           nodes: nextNodes,
-          edges: removedNodeIds.length
-            ? edges.filter((edge) => !removedNodeIds.includes(edge.source) && !removedNodeIds.includes(edge.target))
-            : edges
+          edges: removedNodeIds.length ? edgesForExistingNodes(edges, nextNodes) : edges
         });
         return;
       }
@@ -1133,7 +1298,7 @@ function App(): ReactElement {
 
       replaceCanvasLive({ nodes: nextNodes });
     },
-    [beginHistoryTransaction, commitCanvasChange, commitHistoryTransaction, edges, nodes, replaceCanvasLive, setSelectedNodeId]
+    [beginHistoryTransaction, clearConnectionPreview, commitCanvasChange, commitHistoryTransaction, edges, nodes, replaceCanvasLive, setSelectedNodeId]
   );
 
   const onEdgesChange = useCallback(
@@ -1158,27 +1323,41 @@ function App(): ReactElement {
     [commitCanvasChange, edges, replaceCanvasLive]
   );
 
+  const commitExistingConnection = useCallback(
+    (connection: Pick<ScatterEdge, "source" | "target">, selectedNodeIdAfterCommit: string) => {
+      if (!isConnectionAllowed(connection, edges)) return false;
+
+      commitCanvasChange({
+        nodes: nodes.map((node) => ({ ...node, selected: node.id === selectedNodeIdAfterCommit })),
+        edges: [...edges, { id: nanoid(), source: connection.source, target: connection.target }]
+      });
+      setSelectedNodeId(selectedNodeIdAfterCommit);
+      return true;
+    },
+    [commitCanvasChange, edges, nodes, setSelectedNodeId]
+  );
+
+  const isValidConnection = useCallback(
+    (connection: Edge | Connection) => {
+      return isConnectionAllowed({ source: connection.source, target: connection.target }, edges);
+    },
+    [edges]
+  );
+
   const onConnect = useCallback(
     (connection: Connection) => {
-      connectionSucceededRef.current = true;
-      const next = addEdge(
-          {
-            ...connection,
-            id: nanoid(),
-            type: "scatter",
-            animated: false
-          },
-          edges as Edge[]
-      );
-      commitCanvasChange({ edges: next.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target })) });
+      const didCommit = commitExistingConnection({ source: connection.source, target: connection.target }, connection.target);
+      connectionSucceededRef.current = didCommit;
+      if (didCommit) clearConnectionPreview();
     },
-    [commitCanvasChange, edges]
+    [clearConnectionPreview, commitExistingConnection]
   );
 
   const handleConnectStart = useCallback<OnConnectStart>(
     (_event, params) => {
       setIsConnecting(true);
       connectionSucceededRef.current = false;
+      clearConnectionPreview();
 
       if (!params.nodeId || !params.handleType) {
         connectionStartRef.current = null;
@@ -1198,7 +1377,7 @@ function App(): ReactElement {
       setSelectedNodeId(params.nodeId);
       replaceCanvasLive({ nodes: nodes.map((node) => ({ ...node, selected: node.id === params.nodeId })) });
     },
-    [edges, nodes, replaceCanvasLive, setSelectedNodeId]
+    [clearConnectionPreview, edges, nodes, replaceCanvasLive, setSelectedNodeId]
   );
 
   const handleConnectEnd = useCallback<OnConnectEnd>(
@@ -1207,10 +1386,16 @@ function App(): ReactElement {
 
       const connectionStart = connectionStartRef.current;
       const connectedSuccessfully = connectionSucceededRef.current || connectionState.isValid === true;
+      const preview = connectionPreviewRef.current;
       connectionStartRef.current = null;
       connectionSucceededRef.current = false;
+      clearConnectionPreview();
 
-      if (connectedSuccessfully || !project || !isCanvasView || !connectionStart || connectionState.toHandle || connectionState.toNode) return;
+      if (connectedSuccessfully || !project || !isCanvasView || !connectionStart) return;
+
+      if (preview && commitExistingConnection({ source: preview.sourceId, target: preview.targetId }, preview.hoveredNodeId)) return;
+
+      if (connectionState.toHandle || connectionState.toNode) return;
 
       const clientPosition = eventClientPosition(event);
       const canvasRect = canvasShellRef.current?.getBoundingClientRect();
@@ -1244,7 +1429,7 @@ function App(): ReactElement {
       });
       setSelectedNodeId(newNode.id);
     },
-    [commitCanvasChange, edges, isCanvasView, nodes, project, setSelectedNodeId, t]
+    [clearConnectionPreview, commitCanvasChange, commitExistingConnection, edges, isCanvasView, nodes, project, setSelectedNodeId, t]
   );
 
   const handleNodeDragStart = useCallback<OnNodeDrag<Node>>(
@@ -1312,6 +1497,7 @@ function App(): ReactElement {
 
   const onSelectionChange = useCallback(
     ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
+      if (connectionPreviewRef.current) return;
       const first = selectedNodes[0] as ScatterNode | undefined;
       selectCanvasNode(first?.id || null);
       setSelectedEdgeIds(selectedEdges.map((edge) => edge.id));
@@ -1322,8 +1508,33 @@ function App(): ReactElement {
   const handleNodeMouseEnter = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       setHoveredNodeId(node.id);
+
+      const connectionStart = connectionStartRef.current;
+      if (!connectionStart) return;
+
+      const previewConnection = connectionFromStart(connectionStart, node.id);
+      if (!previewConnection || !isConnectionAllowed(previewConnection, edges)) {
+        clearConnectionPreview();
+        return;
+      }
+
+      updateConnectionPreview({
+        sourceId: previewConnection.source,
+        targetId: previewConnection.target,
+        hoveredNodeId: node.id
+      });
     },
-    []
+    [clearConnectionPreview, edges, updateConnectionPreview]
+  );
+
+  const handleNodeMouseLeave = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      setHoveredNodeId(null);
+      if (connectionPreviewRef.current?.hoveredNodeId === node.id) {
+        clearConnectionPreview();
+      }
+    },
+    [clearConnectionPreview]
   );
 
   const handlePaste = useCallback(
@@ -1716,29 +1927,15 @@ function App(): ReactElement {
           ) : project ? (
             <>
               <div
-                className={`canvas-shell ${canvasRevealActive ? "is-revealing" : ""}`}
+                className={`canvas-shell ${canvasRevealActive ? "is-revealing" : ""} ${isConnecting ? "is-connecting" : ""} ${connectionPreview ? "has-connection-preview" : ""}`}
                 ref={canvasShellRef}
                 onAnimationEnd={(event) => {
                   if (event.animationName === "canvas-project-reveal") setCanvasRevealActive(false);
                 }}
               >
                 <ReactFlow
-                  nodes={nodes as Node[]}
-                  edges={
-                    edges.map((edge) => ({
-                      ...edge,
-                      type: "scatter",
-                      selected: selectedEdgeIds.includes(edge.id),
-                      data: {
-                        active:
-                          selectedEdgeIds.includes(edge.id) ||
-                          edge.source === selectedNodeId ||
-                          edge.target === selectedNodeId ||
-                          edge.source === hoveredNodeId ||
-                          edge.target === hoveredNodeId
-                      }
-                    })) as Edge[]
-                  }
+                  nodes={flowNodes as Node[]}
+                  edges={flowEdges}
                   nodeTypes={nodeTypes}
                   edgeTypes={edgeTypes}
                   connectionLineComponent={ScatterConnectionLine}
@@ -1760,9 +1957,11 @@ function App(): ReactElement {
                   onConnectStart={handleConnectStart}
                   onConnectEnd={handleConnectEnd}
                   onNodeMouseEnter={handleNodeMouseEnter}
-                  onNodeMouseLeave={() => setHoveredNodeId(null)}
+                  onNodeMouseLeave={handleNodeMouseLeave}
                   onNodeDragStart={handleNodeDragStart}
                   onNodeDragStop={handleNodeDragStop}
+                  connectOnClick={false}
+                  isValidConnection={isValidConnection}
                   onInit={(instance) => {
                     flowInstanceRef.current = instance;
                   }}
