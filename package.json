@@ -1,6 +1,6 @@
 {
   "name": "scatter",
-  "version": "1.5.11",
+  "version": "5.1.12",
   "description": "A local multimodal canvas that sends structured node flows to Codex.",
   "main": "out/main/index.js",
   "type": "module",

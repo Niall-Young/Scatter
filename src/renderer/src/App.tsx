@@ -12,6 +12,7 @@ import {
   type OnNodeDrag,
   type OnConnectEnd,
   type OnConnectStart,
+  type OnMove,
   PanOnScrollMode,
   type ReactFlowInstance,
   applyNodeChanges,
@@ -66,6 +67,8 @@ import "./styles/app.css";
 
 const nodeTypes = { task: TaskNode } satisfies NodeTypes;
 const edgeTypes = { scatter: ScatterFlowEdge } satisfies EdgeTypes;
+const defaultEdgeOptions = { type: "scatter" };
+const proOptions = { hideAttribution: true };
 const TASK_NODE_WIDTH = 400;
 const TASK_NODE_HEIGHT = 220;
 const TASK_NODE_HORIZONTAL_GAP = 180;
@@ -144,6 +147,36 @@ function roundPosition(position: FlowPosition): FlowPosition {
     x: Math.round(position.x),
     y: Math.round(position.y)
   };
+}
+
+function stringArraysEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((item, index) => item === right[index]);
+}
+
+function scatterEdgesEqual(left: ScatterEdge[], right: ScatterEdge[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((edge, index) => {
+    const other = right[index];
+    return edge.id === other.id && edge.source === other.source && edge.target === other.target && edge.label === other.label;
+  });
+}
+
+function scatterNodesEqualForLive(left: ScatterNode[], right: ScatterNode[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((node, index) => {
+    const other = right[index];
+    return (
+      node.id === other.id &&
+      node.type === other.type &&
+      node.position.x === other.position.x &&
+      node.position.y === other.position.y &&
+      node.width === other.width &&
+      node.height === other.height &&
+      node.selected === other.selected &&
+      node.data === other.data
+    );
+  });
 }
 
 function eventClientPosition(event: MouseEvent | TouchEvent): FlowPosition | null {
@@ -377,15 +410,51 @@ function optionDuplicatePreviewNodes(drag: OptionDuplicateDrag, position: FlowPo
   return [...restoredNodes, duplicateNodeAt(source, position, drag.duplicateId)];
 }
 
+function nodeForDocument(node: ScatterNode): ScatterNode {
+  const { attachments, ...dataRest } = node.data;
+  const documentNode: ScatterNode = {
+    id: node.id,
+    type: "task",
+    position: { ...node.position },
+    data: {
+      ...dataRest,
+      attachments: attachments.map((attachment) => ({ ...attachment }))
+    } as ScatterNodeData
+  };
+
+  if (typeof node.width === "number") documentNode.width = node.width;
+  if (typeof node.height === "number") documentNode.height = node.height;
+  return documentNode;
+}
+
+function edgeForDocument(edge: ScatterEdge): ScatterEdge {
+  return {
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    label: edge.label
+  };
+}
+
 function toDocument(projectName: string, nodes: ScatterNode[], edges: ScatterEdge[]): ScatterDocument {
   return {
     version: 1,
     projectName,
     updatedAt: new Date().toISOString(),
     viewport: { x: 0, y: 0, zoom: 1 },
-    nodes,
-    edges
+    nodes: nodes.map(nodeForDocument),
+    edges: edges.map(edgeForDocument)
   };
+}
+
+function documentContentKey(projectName: string, nodes: ScatterNode[], edges: ScatterEdge[]): string {
+  const document = toDocument(projectName, nodes, edges);
+  return JSON.stringify({
+    projectName: document.projectName,
+    viewport: document.viewport,
+    nodes: document.nodes,
+    edges: document.edges
+  });
 }
 
 async function filesToInputs(files: FileList | File[], source: "upload" | "drop" | "paste"): Promise<AttachmentInput[]> {
@@ -483,6 +552,8 @@ function App(): ReactElement {
   const [connectionPreview, setConnectionPreview] = useState<ConnectionPreview | null>(null);
   const [canvasTool, setCanvasTool] = useState<CanvasTool>("select");
   const [spacePanActive, setSpacePanActive] = useState(false);
+  const [shiftSelectionActive, setShiftSelectionActive] = useState(false);
+  const [shiftSelectionDragging, setShiftSelectionDragging] = useState(false);
   const [viewportZoom, setViewportZoom] = useState(1);
   const [canvasRevealActive, setCanvasRevealActive] = useState(false);
   const windowSearchParams = new URLSearchParams(window.location.search);
@@ -491,6 +562,7 @@ function App(): ReactElement {
   const saveTimerRef = useRef<number | null>(null);
   const loadedProjectPathRef = useRef<string | null>(null);
   const skipNextAutosavePathRef = useRef<string | null>(null);
+  const lastSavedDocumentKeyRef = useRef<string | null>(null);
   const latestMouseRef = useRef({ x: 360, y: 240 });
   const flowInstanceRef = useRef<ReactFlowInstance | null>(null);
   const canvasShellRef = useRef<HTMLDivElement | null>(null);
@@ -540,7 +612,10 @@ function App(): ReactElement {
   }, [updateConnectionPreview]);
 
   useEffect(() => {
-    setSelectedEdgeIds((current) => current.filter((id) => edges.some((edge) => edge.id === id)));
+    setSelectedEdgeIds((current) => {
+      const next = current.filter((id) => edges.some((edge) => edge.id === id));
+      return stringArraysEqual(current, next) ? current : next;
+    });
   }, [edges]);
 
   useEffect(() => {
@@ -577,23 +652,26 @@ function App(): ReactElement {
         : nodes,
     [connectionPreview, nodes]
   );
+  const flowNodeIdsKey = useMemo(() => nodes.map((node) => node.id).join("\u0000"), [nodes]);
+  const flowNodeIds = useMemo(() => new Set(flowNodeIdsKey ? flowNodeIdsKey.split("\u0000") : []), [flowNodeIdsKey]);
 
   const flowEdges = useMemo(() => {
-    const nodeIds = new Set(nodes.map((node) => node.id));
     const activeNodeIds = new Set(
       [selectedNodeId, hoveredNodeId, connectionPreview?.sourceId, connectionPreview?.targetId].filter(Boolean) as string[]
     );
-    const validEdges = edgesForExistingNodes(edges, nodes);
+    const validEdges = edges.filter((edge) => flowNodeIds.has(edge.source) && flowNodeIds.has(edge.target));
+    const canSelectEdges = !shiftSelectionActive;
     const renderedEdges = validEdges.map((edge) => ({
       ...edge,
       type: "scatter",
-      selected: selectedEdgeIds.includes(edge.id),
+      selectable: canSelectEdges,
+      selected: canSelectEdges && selectedEdgeIds.includes(edge.id),
       data: {
-        active: selectedEdgeIds.includes(edge.id) || activeNodeIds.has(edge.source) || activeNodeIds.has(edge.target)
+        active: (canSelectEdges && selectedEdgeIds.includes(edge.id)) || activeNodeIds.has(edge.source) || activeNodeIds.has(edge.target)
       }
     })) as Edge[];
 
-    if (connectionPreview && nodeIds.has(connectionPreview.sourceId) && nodeIds.has(connectionPreview.targetId)) {
+    if (connectionPreview && flowNodeIds.has(connectionPreview.sourceId) && flowNodeIds.has(connectionPreview.targetId)) {
       renderedEdges.push({
         id: CONNECTION_PREVIEW_EDGE_ID,
         source: connectionPreview.sourceId,
@@ -608,7 +686,7 @@ function App(): ReactElement {
     }
 
     return renderedEdges;
-  }, [connectionPreview, edges, hoveredNodeId, nodes, selectedEdgeIds, selectedNodeId]);
+  }, [connectionPreview, edges, flowNodeIds, hoveredNodeId, selectedEdgeIds, selectedNodeId, shiftSelectionActive]);
 
   useEffect(() => {
     if (drawer === "markdown" && !selectedNode) {
@@ -656,12 +734,15 @@ function App(): ReactElement {
   const removeRecentProject = useCallback(
     async (projectPath: string) => {
       const removesCurrentProject = project?.path === projectPath;
+      const currentDocumentKey =
+        removesCurrentProject && project ? documentContentKey(project.name, nodes, edges) : lastSavedDocumentKeyRef.current;
       if (removesCurrentProject && saveTimerRef.current) {
         window.clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
       if (removesCurrentProject) {
         loadedProjectPathRef.current = null;
+        lastSavedDocumentKeyRef.current = null;
       }
 
       try {
@@ -675,11 +756,12 @@ function App(): ReactElement {
       } catch (error) {
         if (removesCurrentProject && useScatterStore.getState().project?.path === projectPath) {
           loadedProjectPathRef.current = projectPath;
+          lastSavedDocumentKeyRef.current = currentDocumentKey;
         }
         setStatus(error instanceof Error ? error.message : t("status.removeRecentFailed"));
       }
     },
-    [clearProject, project?.path, refreshAchievements, setStatus, t]
+    [clearProject, edges, nodes, project, refreshAchievements, setStatus, t]
   );
 
   const reorderRecentProjects = useCallback(
@@ -968,32 +1050,85 @@ function App(): ReactElement {
       return event.code === "Space" || event.key === " ";
     }
 
+    function isShiftKey(event: KeyboardEvent): boolean {
+      return event.key === "Shift" || event.code === "ShiftLeft" || event.code === "ShiftRight";
+    }
+
+    function canvasShortcutBlocked(event: KeyboardEvent): boolean {
+      return (
+        !isCanvasView ||
+        assistantProviderPreferenceOpen ||
+        accessibilityPermissionOpen ||
+        settingsOpen ||
+        searchOpen ||
+        isEditableTarget(event.target)
+      );
+    }
+
     function handleKeyDown(event: KeyboardEvent): void {
-      if (!isCanvasView || assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || searchOpen || !isSpaceKey(event) || isEditableTarget(event.target)) return;
+      if (canvasShortcutBlocked(event)) return;
+
+      if (isShiftKey(event)) {
+        setShiftSelectionActive(true);
+        setSelectedEdgeIds((current) => (current.length ? [] : current));
+        return;
+      }
+
+      if (!isSpaceKey(event)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setSpacePanActive(true);
     }
 
     function handleKeyUp(event: KeyboardEvent): void {
+      if (isShiftKey(event) && !event.shiftKey) {
+        setShiftSelectionActive(false);
+        setShiftSelectionDragging(false);
+        return;
+      }
+
       if (!isSpaceKey(event)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       setSpacePanActive(false);
     }
 
-    function handleBlur(): void {
+    function resetTransientCanvasKeys(): void {
       setSpacePanActive(false);
+      setShiftSelectionActive(false);
+      setShiftSelectionDragging(false);
+    }
+
+    function handlePointerUp(event: PointerEvent): void {
+      setShiftSelectionDragging(false);
+      if (!event.shiftKey) setShiftSelectionActive(false);
+    }
+
+    function handleVisibilityChange(): void {
+      if (document.visibilityState !== "visible") resetTransientCanvasKeys();
     }
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     window.addEventListener("keyup", handleKeyUp, { capture: true });
-    window.addEventListener("blur", handleBlur);
+    window.addEventListener("pointerup", handlePointerUp, { capture: true });
+    window.addEventListener("pointercancel", resetTransientCanvasKeys, { capture: true });
+    window.addEventListener("blur", resetTransientCanvasKeys);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
       window.removeEventListener("keyup", handleKeyUp, { capture: true });
-      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("pointerup", handlePointerUp, { capture: true });
+      window.removeEventListener("pointercancel", resetTransientCanvasKeys, { capture: true });
+      window.removeEventListener("blur", resetTransientCanvasKeys);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
+  }, [accessibilityPermissionOpen, assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen]);
+
+  useEffect(() => {
+    if (isCanvasView && !assistantProviderPreferenceOpen && !accessibilityPermissionOpen && !settingsOpen && !searchOpen) return;
+    setSpacePanActive(false);
+    setShiftSelectionActive(false);
+    setShiftSelectionDragging(false);
   }, [accessibilityPermissionOpen, assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen]);
 
   const hydrateProject = useCallback(
@@ -1002,6 +1137,7 @@ function App(): ReactElement {
       const shouldRevealCanvas = useScatterStore.getState().project === null;
       loadedProjectPathRef.current = result.project.path;
       skipNextAutosavePathRef.current = result.project.path;
+      lastSavedDocumentKeyRef.current = documentContentKey(result.project.name, result.document.nodes, result.document.edges);
       setActiveView("canvas");
       setCanvasRevealActive(shouldRevealCanvas);
       setProjectDocument(result.project, result.document);
@@ -1050,6 +1186,7 @@ function App(): ReactElement {
     setSaving(true);
     try {
       await window.scatter.saveDocument(targetProject.path, document);
+      lastSavedDocumentKeyRef.current = documentContentKey(document.projectName, document.nodes, document.edges);
       setStatus(t("status.saved"));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t("status.saveFailed"));
@@ -1067,6 +1204,8 @@ function App(): ReactElement {
     }
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     const document = toDocument(project.name, nodes, edges);
+    const documentKey = documentContentKey(project.name, nodes, edges);
+    if (documentKey === lastSavedDocumentKeyRef.current) return;
     const targetProject = project;
     saveTimerRef.current = window.setTimeout(() => {
       saveTimerRef.current = null;
@@ -1357,7 +1496,9 @@ function App(): ReactElement {
         return;
       }
 
-      replaceCanvasLive({ nodes: nextNodes });
+      if (!scatterNodesEqualForLive(nodes, nextNodes)) {
+        replaceCanvasLive({ nodes: nextNodes });
+      }
     },
     [beginHistoryTransaction, clearConnectionPreview, commitCanvasChange, commitHistoryTransaction, edges, nodes, replaceCanvasLive, setSelectedNodeId]
   );
@@ -1378,10 +1519,18 @@ function App(): ReactElement {
         return;
       }
 
-      setSelectedEdgeIds(next.filter((edge) => Boolean(edge.selected)).map((edge) => edge.id));
-      replaceCanvasLive({ edges: nextEdges });
+      if (shiftSelectionActive) {
+        setSelectedEdgeIds((current) => (current.length ? [] : current));
+        return;
+      }
+
+      const nextSelectedEdgeIds = next.filter((edge) => Boolean(edge.selected)).map((edge) => edge.id);
+      setSelectedEdgeIds((current) => (stringArraysEqual(current, nextSelectedEdgeIds) ? current : nextSelectedEdgeIds));
+      if (!scatterEdgesEqual(edges, nextEdges)) {
+        replaceCanvasLive({ edges: nextEdges });
+      }
     },
-    [commitCanvasChange, edges, replaceCanvasLive]
+    [commitCanvasChange, edges, replaceCanvasLive, shiftSelectionActive]
   );
 
   const commitExistingConnection = useCallback(
@@ -1559,11 +1708,20 @@ function App(): ReactElement {
   const onSelectionChange = useCallback(
     ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
       if (connectionPreviewRef.current) return;
-      const first = selectedNodes[0] as ScatterNode | undefined;
-      selectCanvasNode(first?.id || null);
-      setSelectedEdgeIds(selectedEdges.map((edge) => edge.id));
+      const selectedNodeIds = selectedNodes.map((node) => node.id);
+      const nextSelectedNodeId =
+        selectedNodeId && selectedNodeIds.includes(selectedNodeId) ? selectedNodeId : selectedNodeIds[0] || null;
+      if (nextSelectedNodeId !== selectedNodeId) {
+        selectCanvasNode(nextSelectedNodeId);
+      }
+      if (shiftSelectionActive) {
+        setSelectedEdgeIds((current) => (current.length ? [] : current));
+        return;
+      }
+      const nextSelectedEdgeIds = selectedEdges.map((edge) => edge.id);
+      setSelectedEdgeIds((current) => (stringArraysEqual(current, nextSelectedEdgeIds) ? current : nextSelectedEdgeIds));
     },
-    [selectCanvasNode]
+    [selectCanvasNode, selectedNodeId, shiftSelectionActive]
   );
 
   const handleNodeMouseEnter = useCallback(
@@ -1717,6 +1875,19 @@ function App(): ReactElement {
     if (!isCanvasView) return;
     flowInstanceRef.current?.fitView({ padding: 0.24 });
   }, [isCanvasView]);
+
+  const handleMove = useCallback<OnMove>((_event, viewport) => {
+    setViewportZoom(viewport.zoom);
+  }, []);
+
+  const handleCanvasPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.button === 0 && shiftSelectionActive && !panModeActive) {
+        setShiftSelectionDragging(true);
+      }
+    },
+    [panModeActive, shiftSelectionActive]
+  );
 
   const toggleTasksDrawer = useCallback(() => {
     if (!project || !isCanvasView) return;
@@ -1989,8 +2160,9 @@ function App(): ReactElement {
           ) : project ? (
             <>
               <div
-                className={`canvas-shell ${canvasRevealActive ? "is-revealing" : ""} ${isConnecting ? "is-connecting" : ""} ${connectionPreview ? "has-connection-preview" : ""}`}
+                className={`canvas-shell ${canvasRevealActive ? "is-revealing" : ""} ${isConnecting ? "is-connecting" : ""} ${connectionPreview ? "has-connection-preview" : ""} ${shiftSelectionDragging ? "is-shift-selecting" : ""}`}
                 ref={canvasShellRef}
+                onPointerDown={handleCanvasPointerDown}
                 onAnimationEnd={(event) => {
                   if (event.animationName === "canvas-project-reveal") setCanvasRevealActive(false);
                 }}
@@ -2005,17 +2177,18 @@ function App(): ReactElement {
                   onEdgesChange={onEdgesChange as any}
                   onConnect={onConnect}
                   onSelectionChange={onSelectionChange}
-                  selectionKeyCode={panModeActive ? null : "Shift"}
-                  selectionOnDrag={false}
+                  selectionKeyCode={null}
+                  selectionOnDrag={shiftSelectionActive && !panModeActive}
                   panOnDrag={panModeActive}
-                  panActivationKeyCode="Space"
+                  panActivationKeyCode={null}
                   panOnScroll
                   panOnScrollMode={PanOnScrollMode.Free}
                   zoomOnScroll={false}
                   zoomOnPinch
                   zoomOnDoubleClick={false}
                   zoomActivationKeyCode="Meta"
-                  nodesDraggable={!panModeActive}
+                  nodesDraggable={!panModeActive && !shiftSelectionActive}
+                  disableKeyboardA11y
                   onConnectStart={handleConnectStart}
                   onConnectEnd={handleConnectEnd}
                   onNodeMouseEnter={handleNodeMouseEnter}
@@ -2027,17 +2200,13 @@ function App(): ReactElement {
                   onInit={(instance) => {
                     flowInstanceRef.current = instance;
                   }}
-                  onMove={(_, viewport) => {
-                    setViewportZoom(viewport.zoom);
-                  }}
+                  onMove={handleMove}
                   fitView
                   deleteKeyCode={null}
                   minZoom={0.2}
                   maxZoom={2}
-                  proOptions={{ hideAttribution: true }}
-                  defaultEdgeOptions={{
-                    type: "scatter"
-                  }}
+                  proOptions={proOptions}
+                  defaultEdgeOptions={defaultEdgeOptions}
                 >
                   <Background gap={200} size={0} color="transparent" />
                 </ReactFlow>
