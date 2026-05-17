@@ -682,6 +682,31 @@ function App(): ReactElement {
     [clearProject, project?.path, refreshAchievements, setStatus, t]
   );
 
+  const reorderRecentProjects = useCallback(
+    async (projectPaths: string[]) => {
+      const previousProjects = recentProjects;
+      const byPath = new Map(recentProjects.map((recentProject) => [recentProject.path, recentProject]));
+      const orderedProjects = projectPaths
+        .map((projectPath) => byPath.get(projectPath))
+        .filter((recentProject): recentProject is ScatterProjectInfo => Boolean(recentProject));
+      const orderedPathSet = new Set(orderedProjects.map((recentProject) => recentProject.path));
+      const optimisticProjects = [
+        ...orderedProjects,
+        ...recentProjects.filter((recentProject) => !orderedPathSet.has(recentProject.path))
+      ];
+
+      setRecentProjects(optimisticProjects);
+      try {
+        setRecentProjects(await window.scatter.reorderRecentProjects(projectPaths));
+        setStatus(t("status.projectOrderSaved"));
+      } catch {
+        setRecentProjects(previousProjects);
+        setStatus(t("status.projectOrderSaveFailed"));
+      }
+    },
+    [recentProjects, setStatus, t]
+  );
+
   const applySettingsValues = useCallback((values: SettingsValues): void => {
     setThemePreference(values.themePreference);
     setLanguage(values.language);
@@ -895,6 +920,24 @@ function App(): ReactElement {
   }, [isSplashWindow, refreshAchievements, refreshRecentProjects]);
 
   useEffect(() => {
+    if (isSplashWindow) return undefined;
+
+    const refresh = (): void => {
+      void refreshRecentProjects();
+    };
+    const refreshWhenVisible = (): void => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [isSplashWindow, refreshRecentProjects]);
+
+  useEffect(() => {
     if (!window.matchMedia) return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const updateSystemTheme = (): void => {
@@ -971,6 +1014,24 @@ function App(): ReactElement {
   const createProject = useCallback(() => {
     void window.scatter.createProject().then(hydrateProject);
   }, [hydrateProject]);
+
+  const openRecentProject = useCallback(
+    async (projectPath: string) => {
+      const recentProject = recentProjects.find((item) => item.path === projectPath);
+      if (recentProject?.missing) {
+        setStatus(t("status.projectMissing"));
+        return;
+      }
+
+      try {
+        await hydrateProject(await window.scatter.openKnownProject(projectPath));
+      } catch (error) {
+        await refreshRecentProjects();
+        setStatus(error instanceof Error ? error.message : t("status.projectMissing"));
+      }
+    },
+    [hydrateProject, recentProjects, refreshRecentProjects, setStatus, t]
+  );
 
   const openAchievements = useCallback((): void => {
     setActiveView("achievements");
@@ -1892,10 +1953,11 @@ function App(): ReactElement {
         collapsed={sidebarCollapsed}
         onCreateProject={createProject}
         onOpenAchievements={openAchievements}
-        onOpenRecent={(projectPath) => window.scatter.openKnownProject(projectPath).then(hydrateProject)}
+        onOpenRecent={(projectPath) => void openRecentProject(projectPath)}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={openSettingsDialog}
         onRemoveRecent={(projectPath) => void removeRecentProject(projectPath)}
+        onReorderRecent={(projectPaths) => void reorderRecentProjects(projectPaths)}
       />
       <section className="workspace">
         <Topbar
@@ -2104,7 +2166,7 @@ function App(): ReactElement {
         open={searchOpen}
         projects={recentProjects}
         onOpenChange={setSearchOpen}
-        onOpenProject={(projectPath) => window.scatter.openKnownProject(projectPath).then(hydrateProject)}
+        onOpenProject={(projectPath) => void openRecentProject(projectPath)}
       />
       {achievementToastQueue[0] ? (
         <AchievementToast achievement={achievementToastQueue[0]} onClose={closeAchievementToast} onView={viewAchievementToast} />

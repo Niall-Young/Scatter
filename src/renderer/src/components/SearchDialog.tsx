@@ -24,14 +24,15 @@ export function SearchDialog({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLocaleLowerCase();
+  const availableProjects = useMemo(() => projects.filter((project) => !project.missing), [projects]);
   const filteredProjects = useMemo(() => {
-    if (!normalizedQuery) return projects;
-    return projects.filter((project) => {
+    if (!normalizedQuery) return availableProjects;
+    return availableProjects.filter((project) => {
       const name = project.name.toLocaleLowerCase();
       const path = project.path.toLocaleLowerCase();
       return name.includes(normalizedQuery) || path.includes(normalizedQuery);
     });
-  }, [normalizedQuery, projects]);
+  }, [availableProjects, normalizedQuery]);
 
   useEffect(() => {
     if (!open) return;
@@ -88,7 +89,11 @@ export function SearchDialog({
               ))}
               {filteredProjects.length === 0 ? (
                 <p className="search-dialog-empty">
-                  {projects.length === 0 ? t("searchDialog.empty") : t("searchDialog.noResults")}
+                  {projects.length === 0
+                    ? t("searchDialog.empty")
+                    : availableProjects.length === 0
+                      ? t("searchDialog.noAvailableProjects")
+                      : t("searchDialog.noResults")}
                 </p>
               ) : null}
             </div>

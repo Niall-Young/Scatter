@@ -1,6 +1,6 @@
 import { app, clipboard, dialog, nativeImage } from "electron";
 import { mkdir, readFile, writeFile, copyFile, stat } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type {
@@ -18,6 +18,7 @@ const scatterDirName = ".scatter";
 const documentFileName = "scatter.json";
 const assetsDirName = "assets";
 const assetProtocol = "scatter-asset";
+const maxRecentProjects = 24;
 
 function now(): string {
   return new Date().toISOString();
@@ -37,6 +38,14 @@ function documentPath(projectPath: string): string {
 
 function assetsPath(projectPath: string): string {
   return path.join(scatterPath(projectPath), assetsDirName);
+}
+
+function isProjectRootAvailable(projectPath: string): boolean {
+  try {
+    return statSync(projectPath).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 export function attachmentFileUrl(storedPath: string): string {
@@ -102,37 +111,95 @@ async function ensureProject(projectPath: string): Promise<ScatterDocument> {
   });
 }
 
-async function addRecentProject(project: ScatterProjectInfo): Promise<void> {
-  const current = await getRecentProjects();
-  const next = [
-    project,
-    ...current.filter((item) => item.path !== project.path)
-  ].slice(0, 24);
-  await mkdir(app.getPath("userData"), { recursive: true });
-  await writeFile(appDataPath("recent-projects.json"), JSON.stringify(next, null, 2), "utf8");
+function persistedRecentProject(project: ScatterProjectInfo): ScatterProjectInfo {
+  const { missing: _missing, ...persisted } = project;
+  return persisted;
 }
 
-export async function removeRecentProject(projectPath: string): Promise<ScatterProjectInfo[]> {
-  const current = await getRecentProjects();
-  const removed = current.some((item) => item.path === projectPath);
-  const next = current.filter((item) => item.path !== projectPath);
-  await mkdir(app.getPath("userData"), { recursive: true });
-  await writeFile(appDataPath("recent-projects.json"), JSON.stringify(next, null, 2), "utf8");
-  if (removed) {
-    await unlockAchievement("gone-in-a-flash").catch(() => undefined);
+function withProjectAvailability(project: ScatterProjectInfo): ScatterProjectInfo {
+  const persisted = persistedRecentProject(project);
+  return isProjectRootAvailable(project.path) ? persisted : { ...persisted, missing: true };
+}
+
+function normalizeRecentProjects(value: unknown): ScatterProjectInfo[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  const projects: ScatterProjectInfo[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const project = item as Partial<ScatterProjectInfo>;
+    if (typeof project.path !== "string" || !project.path) continue;
+    if (seen.has(project.path)) continue;
+    seen.add(project.path);
+    projects.push({
+      name: typeof project.name === "string" && project.name ? project.name : projectNameFromPath(project.path),
+      path: project.path,
+      updatedAt: typeof project.updatedAt === "string" && project.updatedAt ? project.updatedAt : now()
+    });
   }
-  return next;
+  return projects.slice(0, maxRecentProjects);
 }
 
-export async function getRecentProjects(): Promise<ScatterProjectInfo[]> {
+async function readRecentProjects(): Promise<ScatterProjectInfo[]> {
   const filePath = appDataPath("recent-projects.json");
   if (!existsSync(filePath)) return [];
   try {
     const raw = await readFile(filePath, "utf8");
-    return JSON.parse(raw) as ScatterProjectInfo[];
+    return normalizeRecentProjects(JSON.parse(raw));
   } catch {
     return [];
   }
+}
+
+async function writeRecentProjects(projects: ScatterProjectInfo[]): Promise<ScatterProjectInfo[]> {
+  const next = normalizeRecentProjects(projects.map(persistedRecentProject)).slice(0, maxRecentProjects);
+  await mkdir(app.getPath("userData"), { recursive: true });
+  await writeFile(appDataPath("recent-projects.json"), JSON.stringify(next, null, 2), "utf8");
+  return next.map(withProjectAvailability);
+}
+
+async function upsertRecentProject(project: ScatterProjectInfo): Promise<void> {
+  const current = await readRecentProjects();
+  const existingIndex = current.findIndex((item) => item.path === project.path);
+  const next =
+    existingIndex >= 0
+      ? current.map((item, index) => (index === existingIndex ? persistedRecentProject(project) : item))
+      : [persistedRecentProject(project), ...current];
+  await writeRecentProjects(next);
+}
+
+export async function removeRecentProject(projectPath: string): Promise<ScatterProjectInfo[]> {
+  const current = await readRecentProjects();
+  const removed = current.some((item) => item.path === projectPath);
+  const next = current.filter((item) => item.path !== projectPath);
+  const projects = await writeRecentProjects(next);
+  if (removed) {
+    await unlockAchievement("gone-in-a-flash").catch(() => undefined);
+  }
+  return projects;
+}
+
+export async function getRecentProjects(): Promise<ScatterProjectInfo[]> {
+  const projects = await readRecentProjects();
+  return projects.map(withProjectAvailability);
+}
+
+export async function reorderRecentProjects(projectPaths: string[]): Promise<ScatterProjectInfo[]> {
+  const current = await readRecentProjects();
+  const byPath = new Map(current.map((project) => [project.path, project]));
+  const used = new Set<string>();
+  const reordered: ScatterProjectInfo[] = [];
+
+  for (const projectPath of projectPaths) {
+    const project = byPath.get(projectPath);
+    if (!project || used.has(project.path)) continue;
+    used.add(project.path);
+    reordered.push(project);
+  }
+
+  const next = [...reordered, ...current.filter((project) => !used.has(project.path))];
+  return writeRecentProjects(next);
 }
 
 export async function chooseProject(kind: "create" | "open"): Promise<OpenProjectResult | null> {
@@ -170,18 +237,28 @@ export async function chooseAttachments(projectPath: string): Promise<Attachment
 }
 
 export async function openKnownProject(projectPath: string): Promise<OpenProjectResult> {
+  if (!isProjectRootAvailable(projectPath)) {
+    const settings = await getSettings();
+    throw new Error(tMain(settings.language, "projectMissingError"));
+  }
+
   const document = await ensureProject(projectPath);
   const project: ScatterProjectInfo = {
     name: document.projectName || projectNameFromPath(projectPath),
     path: projectPath,
     updatedAt: now()
   };
-  await addRecentProject(project);
+  await upsertRecentProject(project);
   await recordProjectOpened(projectPath).catch(() => undefined);
   return { project, document };
 }
 
 export async function saveDocument(projectPath: string, document: ScatterDocument): Promise<ScatterDocument> {
+  if (!isProjectRootAvailable(projectPath)) {
+    const settings = await getSettings();
+    throw new Error(tMain(settings.language, "projectMissingError"));
+  }
+
   const next: ScatterDocument = {
     ...document,
     updatedAt: now(),
@@ -189,7 +266,7 @@ export async function saveDocument(projectPath: string, document: ScatterDocumen
   };
   await mkdir(scatterPath(projectPath), { recursive: true });
   await writeFile(documentPath(projectPath), JSON.stringify(next, null, 2), "utf8");
-  await addRecentProject({
+  await upsertRecentProject({
     name: next.projectName,
     path: projectPath,
     updatedAt: next.updatedAt

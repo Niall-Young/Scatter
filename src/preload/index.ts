@@ -27,6 +27,8 @@ const api = {
   getRecentProjects: (): Promise<ScatterProjectInfo[]> => ipcRenderer.invoke("scatter:get-recent-projects"),
   removeRecentProject: (projectPath: string): Promise<ScatterProjectInfo[]> =>
     ipcRenderer.invoke("scatter:remove-recent-project", projectPath),
+  reorderRecentProjects: (projectPaths: string[]): Promise<ScatterProjectInfo[]> =>
+    ipcRenderer.invoke("scatter:reorder-recent-projects", projectPaths),
   createProject: (): Promise<OpenProjectResult | null> => ipcRenderer.invoke("scatter:create-project"),
   openProject: (): Promise<OpenProjectResult | null> => ipcRenderer.invoke("scatter:open-project"),
   openKnownProject: (projectPath: string): Promise<OpenProjectResult> =>

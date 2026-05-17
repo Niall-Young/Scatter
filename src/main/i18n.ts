@@ -5,6 +5,7 @@ const mainText = {
     chooseProjectCreateTitle: "选择或创建 Scatter 项目文件夹",
     chooseProjectOpenTitle: "打开 Scatter 项目文件夹",
     chooseAttachmentsTitle: "选择要添加到 Scatter 的附件",
+    projectMissingError: "项目文件夹已不存在，请从项目列表中移除后重新添加。",
     codexAccessibilityError:
       "Codex 已打开新线程，但 Scatter 没有权限自动粘贴并发送。请在 macOS“系统设置 > 隐私与安全性 > 辅助功能”里允许当前终端或 Scatter 控制 Codex。原始错误：{detail}",
     codexClipboardError: "Scatter 没能把提示词写入系统剪贴板，请重试一次。",
@@ -17,6 +18,7 @@ const mainText = {
     chooseProjectCreateTitle: "Choose or create a Scatter project folder",
     chooseProjectOpenTitle: "Open a Scatter project folder",
     chooseAttachmentsTitle: "Choose attachments for Scatter",
+    projectMissingError: "The project folder no longer exists. Remove it from the project list and add it again.",
     codexAccessibilityError:
       "Codex opened a new thread, but Scatter does not have permission to paste and submit automatically. Allow the current terminal or Scatter to control Codex in macOS System Settings > Privacy & Security > Accessibility. Original error: {detail}",
     codexClipboardError: "Scatter could not write the prompt to the system clipboard. Please try again.",

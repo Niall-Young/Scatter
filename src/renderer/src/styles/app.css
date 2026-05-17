@@ -2492,6 +2492,10 @@ button.achievement-card.is-unlocked:focus-visible {
   background: transparent;
   font: inherit;
   text-align: left;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .kit-project-item:hover,
@@ -2499,6 +2503,39 @@ button.achievement-card.is-unlocked:focus-visible {
 .kit-project-item.is-selected {
   outline: none;
   background: var(--color-interaction);
+}
+
+.kit-project-item.is-draggable .kit-project-item-main {
+  cursor: grab;
+}
+
+.kit-project-item.is-dragging {
+  opacity: 0.52;
+  background: var(--color-interaction);
+}
+
+.kit-project-item.is-dragging .kit-project-item-main {
+  cursor: grabbing;
+}
+
+.kit-project-item.is-drag-over {
+  transform: translateY(1px);
+  background: var(--color-primary-subtle);
+}
+
+.kit-project-item.is-disabled {
+  color: var(--color-disabled);
+}
+
+.kit-project-item.is-disabled .kit-project-item-main {
+  color: var(--color-disabled);
+  cursor: default;
+}
+
+.kit-project-item.is-disabled .kit-project-item-leading,
+.kit-project-item.is-disabled .kit-project-item-name,
+.kit-project-item.is-disabled .kit-project-item-path {
+  color: var(--color-disabled);
 }
 
 .kit-project-item-main {

@@ -46,6 +46,7 @@ export const defaultAchievementState = {
 } satisfies AchievementState;
 
 export interface ScatterProjectInfo {
+  missing?: boolean;
   name: string;
   path: string;
   updatedAt: string;

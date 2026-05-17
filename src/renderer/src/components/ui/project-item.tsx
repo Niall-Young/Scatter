@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, MouseEvent, ReactElement } from "react";
+import type { ButtonHTMLAttributes, DragEventHandler, MouseEvent, ReactElement } from "react";
 import { useI18n } from "../../lib/i18n";
 import { cn } from "../../lib/utils";
 import { Icon } from "./icon";
@@ -6,8 +6,17 @@ import { IconButton } from "./icon-button";
 import { TooltipAnchor } from "./tooltip";
 
 interface ProjectItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  disabled?: boolean;
+  dragOver?: boolean;
+  draggableItem?: boolean;
+  dragging?: boolean;
   loading?: boolean;
   onArchive?: () => void;
+  onItemDragEnd?: DragEventHandler<HTMLDivElement>;
+  onItemDragEnter?: DragEventHandler<HTMLDivElement>;
+  onItemDragOver?: DragEventHandler<HTMLDivElement>;
+  onItemDragStart?: DragEventHandler<HTMLDivElement>;
+  onItemDrop?: DragEventHandler<HTMLDivElement>;
   path: string;
   projectName: string;
   selected?: boolean;
@@ -16,8 +25,17 @@ interface ProjectItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function ProjectItem({
   className,
+  disabled = false,
+  dragOver = false,
+  draggableItem = false,
+  dragging = false,
   loading = false,
   onArchive,
+  onItemDragEnd,
+  onItemDragEnter,
+  onItemDragOver,
+  onItemDragStart,
+  onItemDrop,
   path,
   projectName,
   selected = false,
@@ -33,8 +51,24 @@ export function ProjectItem({
   }
 
   return (
-    <div className={cn("kit-project-item", selected && "is-selected", className)}>
-      <button className="kit-project-item-main" type={type} {...props}>
+    <div
+      className={cn(
+        "kit-project-item",
+        selected && "is-selected",
+        disabled && "is-disabled",
+        draggableItem && !disabled && "is-draggable",
+        dragging && "is-dragging",
+        dragOver && "is-drag-over",
+        className
+      )}
+      draggable={draggableItem && !disabled}
+      onDragEnd={onItemDragEnd}
+      onDragEnter={onItemDragEnter}
+      onDragOver={onItemDragOver}
+      onDragStart={onItemDragStart}
+      onDrop={onItemDrop}
+    >
+      <button className="kit-project-item-main" type={type} disabled={disabled} aria-disabled={disabled} {...props}>
         <span className="kit-project-item-leading">
           {loading ? (
             <span className="kit-spinner kit-project-item-spinner" aria-hidden="true" />
@@ -52,7 +86,16 @@ export function ProjectItem({
       </button>
       {onArchive ? (
         <TooltipAnchor label={t("projectItem.remove")} side="left">
-          <IconButton className="kit-project-item-archive" filled={false} icon="archive" size="sm" aria-label={t("projectItem.remove")} onClick={handleArchive} />
+          <IconButton
+            className="kit-project-item-archive"
+            filled={false}
+            icon="archive"
+            size="sm"
+            aria-label={t("projectItem.remove")}
+            draggable={false}
+            onClick={handleArchive}
+            onPointerDown={(event) => event.stopPropagation()}
+          />
         </TooltipAnchor>
       ) : null}
     </div>

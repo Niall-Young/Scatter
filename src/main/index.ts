@@ -7,6 +7,7 @@ import {
   chooseProject,
   getRecentProjects,
   openKnownProject,
+  reorderRecentProjects,
   removeRecentProject,
   saveAttachments,
   saveClipboardFiles,
@@ -223,6 +224,7 @@ app.whenReady().then(async () => {
   ipcMain.handle("scatter:accessibility:reset-permission", () => resetAccessibilityPermission());
   ipcMain.handle("scatter:get-recent-projects", () => getRecentProjects());
   ipcMain.handle("scatter:remove-recent-project", (_event, projectPath: string) => removeRecentProject(projectPath));
+  ipcMain.handle("scatter:reorder-recent-projects", (_event, projectPaths: string[]) => reorderRecentProjects(projectPaths));
   ipcMain.handle("scatter:create-project", () => chooseProject("create"));
   ipcMain.handle("scatter:open-project", () => chooseProject("open"));
   ipcMain.handle("scatter:open-known-project", (_event, projectPath: string) => openKnownProject(projectPath));
