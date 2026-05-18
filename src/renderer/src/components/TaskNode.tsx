@@ -22,10 +22,13 @@ type ConnectedNodeSide = "left" | "right";
 
 const effortOptions: EffortLevel[] = ["low", "medium", "high", "xhigh"];
 
-function fitTextareaHeight(textarea: HTMLTextAreaElement | null): void {
-  if (!textarea) return;
+function fitTextareaHeight(textarea: HTMLTextAreaElement | null): boolean {
+  if (!textarea) return false;
+  const previousHeight = textarea.style.height;
   textarea.style.height = "auto";
-  textarea.style.height = `${textarea.scrollHeight}px`;
+  const nextHeight = `${textarea.scrollHeight}px`;
+  textarea.style.height = nextHeight;
+  return previousHeight !== nextHeight;
 }
 
 interface RuntimeActions {
@@ -55,6 +58,8 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const pointerStartedSelectedRef = useRef(false);
   const suppressConnectButtonClickRef = useRef(false);
+  const isComposingRef = useRef(false);
+  const pendingFinishAfterCompositionRef = useRef(false);
   const [effortMenuOpen, setEffortMenuOpen] = useState(false);
   const [editingField, setEditingField] = useState<EditableField | null>(null);
 
@@ -70,20 +75,41 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
   );
 
   const fitBodyTextarea = useCallback(() => {
-    fitTextareaHeight(bodyRef.current);
-    updateNodeInternals(id);
+    if (fitTextareaHeight(bodyRef.current)) {
+      updateNodeInternals(id);
+    }
   }, [id, updateNodeInternals]);
 
   useLayoutEffect(() => {
     fitBodyTextarea();
   }, [data.body, fitBodyTextarea]);
 
-  useEffect(() => {
-    if (!selected && editingField) {
+  const isNodeEditableElement = useCallback(
+    (target: EventTarget | null) => target === titleRef.current || target === bodyRef.current,
+    []
+  );
+
+  const isNodeEditableFocused = useCallback(() => isNodeEditableElement(document.activeElement), [isNodeEditableElement]);
+
+  const finishEditing = useCallback(
+    (field?: EditableField) => {
+      if (field && editingField !== field) return;
+      pendingFinishAfterCompositionRef.current = false;
       taskNodeActions?.commitNodeEdit();
       setEditingField(null);
+    },
+    [editingField]
+  );
+
+  useEffect(() => {
+    if (selected || !editingField) return;
+    if (isNodeEditableFocused()) return;
+    if (isComposingRef.current) {
+      pendingFinishAfterCompositionRef.current = true;
+      return;
     }
-  }, [editingField, selected]);
+    finishEditing(editingField);
+  }, [editingField, finishEditing, isNodeEditableFocused, selected]);
 
   useEffect(() => {
     if (editingField === "title") {
@@ -132,13 +158,34 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
   }, [editingField]);
 
   const handleEditableBlur = useCallback(
-    (field: EditableField) => {
+    (event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>, field: EditableField) => {
       if (editingField !== field) return;
-      taskNodeActions?.commitNodeEdit();
-      setEditingField(null);
+      if (isNodeEditableElement(event.relatedTarget)) return;
+      if (isComposingRef.current) {
+        pendingFinishAfterCompositionRef.current = true;
+        return;
+      }
+      finishEditing(field);
     },
-    [editingField]
+    [editingField, finishEditing, isNodeEditableElement]
   );
+
+  const handleCompositionStart = useCallback(() => {
+    isComposingRef.current = true;
+    pendingFinishAfterCompositionRef.current = false;
+  }, []);
+
+  const handleCompositionEnd = useCallback(() => {
+    isComposingRef.current = false;
+    if (!pendingFinishAfterCompositionRef.current) return;
+    window.setTimeout(() => {
+      if (!isNodeEditableFocused()) {
+        finishEditing();
+        return;
+      }
+      pendingFinishAfterCompositionRef.current = false;
+    }, 0);
+  }, [finishEditing, isNodeEditableFocused]);
 
   const handleEditableKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (event.key === "Escape") {
@@ -148,8 +195,9 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
 
   const handleBodyChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      fitTextareaHeight(event.currentTarget);
-      updateNodeInternals(id);
+      if (fitTextareaHeight(event.currentTarget)) {
+        updateNodeInternals(id);
+      }
       taskNodeActions?.updateNodeData(id, { body: event.target.value });
     },
     [id, updateNodeInternals]
@@ -233,8 +281,10 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
             if (editingField !== "title") startEditing("title");
           }}
           onFocus={(event) => handleEditableFocus(event, "title")}
-          onBlur={() => handleEditableBlur("title")}
+          onBlur={(event) => handleEditableBlur(event, "title")}
           onKeyDown={handleEditableKeyDown}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           onChange={(event) => taskNodeActions?.updateNodeData(id, { title: event.target.value })}
         />
         <TooltipAnchor className="nodrag" label={hasBody ? t("task.run") : t("task.runEmpty")} shortcut={shortcuts.runCurrentTask}>
@@ -283,8 +333,10 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
             if (editingField !== "body") startEditing("body");
           }}
           onFocus={(event) => handleEditableFocus(event, "body")}
-          onBlur={() => handleEditableBlur("body")}
+          onBlur={(event) => handleEditableBlur(event, "body")}
           onKeyDown={handleEditableKeyDown}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           onChange={handleBodyChange}
         />
 
