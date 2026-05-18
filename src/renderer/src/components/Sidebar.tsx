@@ -156,7 +156,7 @@ export function Sidebar({
 
       <div className="sidebar-section-title">{t("sidebar.projectList")}</div>
       <div className="project-list">
-        {visibleProjects.map((project, index) => (
+        {visibleProjects.map((project) => (
           <ProjectItem
             key={project.path}
             disabled={project.missing}
@@ -166,7 +166,6 @@ export function Sidebar({
             path={shortPath(project.path)}
             projectName={project.name}
             selected={!project.missing && project.path === activePath}
-            unread={project.path !== activePath && index === 2}
             onClick={() => openProject(project)}
             onArchive={() => onRemoveRecent(project.path)}
             onItemDragEnd={finishProjectDrag}

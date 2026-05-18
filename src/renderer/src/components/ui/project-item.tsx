@@ -10,7 +10,6 @@ interface ProjectItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   dragOver?: boolean;
   draggableItem?: boolean;
   dragging?: boolean;
-  loading?: boolean;
   onArchive?: () => void;
   onItemDragEnd?: DragEventHandler<HTMLDivElement>;
   onItemDragEnter?: DragEventHandler<HTMLDivElement>;
@@ -20,7 +19,6 @@ interface ProjectItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   path: string;
   projectName: string;
   selected?: boolean;
-  unread?: boolean;
 }
 
 export function ProjectItem({
@@ -29,7 +27,6 @@ export function ProjectItem({
   dragOver = false,
   draggableItem = false,
   dragging = false,
-  loading = false,
   onArchive,
   onItemDragEnd,
   onItemDragEnter,
@@ -40,7 +37,6 @@ export function ProjectItem({
   projectName,
   selected = false,
   type = "button",
-  unread = false,
   ...props
 }: ProjectItemProps): ReactElement {
   const { t } = useI18n();
@@ -70,14 +66,7 @@ export function ProjectItem({
     >
       <button className="kit-project-item-main" type={type} disabled={disabled} aria-disabled={disabled} {...props}>
         <span className="kit-project-item-leading">
-          {loading ? (
-            <span className="kit-spinner kit-project-item-spinner" aria-hidden="true" />
-          ) : (
-            <>
-              <Icon name={selected ? "folder-open" : "folder"} size={16} />
-              {!selected && unread ? <span className="kit-project-item-badge" /> : null}
-            </>
-          )}
+          <Icon name={selected ? "folder-open" : "folder"} size={16} />
         </span>
         <span className="kit-project-item-content">
           <span className="kit-project-item-name">{projectName}</span>

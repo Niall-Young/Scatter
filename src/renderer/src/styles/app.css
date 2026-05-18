@@ -2573,22 +2573,6 @@ button.achievement-card.is-unlocked:focus-visible {
   color: var(--color-icon);
 }
 
-.kit-project-item-badge {
-  position: absolute;
-  top: 3px;
-  right: -2px;
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--color-primary);
-}
-
-.kit-project-item-spinner {
-  width: 16px;
-  height: 16px;
-  margin-top: 0;
-}
-
 .kit-project-item-content {
   display: flex;
   min-width: 0;
@@ -2661,11 +2645,6 @@ button.achievement-card.is-unlocked:focus-visible {
   justify-content: center;
   padding-top: 3px;
   color: var(--color-icon);
-}
-
-.kit-task-item-spinner {
-  width: 16px;
-  height: 16px;
 }
 
 .kit-task-item-content {

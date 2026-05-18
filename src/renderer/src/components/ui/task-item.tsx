@@ -7,7 +7,6 @@ import { TooltipAnchor } from "./tooltip";
 interface TaskItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   canRun?: boolean;
   flow?: boolean;
-  loading?: boolean;
   meta?: string;
   nodeCount?: number;
   onLocate?: () => void;
@@ -19,7 +18,6 @@ export function TaskItem({
   canRun = true,
   className,
   flow = false,
-  loading = false,
   meta,
   nodeCount = 3,
   onLocate,
@@ -39,7 +37,7 @@ export function TaskItem({
   return (
     <button className={cn("kit-task-item", className)} type={type} {...props}>
       <span className="kit-task-item-leading">
-        {loading ? <span className="kit-spinner kit-task-item-spinner" aria-hidden="true" /> : <Icon name={flow ? "add-sources" : "connect-apps"} size={16} />}
+        <Icon name={flow ? "add-sources" : "connect-apps"} size={16} />
       </span>
       <span className="kit-task-item-content">
         <span className="kit-task-item-name">{taskName}</span>
