@@ -60,13 +60,19 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
   const suppressConnectButtonClickRef = useRef(false);
   const isComposingRef = useRef(false);
   const pendingFinishAfterCompositionRef = useRef(false);
+  const pendingNodeInternalsUpdateRef = useRef(false);
+  // Keep IME edits local until composition ends so store/autosave updates do not commit raw pinyin.
+  const titleDraftRef = useRef(data.title);
+  const bodyDraftRef = useRef(data.body);
   const [effortMenuOpen, setEffortMenuOpen] = useState(false);
   const [editingField, setEditingField] = useState<EditableField | null>(null);
+  const [titleDraft, setTitleDraft] = useState(data.title);
+  const [bodyDraft, setBodyDraft] = useState(data.body);
 
   const runMode = data.runMode || "flow";
   const effort = data.effort || "xhigh";
   const effortLabel = t(effortLabelKey(effort));
-  const hasBody = data.body.trim().length > 0;
+  const hasBody = bodyDraft.trim().length > 0;
   const hasParent = useScatterStore((state) =>
     state.edges.some((edge) => edge.target === id && state.nodes.some((node) => node.id === edge.source))
   );
@@ -74,15 +80,31 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
     state.edges.some((edge) => edge.source === id && state.nodes.some((node) => node.id === edge.target))
   );
 
-  const fitBodyTextarea = useCallback(() => {
+  const fitBodyTextarea = useCallback((deferNodeInternalsUpdate = false) => {
     if (fitTextareaHeight(bodyRef.current)) {
+      if (deferNodeInternalsUpdate) {
+        pendingNodeInternalsUpdateRef.current = true;
+        return;
+      }
       updateNodeInternals(id);
     }
   }, [id, updateNodeInternals]);
 
   useLayoutEffect(() => {
-    fitBodyTextarea();
-  }, [data.body, fitBodyTextarea]);
+    fitBodyTextarea(isComposingRef.current);
+  }, [bodyDraft, fitBodyTextarea]);
+
+  useEffect(() => {
+    if (editingField === "title") return;
+    titleDraftRef.current = data.title;
+    setTitleDraft(data.title);
+  }, [data.title, editingField]);
+
+  useEffect(() => {
+    if (editingField === "body") return;
+    bodyDraftRef.current = data.body;
+    setBodyDraft(data.body);
+  }, [data.body, editingField]);
 
   const isNodeEditableElement = useCallback(
     (target: EventTarget | null) => target === titleRef.current || target === bodyRef.current,
@@ -91,14 +113,34 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
 
   const isNodeEditableFocused = useCallback(() => isNodeEditableElement(document.activeElement), [isNodeEditableElement]);
 
+  const flushDraftToStore = useCallback(
+    (field?: EditableField) => {
+      const patch: Partial<ScatterNodeData> = {};
+
+      if ((!field || field === "title") && titleDraftRef.current !== data.title) {
+        patch.title = titleDraftRef.current;
+      }
+
+      if ((!field || field === "body") && bodyDraftRef.current !== data.body) {
+        patch.body = bodyDraftRef.current;
+      }
+
+      if (Object.keys(patch).length > 0) {
+        taskNodeActions?.updateNodeData(id, patch);
+      }
+    },
+    [data.body, data.title, id]
+  );
+
   const finishEditing = useCallback(
     (field?: EditableField) => {
       if (field && editingField !== field) return;
       pendingFinishAfterCompositionRef.current = false;
+      flushDraftToStore(field ?? editingField ?? undefined);
       taskNodeActions?.commitNodeEdit();
       setEditingField(null);
     },
-    [editingField]
+    [editingField, flushDraftToStore]
   );
 
   useEffect(() => {
@@ -175,8 +217,27 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
     pendingFinishAfterCompositionRef.current = false;
   }, []);
 
-  const handleCompositionEnd = useCallback(() => {
+  const handleCompositionEnd = useCallback((event: React.CompositionEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const field = event.currentTarget === titleRef.current ? "title" : "body";
+    const value = event.currentTarget.value;
+
+    if (field === "title") {
+      titleDraftRef.current = value;
+      setTitleDraft(value);
+    } else {
+      bodyDraftRef.current = value;
+      setBodyDraft(value);
+      if (fitTextareaHeight(event.currentTarget as HTMLTextAreaElement)) {
+        pendingNodeInternalsUpdateRef.current = true;
+      }
+    }
+
     isComposingRef.current = false;
+    flushDraftToStore(field);
+    if (pendingNodeInternalsUpdateRef.current) {
+      pendingNodeInternalsUpdateRef.current = false;
+      updateNodeInternals(id);
+    }
     if (!pendingFinishAfterCompositionRef.current) return;
     window.setTimeout(() => {
       if (!isNodeEditableFocused()) {
@@ -185,7 +246,13 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
       }
       pendingFinishAfterCompositionRef.current = false;
     }, 0);
-  }, [finishEditing, isNodeEditableFocused]);
+  }, [finishEditing, flushDraftToStore, id, isNodeEditableFocused, updateNodeInternals]);
+
+  const isChangeDuringComposition = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      isComposingRef.current || Boolean((event.nativeEvent as InputEvent).isComposing),
+    []
+  );
 
   const handleEditableKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (event.key === "Escape") {
@@ -193,14 +260,39 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
     }
   }, []);
 
+  const handleTitleChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value = event.currentTarget.value;
+      titleDraftRef.current = value;
+      setTitleDraft(value);
+
+      if (!isChangeDuringComposition(event) && value !== data.title) {
+        taskNodeActions?.updateNodeData(id, { title: value });
+      }
+    },
+    [data.title, id, isChangeDuringComposition]
+  );
+
   const handleBodyChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = event.currentTarget.value;
+      const isComposing = isChangeDuringComposition(event);
+      bodyDraftRef.current = value;
+      setBodyDraft(value);
+
       if (fitTextareaHeight(event.currentTarget)) {
-        updateNodeInternals(id);
+        if (isComposing) {
+          pendingNodeInternalsUpdateRef.current = true;
+        } else {
+          updateNodeInternals(id);
+        }
       }
-      taskNodeActions?.updateNodeData(id, { body: event.target.value });
+
+      if (!isComposing && value !== data.body) {
+        taskNodeActions?.updateNodeData(id, { body: value });
+      }
     },
-    [id, updateNodeInternals]
+    [data.body, id, isChangeDuringComposition, updateNodeInternals]
   );
 
   const handleConnectButtonMouseDown = useCallback(
@@ -272,7 +364,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
         <input
           ref={titleRef}
           className={`task-title ${editingField === "title" ? "nodrag is-editing" : "is-readonly"}`}
-          value={data.title}
+          value={titleDraft}
           placeholder={t("task.titlePlaceholder")}
           readOnly={editingField !== "title"}
           tabIndex={editingField === "title" ? 0 : -1}
@@ -285,7 +377,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
           onKeyDown={handleEditableKeyDown}
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
-          onChange={(event) => taskNodeActions?.updateNodeData(id, { title: event.target.value })}
+          onChange={handleTitleChange}
         />
         <TooltipAnchor className="nodrag" label={hasBody ? t("task.run") : t("task.runEmpty")} shortcut={shortcuts.runCurrentTask}>
           <IconButton
@@ -324,7 +416,7 @@ function TaskNodeComponent({ id, data, selected }: TaskNodeProps): ReactElement 
         <textarea
           ref={bodyRef}
           className={`task-body ${hasBody ? "has-content" : ""} ${editingField === "body" ? "nodrag nowheel is-editing" : "is-readonly"}`}
-          value={data.body}
+          value={bodyDraft}
           placeholder={t("task.bodyPlaceholder")}
           readOnly={editingField !== "body"}
           tabIndex={editingField === "body" ? 0 : -1}
