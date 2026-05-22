@@ -626,7 +626,7 @@ function App(): ReactElement {
   const effectiveTranslucentBackground = !isWindows && translucentBackground;
   const updateToastVersion = updateState.downloadedVersion || updateState.availableVersion || null;
   const showUpdateToast =
-    updateState.status === "downloaded" && Boolean(updateToastVersion) && dismissedUpdateVersion !== updateToastVersion;
+    updateState.canInstall && Boolean(updateToastVersion) && dismissedUpdateVersion !== updateToastVersion;
 
   const updateConnectionHoverTarget = useCallback((target: ConnectionHoverTarget | null) => {
     const current = connectionHoverTargetRef.current;

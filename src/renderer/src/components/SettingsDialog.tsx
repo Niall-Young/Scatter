@@ -76,6 +76,7 @@ function SettingsSelect<TValue extends string>({
 
 function updateStatusText(updateState: AppUpdateState, t: Translate): string {
   if (!updateState.isPackaged && updateState.status !== "error") return t("settings.update.developmentMode");
+  if (updateState.canInstall) return t("settings.update.status.downloaded");
   if (updateState.status === "idle") return t("settings.update.status.idle");
   if (updateState.status === "checking") return t("settings.update.status.checking");
   if (updateState.status === "downloading") {
@@ -89,7 +90,7 @@ function updateStatusText(updateState: AppUpdateState, t: Translate): string {
 }
 
 function updateActionLabel(updateState: AppUpdateState, t: Translate): string {
-  if (updateState.status === "downloaded") return t("settings.update.install");
+  if (updateState.canInstall) return t("settings.update.install");
   if (updateState.status === "checking") return t("settings.update.checking");
   if (updateState.status === "downloading") return t("settings.update.downloading");
   return t("settings.update.check");
@@ -168,9 +169,9 @@ export function SettingsDialog({
     }
   }
 
-  const updateActionDisabled = updateState.status === "checking" || updateState.status === "downloading";
-  const updateAction = updateState.status === "downloaded" ? onInstallUpdate : onCheckForUpdates;
-  const latestVersion = updateState.availableVersion || updateState.downloadedVersion;
+  const updateActionDisabled = !updateState.canInstall && (updateState.status === "checking" || updateState.status === "downloading");
+  const updateAction = updateState.canInstall ? onInstallUpdate : onCheckForUpdates;
+  const latestVersion = updateState.downloadedVersion || updateState.availableVersion;
 
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
@@ -219,7 +220,7 @@ export function SettingsDialog({
               </div>
               <KitButton
                 className="settings-dialog-update-action"
-                filled={updateState.status === "downloaded"}
+                filled={updateState.canInstall}
                 size="md"
                 disabled={updateActionDisabled}
                 onClick={() => void updateAction()}

@@ -18,6 +18,10 @@ function canCheckForStatus(status: AppUpdateStatus): boolean {
   return app.isPackaged && status !== "checking" && status !== "downloading";
 }
 
+function hasInstallableUpdate(): boolean {
+  return updateState.canInstall && Boolean(updateState.downloadedVersion);
+}
+
 function setUpdateState(next: Partial<AppUpdateState>): AppUpdateState {
   const status = next.status ?? updateState.status;
   updateState = {
@@ -35,6 +39,17 @@ function setUpdateState(next: Partial<AppUpdateState>): AppUpdateState {
 
 function setUpdateError(errorCode: AppUpdateErrorCode, error: unknown): AppUpdateState {
   const errorMessage = error instanceof Error ? error.message : typeof error === "string" ? error : undefined;
+  if (hasInstallableUpdate()) {
+    return setUpdateState({
+      status: "downloaded",
+      errorCode: undefined,
+      errorMessage: undefined,
+      progressPercent: 100,
+      canCheck: true,
+      canInstall: true
+    });
+  }
+
   return setUpdateState({
     status: "error",
     errorCode,
@@ -62,6 +77,8 @@ function registerUpdaterEvents(): void {
   autoUpdater.allowPrerelease = false;
 
   autoUpdater.on("checking-for-update", () => {
+    if (hasInstallableUpdate()) return;
+
     setUpdateState({
       status: "checking",
       errorCode: undefined,
@@ -73,6 +90,8 @@ function registerUpdaterEvents(): void {
   });
 
   autoUpdater.on("update-available", (info: UpdateInfo) => {
+    if (hasInstallableUpdate()) return;
+
     setUpdateState({
       status: "downloading",
       availableVersion: info.version,
@@ -86,6 +105,8 @@ function registerUpdaterEvents(): void {
   });
 
   autoUpdater.on("download-progress", (progress: ProgressInfo) => {
+    if (hasInstallableUpdate()) return;
+
     setUpdateState({
       status: "downloading",
       progressPercent: Number.isFinite(progress.percent) ? Math.max(0, Math.min(100, progress.percent)) : undefined,
@@ -95,6 +116,8 @@ function registerUpdaterEvents(): void {
   });
 
   autoUpdater.on("update-not-available", () => {
+    if (hasInstallableUpdate()) return;
+
     setUpdateState({
       status: "not-available",
       availableVersion: undefined,
@@ -163,7 +186,7 @@ export async function checkForUpdates(): Promise<AppUpdateState> {
 export function installUpdate(): AppUpdateState {
   registerUpdaterEvents();
 
-  if (updateState.status !== "downloaded") {
+  if (!updateState.canInstall || !updateState.downloadedVersion) {
     return setUpdateError("install-failed", new Error("No downloaded update is ready to install."));
   }
 
