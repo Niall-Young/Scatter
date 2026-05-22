@@ -601,104 +601,6 @@ button {
   flex: 0 0 auto;
 }
 
-.update-dialog-overlay {
-  position: fixed;
-  z-index: 50;
-  inset: 0;
-  background: transparent;
-}
-
-.update-dialog-content {
-  position: fixed;
-  z-index: 60;
-  top: 50%;
-  left: 50%;
-  display: flex;
-  width: 520px;
-  max-width: calc(100vw - 40px);
-  flex-direction: column;
-  overflow: clip;
-  color: var(--color-text);
-  border: var(--border-weight-sm) solid var(--color-border-divider);
-  border-radius: var(--radius-xl);
-  background: var(--color-background-raised);
-  box-shadow: var(--shadow-popover);
-  transform: translate(-50%, -50%);
-}
-
-.update-dialog-content:focus-visible {
-  outline: none;
-}
-
-.update-dialog-header {
-  display: flex;
-  width: 100%;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 12px;
-  padding: 20px;
-}
-
-.update-dialog-title {
-  min-width: 0;
-  flex: 1 1 0;
-  overflow: hidden;
-  margin: 0;
-  color: var(--color-text);
-  font-size: var(--text-16);
-  line-height: var(--line-16);
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.update-dialog-close {
-  flex: 0 0 auto;
-}
-
-.update-dialog-body {
-  display: flex;
-  width: 100%;
-  flex: 0 0 auto;
-  flex-direction: column;
-  gap: 12px;
-  padding: 12px 20px;
-  background: var(--color-background-raised);
-}
-
-.update-dialog-line {
-  width: 100%;
-  min-height: var(--line-14);
-  overflow: hidden;
-  margin: 0;
-  color: var(--color-text);
-  font-size: var(--text-14);
-  line-height: var(--line-14);
-  font-weight: 400;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.update-dialog-line.is-muted {
-  color: var(--color-text-subtlest);
-}
-
-.update-dialog-line.is-hidden {
-  color: transparent;
-}
-
-.update-dialog-footer {
-  display: flex;
-  width: 100%;
-  flex: 0 0 auto;
-  justify-content: flex-end;
-  padding: 20px;
-}
-
-.update-dialog-action {
-  flex: 0 0 auto;
-}
-
 .settings-dialog-footer {
   display: flex;
   width: 100%;
@@ -1142,12 +1044,6 @@ button {
   width: 100%;
 }
 
-.sidebar-update {
-  width: 100%;
-  flex: 0 0 auto;
-  padding-top: 12px;
-}
-
 .sidebar-footer {
   margin-top: auto;
   padding-top: 12px;
@@ -1198,6 +1094,7 @@ button {
   position: absolute;
   left: 92px;
   top: 7px;
+  width: 208px;
   gap: 8px;
 }
 
@@ -1246,6 +1143,55 @@ button {
 
 .topbar-icon-button:disabled:hover {
   background: transparent;
+}
+
+.topbar-update-anchor {
+  margin-left: auto;
+}
+
+.topbar-update-button {
+  display: inline-flex;
+  min-width: 48px;
+  height: 26px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 10px;
+  color: var(--color-inverted);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  font-size: var(--text-14);
+  line-height: var(--line-14);
+  font-weight: 400;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+}
+
+.topbar-update-button:hover,
+.topbar-update-button:focus-visible {
+  outline: none;
+  background: var(--color-primary-hover);
+}
+
+.topbar-update-button:disabled {
+  cursor: default;
+  opacity: 0.92;
+}
+
+.topbar-update-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid color-mix(in srgb, currentColor 36%, transparent);
+  border-top-color: currentColor;
+  border-radius: var(--radius-full);
+  animation: topbar-update-spin 750ms linear infinite;
+}
+
+@keyframes topbar-update-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .topbar-title {
@@ -3595,59 +3541,6 @@ button.achievement-card.is-unlocked:focus-visible {
   padding: 8px;
   color: var(--color-icon);
   border-radius: var(--radius-md);
-}
-
-.update-toast {
-  display: flex;
-  width: 420px;
-  max-width: calc(100vw - 32px);
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  color: var(--color-text);
-  border: var(--border-weight-sm) solid var(--color-border-divider);
-  border-radius: var(--radius-lg);
-  background: var(--color-background-raised);
-  box-shadow: var(--shadow-node);
-}
-
-.update-toast-icon {
-  flex: 0 0 auto;
-  color: var(--color-primary);
-}
-
-.update-toast-copy {
-  display: flex;
-  min-width: 0;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.update-toast-title,
-.update-toast-description {
-  overflow: hidden;
-  margin: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.update-toast-title {
-  color: var(--color-text);
-  font-size: var(--text-14);
-  line-height: var(--line-14);
-  font-weight: 500;
-}
-
-.update-toast-description {
-  color: var(--color-text-subtlest);
-  font-size: var(--text-13);
-  line-height: var(--line-13);
-}
-
-.update-toast-install,
-.update-toast-close {
-  flex: 0 0 auto;
 }
 
 .kit-spinner {

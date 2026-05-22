@@ -70,7 +70,7 @@ npm run dist:win:publish
 - `src/renderer/src/components/AssistantProviderPreferenceDialog.tsx`：首次打开客户端时选择默认 AI 工具的偏好弹窗。
 - `src/renderer/src/components/SearchDialog.tsx`：居中项目搜索弹窗。
 - `src/renderer/src/components/SettingsDialog.tsx`：居中设置弹窗。
-- `src/renderer/src/components/UpdateDialog.tsx`：居中版本更新弹窗。
+- `src/renderer/src/components/Topbar.tsx`：工作区顶部操作栏和更新按钮。
 - `src/renderer/src/assets/achievements`：成就墙静态图片资源。
 - `src/renderer/src/components/ui`：共享 UI primitive。
 - `src/renderer/src/styles/app.css`：设计 token 和样式。
@@ -115,12 +115,13 @@ npm run dist:win:publish
 - 更新 `src/renderer/src/lib/translations.ts`、`src/renderer/src/lib/i18n.tsx` 和相关组件。
 - 同步更新 `design.md` 和 `agents.md`。
 
-自动更新变化：
+更新流程变化：
 
-- 从 `src/main/updateService.ts`、`src/preload/index.ts` 和 `src/renderer/src/components/UpdateDialog.tsx` 开始。
+- 从 `src/main/updateService.ts`、`src/preload/index.ts`、`src/renderer/src/App.tsx` 和 `src/renderer/src/components/Topbar.tsx` 开始。
 - 更新状态契约优先改 `src/shared/types.ts`，Renderer 只能通过 `window.scatter.updates` 调用。
 - macOS 自动更新依赖 `dmg + zip`，不能移除 zip target；Windows 自动更新使用 x64 NSIS，不发布 portable 作为自动更新载体。
-- macOS 下载完成后，点击“立即重启”进入 `installing` 状态；下载和 sha512 校验仍由 electron-updater 完成，但安装阶段不要调用 Squirrel.Mac `quitAndInstall()`。当前 ad-hoc 签名的 Designated Requirement 会绑定 cdhash，跨版本必然无法满足 Squirrel.Mac 旧签名要求，因此要使用 `updateService.ts` 里的自定义安装器：解压 zip，校验 `com.scatter.desktop` bundle 和 code signature，退出当前 app 后用后台 shell 脚本替换 `.app` 并重新打开。
+- 打包应用启动后静默检查更新；没有新版本时不显示更新按钮。检测到可更新版本后，顶部栏左侧显示“更新”按钮；点击后才开始下载；下载或安装准备期间按钮进入 loading 状态；下载完成后按钮文案变为“重启”，点击后进入 `installing` 状态。不要恢复侧边栏底部检查更新入口、更新弹窗或更新 toast。
+- macOS 下载和 sha512 校验仍由 electron-updater 完成，但安装阶段不要调用 Squirrel.Mac `quitAndInstall()`。当前 ad-hoc 签名的 Designated Requirement 会绑定 cdhash，跨版本必然无法满足 Squirrel.Mac 旧签名要求，因此要使用 `updateService.ts` 里的自定义安装器：解压 zip，校验 `com.scatter.desktop` bundle 和 code signature，退出当前 app 后用后台 shell 脚本替换 `.app` 并重新打开。
 - GitHub Releases 发布配置在 `package.json` 的 `build.publish`，目标仓库是 `Niall-Young/Scatter`，release 默认 draft。
 - Windows 当前 unsigned，用户可能看到 SmartScreen / 未知发布者提示；macOS 当前 ad-hoc，更新后辅助功能权限可能失效，继续复用“权限管理”自动重置和拖拽授权引导。
 
@@ -159,7 +160,7 @@ AI 运行器启动行为变化：
 - 左侧栏“搜索”按钮打开居中搜索项目弹窗，只搜索左侧最近项目列表；不要恢复成系统文件夹选择器。
 - 左侧栏“成就”按钮打开工作区内成就墙，成就墙不依赖当前项目，不写入项目文件；已达成成就展示无背景资源和达成日期，点击后打开居中弹窗展示带背景资源、名称、达成条件、达成日期和“继续加油”按钮；未达成成就展示 fade 资源和达成条件；选择或创建项目时切回画布。成就刚达成时弹出专用 toast，图片使用 default 带背景资源，主文案是“{成就名}已达成！”，副文案是达成条件，“查看”按钮打开成就墙。
 - 左侧栏“设置”按钮打开居中设置弹窗，不要恢复成直接切换主题。
-- 左侧栏底部“检查更新”按钮打开居中版本更新弹窗；更新入口不要放回设置弹窗。
+- 顶部栏左侧“更新”按钮只在检测到可更新版本后出现，且是唯一更新入口；不要恢复左侧栏底部检查更新、设置内更新入口、更新弹窗或更新 toast。
 - 首次打开客户端且尚未生成 `settings.json` 时，主窗口显示“偏好选择”弹窗，让用户选择 Codex 或 Claude；选择结果写入应用设置里的默认运行器。关闭弹窗会保留当前默认 Codex 并标记首启偏好已完成。已有旧设置文件缺少首启标记时视为已完成，不要打断升级用户。
 - macOS 辅助功能权限引导弹窗必须等“偏好选择”弹窗结束后再出现，避免两个居中弹窗叠加；弹窗标题为“权限管理”，正文说明权限仅用于操作 Codex 客户端发送消息，底部只保留“前往开启”按钮，不要显示红色未授权提示或单独的重置按钮。用户点击“前往开启”时先自动执行 `tccutil reset Accessibility com.scatter.desktop` 清掉旧授权，再打开原生权限引导。用户关闭弹窗后，本次会话不再因启动检查反复弹出，但运行前缺权限仍要拦截并展示。打开权限引导时 main process 会启动 `ScatterAccessibilityGuide` helper；helper 文案跟随 Scatter 当前语言设置，亮暗外观跟随 Scatter 当前主题设置，拖拽预览必须是完整 app cell 而不是被拉伸的图标；授权检测通过或用户关闭权限弹窗时要关闭 helper。
 - Windows 启动窗口和主窗口必须使用不透明纯色背景，不启用透明窗口、磨砂或背景模糊；设置弹窗隐藏“半透明背景”开关，renderer 强制按纯色背景渲染。
@@ -189,9 +190,9 @@ AI 运行器启动行为变化：
 - 左侧栏“搜索”或 `⌘F` 打开居中项目搜索弹窗，输入框默认聚焦，按项目名称或路径过滤仍可打开的最近项目；点击结果关闭弹窗并打开对应项目。
 - 左侧栏“成就”打开成就墙视图，侧边栏中成就入口显示选中态；成就墙展示标题、搜索框和成就卡片，右侧任务清单和 Markdown 预览按钮在该视图中禁用。每个成就资源保留无背景、带背景和 fade 三态；英文名以资源文件名前缀为准。已达成成就可点击打开居中详情弹窗，未达成成就不可点击。成就状态保存在 Electron `userData/achievements.json`，项目数量成就按成功进入画布的唯一项目路径计数，连续使用成就按本机本地日期记录，首次移出项目和首次成功联动 Codex 在对应操作成功后解锁；成就一旦达成不回退。本次操作新解锁的成就会弹出 toast，初始加载已有成就不补弹。
 - 左侧栏“设置”或 `⌘,` 打开居中设置弹窗，包含主题、语言、默认运行器、半透明背景、恢复默认和保存设置；Windows 隐藏半透明背景项并强制使用纯色背景。设置项切换后实时预览，未保存关闭时回退到打开弹窗前的设置；保存后的设置写入 Electron `userData/settings.json`，不写入项目文件。
-- 左侧栏底部“检查更新”打开居中版本更新弹窗，展示当前版本、最新版本、检查/下载/完成状态和检查/更新/重启按钮；状态来自 `window.scatter.updates`，不写入设置文件。
+- 打包应用启动后自动调用 `window.scatter.updates.check()` 静默检查；`available` 状态才显示顶部栏“更新”按钮。点击“更新”调用 `window.scatter.updates.download()` 下载；下载或安装准备期间显示 loading；下载完成后文案变为“重启”，点击后调用 `window.scatter.updates.install()` 安装并重启；状态不写入设置文件。
 - 第一次打开客户端且没有历史设置文件时，会弹出居中的“偏好选择”弹窗；点击 Codex 或 Claude 后点“选好了”会同步写入设置的默认运行器，并把首启偏好标记为已完成。关闭弹窗不改变默认 Codex，但同样不再重复弹出。
-- 左侧栏可以通过顶部栏按钮收起；收起状态只保存在 renderer 内存中，不写入项目文件。收起后工作区铺满窗口宽度并保留左右 12px 边距，顶部栏左侧保留侧栏按钮和添加项目按钮，展开/收起需要有短过渡动画。
+- 左侧栏可以通过顶部栏按钮收起；收起状态只保存在 renderer 内存中，不写入项目文件。收起后工作区铺满窗口宽度并保留左右 12px 边距，顶部栏左侧保留侧栏按钮和添加项目按钮；检测到可更新版本时同组右侧显示更新按钮，展开/收起需要有短过渡动画。
 - 顶部栏右侧的任务清单和 Markdown 预览按钮打开工作区右侧侧边栏，不使用浮层。右侧侧边栏展开和收起需要有短过渡动画。顶部栏运行按钮和 Markdown 预览按钮必须依赖当前选中节点；没有选中节点时禁用。顶部栏运行始终发送选中节点及其下游子节点，Markdown 预览也只展示选中节点及其下游子节点，不在未选中时生成全画布 Markdown。任务清单侧栏固定 288px 并复用 `TaskItem`；清单只展示没有入边且有出边的 `flow` 流程起始节点任务，以及没有任何连线的 `node` 落单节点任务。被连接的子节点不要单独显示；落单节点有正文时显示可发送给运行器，没有正文时显示暂未编辑。Markdown 预览侧栏和画布并排占用剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮；对应顶部栏按钮要显示选中态。
 - Markdown 预览侧栏和画布之间需要有可拖拽分隔条；悬停和拖拽时使用横向 resize 光标，比例状态只保存在 renderer 内存中。
 - 节点和连线变化后会短防抖自动保存；打开或切换项目后的首次 hydrate 不做无变化自动保存。
@@ -205,7 +206,7 @@ AI 运行器启动行为变化：
 - 使用 Codex 运行且起始节点开启计划模式时，必须在可见 Codex 输入框里触发真实 `⇧Tab` 计划模式，不要用 prompt 前缀模拟计划模式，也不要用 app-server `collaborationMode: plan` 后台提交。该路径下附件通过 Markdown 中的 `.scatter/assets` 路径提供给 Codex 访问。
 - 使用 Claude CLI 运行时，必须优先复用 Terminal.app 里已有的 `claude` tab，或 Scatter 标记为 `Scatter Claude CLI`、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab；没有现有 tab 才启动 `claude`，启动中要去重且不要在 `do script` 前激活 Terminal，避免多个 Terminal tab 或额外空 shell 窗口，计划模式使用 `--permission-mode plan`，Markdown 通过现有 tab 粘贴或新会话临时 prompt 文件传入，附件通过 Markdown 路径提供。
 - Windows 点击运行时只复制 Markdown 到剪贴板，不调用 `window.scatter.runAssistant`，也不解锁首次 Codex 联动成就；用户手动粘贴到 Codex 或 Claude。
-- 自动更新只在 packaged app 中自动检查；开发模式下版本更新弹窗会显示不可检查更新。检测到新版本后自动下载，下载完成时显示更新 toast，用户点击“立即重启”后调用 updater 安装，并在安装器准备期间显示正在重启状态。macOS ad-hoc 包使用自定义安装器替换 `.app`，不走 Squirrel.Mac 原生签名校验。
+- 更新检查只在 packaged app 启动后静默触发；开发模式下不会检查或下载更新。检测到新版本后显示顶部栏“更新”按钮，点击后下载，下载完成后按钮文案变成“重启”；用户点击后调用 updater 安装，并在安装器准备期间显示 loading。macOS ad-hoc 包使用自定义安装器替换 `.app`，不走 Squirrel.Mac 原生签名校验。
 - `flow` 模式包含下游节点；`node` 模式只包含当前节点。
 - Markdown 导出会复制当前生成结果到剪贴板。
 

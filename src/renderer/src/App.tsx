@@ -55,8 +55,6 @@ import { ScatterEdge as ScatterFlowEdge } from "./components/ScatterEdge";
 import { SearchDialog } from "./components/SearchDialog";
 import { SettingsDialog, type SettingsValues } from "./components/SettingsDialog";
 import { Topbar } from "./components/Topbar";
-import { UpdateDialog } from "./components/UpdateDialog";
-import { UpdateToast } from "./components/UpdateToast";
 import { RightDrawer } from "./components/RightDrawer";
 import { TaskNode, setTaskNodeActions } from "./components/TaskNode";
 import { DropdownMenu, DropdownMenuItem } from "./components/ui/dropdown-menu";
@@ -557,7 +555,6 @@ function App(): ReactElement {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [themePreference, setThemePreference] = useState<ThemePreference>(defaultAppSettings.themePreference);
   const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() => systemColorTheme());
@@ -571,7 +568,6 @@ function App(): ReactElement {
   const [accessibilityPermissionOpen, setAccessibilityPermissionOpen] = useState(false);
   const [accessibilityTrusted, setAccessibilityTrusted] = useState<boolean | null>(null);
   const [updateState, setUpdateState] = useState<AppUpdateState>(initialUpdateState);
-  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
   const [markdownPanelRatio, setMarkdownPanelRatio] = useState(MARKDOWN_PANEL_DEFAULT_RATIO);
   const [isResizingMarkdownPanel, setIsResizingMarkdownPanel] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -626,10 +622,6 @@ function App(): ReactElement {
   const isAchievementsView = activeView === "achievements";
   const panModeActive = canvasTool === "pan" || spacePanActive;
   const effectiveTranslucentBackground = !isWindows && translucentBackground;
-  const updateToastVersion = updateState.downloadedVersion || updateState.availableVersion || null;
-  const updateToastActive = updateState.canInstall || updateState.status === "installing";
-  const showUpdateToast =
-    !updateDialogOpen && updateToastActive && Boolean(updateToastVersion) && dismissedUpdateVersion !== updateToastVersion;
 
   const updateConnectionHoverTarget = useCallback((target: ConnectionHoverTarget | null) => {
     const current = connectionHoverTargetRef.current;
@@ -1065,19 +1057,21 @@ function App(): ReactElement {
     };
   }, [isSplashWindow]);
 
-  const checkForUpdates = useCallback(async (): Promise<void> => {
-    const nextState = await window.scatter.updates.check();
-    setUpdateState(nextState);
-  }, []);
+  const runTopbarUpdateAction = useCallback(async (): Promise<void> => {
+    if (updateState.status === "checking" || updateState.status === "downloading" || updateState.status === "installing") return;
 
-  const installUpdate = useCallback(async (): Promise<void> => {
-    const nextState = await window.scatter.updates.install();
-    setUpdateState(nextState);
-  }, []);
-
-  const closeUpdateToast = useCallback((): void => {
-    setDismissedUpdateVersion(updateToastVersion);
-  }, [updateToastVersion]);
+    try {
+      const nextState =
+        updateState.canInstall || updateState.status === "downloaded"
+          ? await window.scatter.updates.install()
+          : updateState.status === "available"
+            ? await window.scatter.updates.download()
+            : updateState;
+      setUpdateState(nextState);
+    } catch {
+      return;
+    }
+  }, [updateState]);
 
   useEffect(() => {
     if (isSplashWindow) return undefined;
@@ -1139,7 +1133,6 @@ function App(): ReactElement {
         assistantProviderPreferenceOpen ||
         accessibilityPermissionOpen ||
         settingsOpen ||
-        updateDialogOpen ||
         searchOpen ||
         isEditableTarget(event.target)
       );
@@ -1202,14 +1195,14 @@ function App(): ReactElement {
       window.removeEventListener("blur", resetTransientCanvasKeys);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [accessibilityPermissionOpen, assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen, updateDialogOpen]);
+  }, [accessibilityPermissionOpen, assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen]);
 
   useEffect(() => {
-    if (isCanvasView && !assistantProviderPreferenceOpen && !accessibilityPermissionOpen && !settingsOpen && !updateDialogOpen && !searchOpen) return;
+    if (isCanvasView && !assistantProviderPreferenceOpen && !accessibilityPermissionOpen && !settingsOpen && !searchOpen) return;
     setSpacePanActive(false);
     setShiftSelectionActive(false);
     setShiftSelectionDragging(false);
-  }, [accessibilityPermissionOpen, assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen, updateDialogOpen]);
+  }, [accessibilityPermissionOpen, assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen]);
 
   const hydrateProject = useCallback(
     async (result: OpenProjectResult | null) => {
@@ -1853,7 +1846,7 @@ function App(): ReactElement {
 
   const handlePaste = useCallback(
     async (event: React.ClipboardEvent) => {
-      if (!project || !isCanvasView || assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || updateDialogOpen || searchOpen) return;
+      if (!project || !isCanvasView || assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || searchOpen) return;
 
       const files = event.clipboardData.files;
       if (files.length > 0) {
@@ -1931,7 +1924,6 @@ function App(): ReactElement {
       project,
       searchOpen,
       settingsOpen,
-      updateDialogOpen,
       setStatus,
       t,
       updateNodeData
@@ -1946,7 +1938,6 @@ function App(): ReactElement {
         assistantProviderPreferenceOpen ||
         accessibilityPermissionOpen ||
         settingsOpen ||
-        updateDialogOpen ||
         searchOpen ||
         event.dataTransfer.files.length === 0
       ) {
@@ -1968,7 +1959,7 @@ function App(): ReactElement {
         setStatus(error instanceof Error ? error.message : t("status.addAttachmentFailed"));
       }
     },
-    [accessibilityPermissionOpen, addFilesToNode, assistantProviderPreferenceOpen, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, isCanvasView, project, searchOpen, settingsOpen, setStatus, t, updateDialogOpen]
+    [accessibilityPermissionOpen, addFilesToNode, assistantProviderPreferenceOpen, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, isCanvasView, project, searchOpen, settingsOpen, setStatus, t]
   );
 
   const runActiveNode = useCallback(() => {
@@ -2008,7 +1999,7 @@ function App(): ReactElement {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
-      if (assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || updateDialogOpen || searchOpen || isEditableTarget(event.target)) {
+      if (assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || searchOpen || isEditableTarget(event.target)) {
         return;
       }
 
@@ -2134,7 +2125,6 @@ function App(): ReactElement {
     settingsOpen,
     toggleMarkdownDrawer,
     toggleTasksDrawer,
-    updateDialogOpen,
     undo
   ]);
 
@@ -2235,7 +2225,6 @@ function App(): ReactElement {
         onOpenRecent={(projectPath) => void openRecentProject(projectPath)}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={openSettingsDialog}
-        onOpenUpdates={() => setUpdateDialogOpen(true)}
         onRemoveRecent={(projectPath) => void removeRecentProject(projectPath)}
         onReorderRecent={(projectPaths) => void reorderRecentProjects(projectPaths)}
       />
@@ -2245,8 +2234,10 @@ function App(): ReactElement {
           canOpenMarkdown={isCanvasView && Boolean(selectedNode)}
           canRun={isCanvasView && Boolean(selectedNode)}
           sidebarCollapsed={sidebarCollapsed}
+          updateState={updateState}
           disabled={!project || !isCanvasView}
           onCreateProject={createProject}
+          onUpdate={() => void runTopbarUpdateAction()}
           onRunActive={runActiveNode}
           onOpenTasks={toggleTasksDrawer}
           onOpenMarkdown={toggleMarkdownDrawer}
@@ -2430,13 +2421,6 @@ function App(): ReactElement {
         onPreview={applySettingsValues}
         onSave={handleSaveSettings}
       />
-      <UpdateDialog
-        open={updateDialogOpen}
-        updateState={updateState}
-        onCheckForUpdates={checkForUpdates}
-        onInstallUpdate={installUpdate}
-        onOpenChange={setUpdateDialogOpen}
-      />
       <AssistantProviderPreferenceDialog
         assistantProvider={assistantProvider}
         open={assistantProviderPreferenceOpen}
@@ -2456,8 +2440,6 @@ function App(): ReactElement {
       />
       {achievementToastQueue[0] ? (
         <AchievementToast achievement={achievementToastQueue[0]} onClose={closeAchievementToast} onView={viewAchievementToast} />
-      ) : showUpdateToast ? (
-        <UpdateToast updateState={updateState} onClose={closeUpdateToast} onInstall={() => void installUpdate()} />
       ) : null}
       </main>
     </I18nProvider>

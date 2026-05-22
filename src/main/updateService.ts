@@ -246,7 +246,7 @@ function registerUpdaterEvents(): void {
   if (handlersRegistered) return;
   handlersRegistered = true;
 
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = process.platform !== "darwin";
   autoUpdater.allowPrerelease = false;
 
@@ -267,13 +267,13 @@ function registerUpdaterEvents(): void {
     if (hasInstallableUpdate() || isInstallingUpdate()) return;
 
     setUpdateState({
-      status: "downloading",
+      status: "available",
       availableVersion: info.version,
       downloadedVersion: undefined,
       errorCode: undefined,
       errorMessage: undefined,
-      progressPercent: 0,
-      canCheck: false,
+      progressPercent: undefined,
+      canCheck: true,
       canInstall: false
     });
   });
@@ -341,7 +341,7 @@ export async function checkForUpdates(): Promise<AppUpdateState> {
     });
   }
 
-  if (updateState.status === "checking" || updateState.status === "downloading" || updateState.status === "installing") {
+  if (updateState.status === "checking" || updateState.status === "available" || updateState.status === "downloading" || updateState.status === "installing") {
     return updateState;
   }
 
@@ -351,6 +351,46 @@ export async function checkForUpdates(): Promise<AppUpdateState> {
 
   try {
     await autoUpdater.checkForUpdates();
+  } catch (error) {
+    setUpdateError("check-failed", error);
+  }
+
+  return updateState;
+}
+
+export async function downloadUpdate(): Promise<AppUpdateState> {
+  registerUpdaterEvents();
+
+  if (!app.isPackaged) {
+    return setUpdateState({
+      status: "error",
+      errorCode: "development-mode",
+      errorMessage: undefined,
+      progressPercent: undefined,
+      canCheck: true,
+      canInstall: false
+    });
+  }
+
+  if (updateState.status === "downloading" || updateState.status === "installing" || updateState.status === "downloaded") {
+    return updateState;
+  }
+
+  if (updateState.status !== "available" || !updateState.availableVersion) {
+    return setUpdateError("check-failed", new Error("No update is available to download."));
+  }
+
+  setUpdateState({
+    status: "downloading",
+    errorCode: undefined,
+    errorMessage: undefined,
+    progressPercent: 0,
+    canCheck: false,
+    canInstall: false
+  });
+
+  try {
+    await autoUpdater.downloadUpdate();
   } catch (error) {
     setUpdateError("check-failed", error);
   }
@@ -396,6 +436,7 @@ export function registerUpdateIpc(): void {
   registerUpdaterEvents();
   ipcMain.handle("scatter:updates:get-state", () => getUpdateState());
   ipcMain.handle("scatter:updates:check", () => checkForUpdates());
+  ipcMain.handle("scatter:updates:download", () => downloadUpdate());
   ipcMain.handle("scatter:updates:install", () => installUpdate());
 }
 

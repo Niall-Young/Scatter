@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import type { AppUpdateState } from "../../../shared/types";
 import { useI18n } from "../lib/i18n";
 import { shortcuts } from "../lib/shortcuts";
 import { IconButton } from "./ui/icon-button";
@@ -9,12 +10,22 @@ interface TopbarProps {
   canOpenMarkdown: boolean;
   canRun: boolean;
   sidebarCollapsed: boolean;
+  updateState: AppUpdateState;
   disabled?: boolean;
   onCreateProject: () => void;
+  onUpdate: () => void;
   onRunActive: () => void;
   onOpenTasks: () => void;
   onOpenMarkdown: () => void;
   onToggleSidebar: () => void;
+}
+
+function isUpdateBusy(updateState: AppUpdateState): boolean {
+  return updateState.status === "downloading" || updateState.status === "installing";
+}
+
+function shouldShowUpdateButton(updateState: AppUpdateState): boolean {
+  return updateState.status === "available" || updateState.status === "downloading" || updateState.status === "downloaded" || updateState.status === "installing" || updateState.canInstall;
 }
 
 export function Topbar({
@@ -22,14 +33,25 @@ export function Topbar({
   canOpenMarkdown,
   canRun,
   sidebarCollapsed,
+  updateState,
   disabled = false,
   onCreateProject,
+  onUpdate,
   onRunActive,
   onOpenTasks,
   onOpenMarkdown,
   onToggleSidebar
 }: TopbarProps): ReactElement {
   const { t } = useI18n();
+  const updateReady = updateState.canInstall || updateState.status === "downloaded";
+  const updateBusy = isUpdateBusy(updateState);
+  const updateVisible = shouldShowUpdateButton(updateState);
+  const updateLabel = updateReady || updateState.status === "installing" ? t("topbar.restartUpdate") : t("topbar.update");
+  const updateTooltip = updateBusy
+    ? updateState.status === "installing"
+      ? t("topbar.restartingUpdate")
+      : t("topbar.loadingUpdate")
+    : updateLabel;
 
   return (
     <header className="topbar" aria-label={t("topbar.windowActions")}>
@@ -49,6 +71,13 @@ export function Topbar({
         {sidebarCollapsed ? (
           <TooltipAnchor label={t("topbar.addProject")} shortcut={shortcuts.addProject} side="bottom" align="start">
             <IconButton className="topbar-icon-button topbar-leading-button" filled={false} icon="topbar-folder-plus" size="md" aria-label={t("topbar.addProject")} onClick={onCreateProject} />
+          </TooltipAnchor>
+        ) : null}
+        {updateVisible ? (
+          <TooltipAnchor className="topbar-update-anchor" label={updateTooltip} side="bottom" align="start">
+            <button className={`topbar-update-button ${updateBusy ? "is-loading" : ""}`} type="button" aria-label={updateTooltip} disabled={updateBusy} onClick={onUpdate}>
+              {updateBusy ? <span className="topbar-update-spinner" aria-hidden="true" /> : <span>{updateLabel}</span>}
+            </button>
           </TooltipAnchor>
         ) : null}
       </div>

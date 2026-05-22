@@ -20,6 +20,7 @@ const api = {
   updates: {
     getState: (): Promise<AppUpdateState> => ipcRenderer.invoke("scatter:updates:get-state"),
     check: (): Promise<AppUpdateState> => ipcRenderer.invoke("scatter:updates:check"),
+    download: (): Promise<AppUpdateState> => ipcRenderer.invoke("scatter:updates:download"),
     install: (): Promise<AppUpdateState> => ipcRenderer.invoke("scatter:updates:install"),
     onStateChange: (listener: (state: AppUpdateState) => void): (() => void) => {
       const channel = "scatter:updates:state-changed";

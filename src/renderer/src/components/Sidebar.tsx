@@ -15,7 +15,6 @@ interface SidebarProps {
   onOpenRecent: (projectPath: string) => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
-  onOpenUpdates: () => void;
   onRemoveRecent: (projectPath: string) => void;
   onReorderRecent: (projectPaths: string[]) => void | Promise<void>;
 }
@@ -48,7 +47,6 @@ export function Sidebar({
   onOpenRecent,
   onOpenSearch,
   onOpenSettings,
-  onOpenUpdates,
   onRemoveRecent,
   onReorderRecent
 }: SidebarProps): ReactElement {
@@ -188,12 +186,6 @@ export function Sidebar({
             }}
           />
         ))}
-      </div>
-      <div className="sidebar-update">
-        <button className="sidebar-action-item" type="button" onClick={onOpenUpdates}>
-          <Icon name="upgrade" size={16} />
-          <span className="sidebar-action-label">{t("sidebar.checkUpdates")}</span>
-        </button>
       </div>
     </aside>
   );
