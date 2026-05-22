@@ -15,17 +15,20 @@ interface UpdateToastProps {
 export function UpdateToast({ onClose, onInstall, updateState }: UpdateToastProps): ReactElement {
   const { t } = useI18n();
   const version = updateState.downloadedVersion || updateState.availableVersion || "";
+  const installing = updateState.status === "installing";
 
   return (
     <ToastViewport>
       <div className="update-toast" role="status" aria-live="polite">
         <Icon className="update-toast-icon" name="download" size={22} />
         <div className="update-toast-copy">
-          <p className="update-toast-title">{t("updates.toast.title")}</p>
-          <p className="update-toast-description">{t("updates.toast.description", { version })}</p>
+          <p className="update-toast-title">{installing ? t("updates.toast.installingTitle") : t("updates.toast.title")}</p>
+          <p className="update-toast-description">
+            {installing ? t("updates.toast.installingDescription") : t("updates.toast.description", { version })}
+          </p>
         </div>
-        <KitButton className="update-toast-install" filled size="sm" onClick={onInstall}>
-          {t("updates.toast.install")}
+        <KitButton className="update-toast-install" filled size="sm" disabled={installing} onClick={onInstall}>
+          {installing ? t("updates.toast.installingAction") : t("updates.toast.install")}
         </KitButton>
         <IconButton className="update-toast-close" filled={false} icon="x" size="lg" aria-label={t("updates.toast.close")} onClick={onClose} />
       </div>

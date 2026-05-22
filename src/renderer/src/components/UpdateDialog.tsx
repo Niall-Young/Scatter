@@ -24,6 +24,10 @@ function updateStatusText(updateState: AppUpdateState, t: Translate): { muted?: 
     return { muted: true, text: t("updates.dialog.developmentMode") };
   }
 
+  if (updateState.status === "installing") {
+    return { text: t("updates.dialog.installing") };
+  }
+
   if (updateState.status === "checking") {
     return { muted: true, text: t("updates.dialog.checking") };
   }
@@ -33,16 +37,24 @@ function updateStatusText(updateState: AppUpdateState, t: Translate): { muted?: 
   }
 
   if (updateState.status === "error") {
-    return { muted: true, text: updateState.errorMessage || t("updates.dialog.error") };
+    return { muted: true, text: updateState.errorCode === "install-failed" ? t("updates.dialog.installFailed") : updateState.errorMessage || t("updates.dialog.error") };
   }
 
   return { muted: true, text: t("updates.dialog.checkPrompt") };
 }
 
 function updateProgressText(updateState: AppUpdateState, t: Translate): { hidden?: boolean; text: string } {
+  if (updateState.status === "installing") {
+    return { text: t("updates.dialog.installing") };
+  }
+
   if (updateState.status === "downloading") {
     const progress = Math.round(updateState.progressPercent ?? 0);
     return { text: t("updates.dialog.downloading", { progress }) };
+  }
+
+  if (updateState.status === "error") {
+    return { text: updateState.errorCode === "install-failed" ? t("updates.dialog.installFailed") : updateState.errorMessage || t("updates.dialog.error") };
   }
 
   if (updateState.canInstall) {
@@ -53,6 +65,7 @@ function updateProgressText(updateState: AppUpdateState, t: Translate): { hidden
 }
 
 function updateButtonLabel(updateState: AppUpdateState, t: Translate): string {
+  if (updateState.status === "installing") return t("updates.dialog.installingAction");
   if (updateState.canInstall) return t("updates.dialog.restartAction");
   if (updateState.status === "downloading" || updateState.availableVersion) return t("updates.dialog.updateAction");
   if (updateState.status === "checking") return t("settings.update.checking");
@@ -70,7 +83,9 @@ export function UpdateDialog({
   const latestVersion = updateState.downloadedVersion || updateState.availableVersion;
   const status = updateStatusText(updateState, t);
   const progress = updateProgressText(updateState, t);
-  const actionDisabled = !updateState.canInstall && (!updateState.isPackaged || updateState.status === "checking" || updateState.status === "downloading");
+  const actionDisabled =
+    updateState.status === "installing" ||
+    (!updateState.canInstall && (!updateState.isPackaged || updateState.status === "checking" || updateState.status === "downloading"));
   const action = updateState.canInstall ? onInstallUpdate : onCheckForUpdates;
 
   return (

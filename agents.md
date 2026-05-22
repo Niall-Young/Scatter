@@ -120,6 +120,7 @@ npm run dist:win:publish
 - 从 `src/main/updateService.ts`、`src/preload/index.ts` 和 `src/renderer/src/components/UpdateDialog.tsx` 开始。
 - 更新状态契约优先改 `src/shared/types.ts`，Renderer 只能通过 `window.scatter.updates` 调用。
 - macOS 自动更新依赖 `dmg + zip`，不能移除 zip target；Windows 自动更新使用 x64 NSIS，不发布 portable 作为自动更新载体。
+- macOS 下载完成后，点击“立即重启”时再显式触发 Squirrel.Mac 接收 zip 并进入 `installing` 状态；不要在 zip 刚下载完成但 Squirrel 还没准备好时让 UI 看起来已经重启无响应。
 - GitHub Releases 发布配置在 `package.json` 的 `build.publish`，目标仓库是 `Niall-Young/Scatter`，release 默认 draft。
 - Windows 当前 unsigned，用户可能看到 SmartScreen / 未知发布者提示；macOS 当前 ad-hoc，更新后辅助功能权限可能失效，继续复用“权限管理”自动重置和拖拽授权引导。
 
@@ -204,7 +205,7 @@ AI 运行器启动行为变化：
 - 使用 Codex 运行且起始节点开启计划模式时，必须在可见 Codex 输入框里触发真实 `⇧Tab` 计划模式，不要用 prompt 前缀模拟计划模式，也不要用 app-server `collaborationMode: plan` 后台提交。该路径下附件通过 Markdown 中的 `.scatter/assets` 路径提供给 Codex 访问。
 - 使用 Claude CLI 运行时，必须优先复用 Terminal.app 里已有的 `claude` tab，或 Scatter 标记为 `Scatter Claude CLI`、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab；没有现有 tab 才启动 `claude`，启动中要去重且不要在 `do script` 前激活 Terminal，避免多个 Terminal tab 或额外空 shell 窗口，计划模式使用 `--permission-mode plan`，Markdown 通过现有 tab 粘贴或新会话临时 prompt 文件传入，附件通过 Markdown 路径提供。
 - Windows 点击运行时只复制 Markdown 到剪贴板，不调用 `window.scatter.runAssistant`，也不解锁首次 Codex 联动成就；用户手动粘贴到 Codex 或 Claude。
-- 自动更新只在 packaged app 中自动检查；开发模式下版本更新弹窗会显示不可检查更新。检测到新版本后自动下载，下载完成时显示更新 toast，用户点击“立即重启”后调用 updater 安装。
+- 自动更新只在 packaged app 中自动检查；开发模式下版本更新弹窗会显示不可检查更新。检测到新版本后自动下载，下载完成时显示更新 toast，用户点击“立即重启”后调用 updater 安装，并在安装器准备期间显示正在重启状态。
 - `flow` 模式包含下游节点；`node` 模式只包含当前节点。
 - Markdown 导出会复制当前生成结果到剪贴板。
 

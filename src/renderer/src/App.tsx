@@ -627,8 +627,9 @@ function App(): ReactElement {
   const panModeActive = canvasTool === "pan" || spacePanActive;
   const effectiveTranslucentBackground = !isWindows && translucentBackground;
   const updateToastVersion = updateState.downloadedVersion || updateState.availableVersion || null;
+  const updateToastActive = updateState.canInstall || updateState.status === "installing";
   const showUpdateToast =
-    !updateDialogOpen && updateState.canInstall && Boolean(updateToastVersion) && dismissedUpdateVersion !== updateToastVersion;
+    !updateDialogOpen && updateToastActive && Boolean(updateToastVersion) && dismissedUpdateVersion !== updateToastVersion;
 
   const updateConnectionHoverTarget = useCallback((target: ConnectionHoverTarget | null) => {
     const current = connectionHoverTargetRef.current;

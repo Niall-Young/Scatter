@@ -5,7 +5,7 @@ export type EffortLevel = "low" | "medium" | "high" | "xhigh";
 export type LanguagePreference = "zh" | "en";
 export type ThemePreference = "system" | "light" | "dark";
 export type AssistantProvider = "codex" | "claude-cli";
-export type AppUpdateStatus = "idle" | "checking" | "downloading" | "downloaded" | "not-available" | "error";
+export type AppUpdateStatus = "idle" | "checking" | "downloading" | "downloaded" | "installing" | "not-available" | "error";
 export type AppUpdateErrorCode = "development-mode" | "check-failed" | "install-failed";
 export const achievementIds = [
   "oneshot",

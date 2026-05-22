@@ -6,6 +6,7 @@ const { autoUpdater } = electronUpdater;
 const UPDATE_STATE_EVENT = "scatter:updates:state-changed";
 
 let handlersRegistered = false;
+let installFallbackTimer: NodeJS.Timeout | undefined;
 let updateState: AppUpdateState = {
   status: "idle",
   currentVersion: app.getVersion(),
@@ -15,11 +16,31 @@ let updateState: AppUpdateState = {
 };
 
 function canCheckForStatus(status: AppUpdateStatus): boolean {
-  return app.isPackaged && status !== "checking" && status !== "downloading";
+  return app.isPackaged && status !== "checking" && status !== "downloading" && status !== "installing";
 }
 
 function hasInstallableUpdate(): boolean {
   return updateState.canInstall && Boolean(updateState.downloadedVersion);
+}
+
+function isInstallingUpdate(): boolean {
+  return updateState.status === "installing";
+}
+
+function clearInstallFallbackTimer(): void {
+  if (!installFallbackTimer) return;
+  clearTimeout(installFallbackTimer);
+  installFallbackTimer = undefined;
+}
+
+function scheduleInstallFallbackTimer(): void {
+  clearInstallFallbackTimer();
+  installFallbackTimer = setTimeout(() => {
+    installFallbackTimer = undefined;
+    if (updateState.status !== "installing") return;
+
+    setUpdateError("install-failed", new Error("The update installer did not start. Quit Scatter and reopen it, then try again."));
+  }, 45000);
 }
 
 function setUpdateState(next: Partial<AppUpdateState>): AppUpdateState {
@@ -39,16 +60,7 @@ function setUpdateState(next: Partial<AppUpdateState>): AppUpdateState {
 
 function setUpdateError(errorCode: AppUpdateErrorCode, error: unknown): AppUpdateState {
   const errorMessage = error instanceof Error ? error.message : typeof error === "string" ? error : undefined;
-  if (hasInstallableUpdate()) {
-    return setUpdateState({
-      status: "downloaded",
-      errorCode: undefined,
-      errorMessage: undefined,
-      progressPercent: 100,
-      canCheck: true,
-      canInstall: true
-    });
-  }
+  clearInstallFallbackTimer();
 
   return setUpdateState({
     status: "error",
@@ -56,7 +68,7 @@ function setUpdateError(errorCode: AppUpdateErrorCode, error: unknown): AppUpdat
     errorMessage,
     progressPercent: undefined,
     canCheck: app.isPackaged,
-    canInstall: updateState.status === "downloaded"
+    canInstall: Boolean(updateState.downloadedVersion)
   });
 }
 
@@ -73,11 +85,11 @@ function registerUpdaterEvents(): void {
   handlersRegistered = true;
 
   autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoInstallOnAppQuit = process.platform !== "darwin";
   autoUpdater.allowPrerelease = false;
 
   autoUpdater.on("checking-for-update", () => {
-    if (hasInstallableUpdate()) return;
+    if (hasInstallableUpdate() || isInstallingUpdate()) return;
 
     setUpdateState({
       status: "checking",
@@ -90,7 +102,7 @@ function registerUpdaterEvents(): void {
   });
 
   autoUpdater.on("update-available", (info: UpdateInfo) => {
-    if (hasInstallableUpdate()) return;
+    if (hasInstallableUpdate() || isInstallingUpdate()) return;
 
     setUpdateState({
       status: "downloading",
@@ -105,7 +117,7 @@ function registerUpdaterEvents(): void {
   });
 
   autoUpdater.on("download-progress", (progress: ProgressInfo) => {
-    if (hasInstallableUpdate()) return;
+    if (hasInstallableUpdate() || isInstallingUpdate()) return;
 
     setUpdateState({
       status: "downloading",
@@ -116,7 +128,7 @@ function registerUpdaterEvents(): void {
   });
 
   autoUpdater.on("update-not-available", () => {
-    if (hasInstallableUpdate()) return;
+    if (hasInstallableUpdate() || isInstallingUpdate()) return;
 
     setUpdateState({
       status: "not-available",
@@ -166,7 +178,7 @@ export async function checkForUpdates(): Promise<AppUpdateState> {
     });
   }
 
-  if (updateState.status === "checking" || updateState.status === "downloading") {
+  if (updateState.status === "checking" || updateState.status === "downloading" || updateState.status === "installing") {
     return updateState;
   }
 
@@ -186,11 +198,30 @@ export async function checkForUpdates(): Promise<AppUpdateState> {
 export function installUpdate(): AppUpdateState {
   registerUpdaterEvents();
 
+  if (updateState.status === "installing") {
+    return updateState;
+  }
+
   if (!updateState.canInstall || !updateState.downloadedVersion) {
     return setUpdateError("install-failed", new Error("No downloaded update is ready to install."));
   }
 
-  autoUpdater.quitAndInstall(false, true);
+  setUpdateState({
+    status: "installing",
+    errorCode: undefined,
+    errorMessage: undefined,
+    progressPercent: 100,
+    canCheck: false,
+    canInstall: false
+  });
+
+  try {
+    autoUpdater.quitAndInstall(false, true);
+    scheduleInstallFallbackTimer();
+  } catch (error) {
+    setUpdateError("install-failed", error);
+  }
+
   return updateState;
 }
 
