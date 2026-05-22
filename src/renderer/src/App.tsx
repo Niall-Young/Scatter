@@ -559,6 +559,9 @@ function App(): ReactElement {
   const windowSearchParams = new URLSearchParams(window.location.search);
   const isSplashWindow = windowSearchParams.get("window") === "splash";
   const appVersion = windowSearchParams.get("version")?.trim() || "0.0.0";
+  const appPlatform = windowSearchParams.get("platform")?.trim() || "darwin";
+  const isWindows = appPlatform === "win32";
+  const supportsMacAutomation = appPlatform === "darwin";
   const saveTimerRef = useRef<number | null>(null);
   const loadedProjectPathRef = useRef<string | null>(null);
   const skipNextAutosavePathRef = useRef<string | null>(null);
@@ -594,6 +597,7 @@ function App(): ReactElement {
   const isCanvasView = activeView === "canvas";
   const isAchievementsView = activeView === "achievements";
   const panModeActive = canvasTool === "pan" || spacePanActive;
+  const effectiveTranslucentBackground = !isWindows && translucentBackground;
 
   const updateConnectionPreview = useCallback((preview: ConnectionPreview | null) => {
     const current = connectionPreviewRef.current;
@@ -906,6 +910,12 @@ function App(): ReactElement {
   }, [applySettingsValues, assistantProvider, language, themePreference, translucentBackground]);
 
   const refreshAccessibilityPermission = useCallback(async (): Promise<boolean> => {
+    if (!supportsMacAutomation) {
+      setAccessibilityTrusted(true);
+      setAccessibilityPermissionOpen(false);
+      return true;
+    }
+
     const status = await window.scatter.accessibility.getStatus();
     setAccessibilityTrusted(status.trusted);
     if (status.trusted) {
@@ -913,9 +923,11 @@ function App(): ReactElement {
       void window.scatter.accessibility.closeGuide().catch(() => undefined);
     }
     return status.trusted;
-  }, []);
+  }, [supportsMacAutomation]);
 
   const openAccessibilityGuide = useCallback(async (): Promise<void> => {
+    if (!supportsMacAutomation) return;
+
     const resetStatus = await window.scatter.accessibility.resetPermission();
     setAccessibilityTrusted(resetStatus.trusted);
     const guideStatus = await window.scatter.accessibility.openGuide();
@@ -925,7 +937,7 @@ function App(): ReactElement {
       void window.scatter.accessibility.closeGuide().catch(() => undefined);
       return;
     }
-  }, []);
+  }, [supportsMacAutomation]);
 
   const dismissAccessibilityPermission = useCallback((): void => {
     accessibilityPromptDismissedRef.current = true;
@@ -934,6 +946,8 @@ function App(): ReactElement {
   }, []);
 
   const ensureAccessibilityPermission = useCallback(async (): Promise<boolean> => {
+    if (!supportsMacAutomation) return true;
+
     try {
       const trusted = await refreshAccessibilityPermission();
       if (trusted) return true;
@@ -946,10 +960,18 @@ function App(): ReactElement {
       setStatus(t("status.accessibilityPermissionRequired"));
       return false;
     }
-  }, [refreshAccessibilityPermission, setStatus, t]);
+  }, [refreshAccessibilityPermission, setStatus, supportsMacAutomation, t]);
 
   useEffect(() => {
-    if (isSplashWindow || !settingsLoaded || assistantProviderPreferenceOpen || accessibilityStartupPromptShownRef.current) return;
+    if (
+      !supportsMacAutomation ||
+      isSplashWindow ||
+      !settingsLoaded ||
+      assistantProviderPreferenceOpen ||
+      accessibilityStartupPromptShownRef.current
+    ) {
+      return;
+    }
     accessibilityStartupPromptShownRef.current = true;
     let cancelled = false;
 
@@ -971,10 +993,10 @@ function App(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [assistantProviderPreferenceOpen, isSplashWindow, settingsLoaded]);
+  }, [assistantProviderPreferenceOpen, isSplashWindow, settingsLoaded, supportsMacAutomation]);
 
   useEffect(() => {
-    if (isSplashWindow) return undefined;
+    if (isSplashWindow || !supportsMacAutomation) return undefined;
 
     const handleFocus = (): void => {
       void refreshAccessibilityPermission().catch(() => undefined);
@@ -982,17 +1004,17 @@ function App(): ReactElement {
 
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-  }, [isSplashWindow, refreshAccessibilityPermission]);
+  }, [isSplashWindow, refreshAccessibilityPermission, supportsMacAutomation]);
 
   useEffect(() => {
-    if (isSplashWindow || !accessibilityPermissionOpen || accessibilityTrusted === true) return undefined;
+    if (isSplashWindow || !supportsMacAutomation || !accessibilityPermissionOpen || accessibilityTrusted === true) return undefined;
 
     const timer = window.setInterval(() => {
       void refreshAccessibilityPermission().catch(() => undefined);
     }, 1500);
 
     return () => window.clearInterval(timer);
-  }, [accessibilityPermissionOpen, accessibilityTrusted, isSplashWindow, refreshAccessibilityPermission]);
+  }, [accessibilityPermissionOpen, accessibilityTrusted, isSplashWindow, refreshAccessibilityPermission, supportsMacAutomation]);
 
   useEffect(() => {
     if (!isSplashWindow) {
@@ -1041,9 +1063,10 @@ function App(): ReactElement {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.window = isSplashWindow ? "splash" : "main";
-    document.documentElement.dataset.translucent = translucentBackground ? "true" : "false";
+    document.documentElement.dataset.platform = appPlatform;
+    document.documentElement.dataset.translucent = effectiveTranslucentBackground ? "true" : "false";
     document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
-  }, [isSplashWindow, language, theme, translucentBackground]);
+  }, [appPlatform, effectiveTranslucentBackground, isSplashWindow, language, theme]);
 
   useEffect(() => {
     function isSpaceKey(event: KeyboardEvent): boolean {
@@ -1340,6 +1363,15 @@ function App(): ReactElement {
         setStatus(t("status.cannotSendEmpty"));
         return;
       }
+      if (isWindows) {
+        try {
+          await navigator.clipboard.writeText(result.markdown);
+          setStatus(t("status.manualRunnerCopied"));
+        } catch {
+          setStatus(t("status.manualRunnerCopyFailed"));
+        }
+        return;
+      }
       if (assistantRunInFlightRef.current) {
         setStatus(t("status.sendingAssistant"));
         return;
@@ -1371,7 +1403,7 @@ function App(): ReactElement {
         assistantRunInFlightRef.current = false;
       }
     },
-    [assistantProvider, edges, ensureAccessibilityPermission, language, markNodeRun, nodes, project, refreshAchievements, setStatus, t]
+    [assistantProvider, edges, ensureAccessibilityPermission, isWindows, language, markNodeRun, nodes, project, refreshAchievements, setStatus, t]
   );
 
   const duplicateNode = useCallback(
@@ -2316,6 +2348,7 @@ function App(): ReactElement {
         translucentBackground={translucentBackground}
         assistantProvider={assistantProvider}
         assistantProviderOnboardingCompleted={assistantProviderOnboardingCompleted}
+        showTranslucentBackground={!isWindows}
         onOpenChange={handleSettingsOpenChange}
         onPreview={applySettingsValues}
         onSave={handleSaveSettings}
@@ -2327,7 +2360,7 @@ function App(): ReactElement {
         onSave={saveAssistantProviderPreference}
       />
       <AccessibilityPermissionDialog
-        open={accessibilityPermissionOpen && accessibilityTrusted !== true}
+        open={supportsMacAutomation && accessibilityPermissionOpen && accessibilityTrusted !== true}
         onDismiss={dismissAccessibilityPermission}
         onOpenGuide={openAccessibilityGuide}
       />

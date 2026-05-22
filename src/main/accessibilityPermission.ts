@@ -11,18 +11,31 @@ const execFileAsync = promisify(execFile);
 let guideProcess: ChildProcess | null = null;
 
 export function getAccessibilityPermissionStatus(): AccessibilityPermissionStatus {
+  if (process.platform !== "darwin") {
+    return {
+      trusted: true
+    };
+  }
+
   return {
     trusted: systemPreferences.isTrustedAccessibilityClient(false)
   };
 }
 
 export function requestAccessibilityPermission(): AccessibilityPermissionStatus {
+  if (process.platform !== "darwin") {
+    return {
+      trusted: true
+    };
+  }
+
   return {
     trusted: systemPreferences.isTrustedAccessibilityClient(true)
   };
 }
 
 export async function openAccessibilitySettings(): Promise<void> {
+  if (process.platform !== "darwin") return;
   await shell.openExternal(ACCESSIBILITY_SETTINGS_URL);
 }
 
@@ -65,7 +78,6 @@ export async function openAccessibilityPermissionGuide(
   const status = requestAccessibilityPermission();
 
   if (process.platform !== "darwin") {
-    await openAccessibilitySettings();
     return status;
   }
 

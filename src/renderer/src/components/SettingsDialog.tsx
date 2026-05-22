@@ -16,6 +16,7 @@ interface SettingsDialogProps extends SettingsValues {
   onOpenChange: (open: boolean) => void;
   onPreview: (values: SettingsValues) => void;
   onSave: (values: SettingsValues) => Promise<void>;
+  showTranslucentBackground?: boolean;
 }
 
 interface SettingsOption<TValue extends string> {
@@ -70,6 +71,7 @@ export function SettingsDialog({
   onPreview,
   onSave,
   open,
+  showTranslucentBackground = true,
   themePreference,
   translucentBackground
 }: SettingsDialogProps): ReactElement {
@@ -161,10 +163,12 @@ export function SettingsDialog({
                 onChange={setDraftAssistantProvider}
               />
             </div>
-            <div className="settings-dialog-row">
-              <span className="settings-dialog-row-label">{t("settings.translucentBackground")}</span>
-              <Switch checked={draftTranslucentBackground} onCheckedChange={setDraftTranslucentBackground} />
-            </div>
+            {showTranslucentBackground ? (
+              <div className="settings-dialog-row">
+                <span className="settings-dialog-row-label">{t("settings.translucentBackground")}</span>
+                <Switch checked={draftTranslucentBackground} onCheckedChange={setDraftTranslucentBackground} />
+              </div>
+            ) : null}
           </div>
 
           <footer className="settings-dialog-footer">

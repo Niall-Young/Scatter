@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeImage, net, protocol, shell } from "electron";
+import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, net, protocol, shell, type BrowserWindowConstructorOptions } from "electron";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -74,13 +74,14 @@ function rendererUrl(query?: Record<string, string>): string | null {
 }
 
 function loadRenderer(window: BrowserWindow, query?: Record<string, string>): void {
-  const devUrl = rendererUrl(query);
+  const rendererQuery = { platform: process.platform, ...(query ?? {}) };
+  const devUrl = rendererUrl(rendererQuery);
   if (devUrl) {
     void window.loadURL(devUrl);
     return;
   }
 
-  void window.loadFile(path.join(__dirname, "../renderer/index.html"), query ? { query } : undefined);
+  void window.loadFile(path.join(__dirname, "../renderer/index.html"), { query: rendererQuery });
 }
 
 function appIconPath(): string {
@@ -119,6 +120,29 @@ function preloadScriptPath(): string {
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
 }
 
+function solidWindowBackgroundColor(): string {
+  return nativeTheme.shouldUseDarkColors ? "#151515" : "#FFFFFF";
+}
+
+function windowVisualOptions(): Pick<
+  BrowserWindowConstructorOptions,
+  "backgroundColor" | "transparent" | "vibrancy" | "visualEffectState"
+> {
+  if (process.platform === "win32") {
+    return {
+      transparent: false,
+      backgroundColor: solidWindowBackgroundColor()
+    };
+  }
+
+  return {
+    transparent: true,
+    backgroundColor: "#00000000",
+    vibrancy: "fullscreen-ui",
+    visualEffectState: "active"
+  };
+}
+
 function createSplashWindow(iconPath: string): BrowserWindow {
   const splashWindow = new BrowserWindow({
     width: 936,
@@ -128,10 +152,7 @@ function createSplashWindow(iconPath: string): BrowserWindow {
     resizable: false,
     maximizable: false,
     fullscreenable: false,
-    transparent: true,
-    backgroundColor: "#00000000",
-    vibrancy: "fullscreen-ui",
-    visualEffectState: "active",
+    ...windowVisualOptions(),
     icon: iconPath,
     title: "Scatter",
     webPreferences: {
@@ -160,10 +181,7 @@ function createWindow(showWhenReady = false, iconPath = appIconPath()): BrowserW
     minWidth: 1040,
     minHeight: 720,
     title: "Scatter",
-    transparent: true,
-    backgroundColor: "#00000000",
-    vibrancy: "fullscreen-ui",
-    visualEffectState: "active",
+    ...windowVisualOptions(),
     icon: iconPath,
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 20, y: 16 },

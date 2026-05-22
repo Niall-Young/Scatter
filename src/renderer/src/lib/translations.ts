@@ -153,6 +153,8 @@ const zh = {
   "status.sendingAssistant": "正在发送到运行器...",
   "status.sentAssistant": "已发送到运行器",
   "status.sendAssistantFailed": "发送到运行器失败",
+  "status.manualRunnerCopied": "已复制，请手动粘贴到 Codex 或 Claude",
+  "status.manualRunnerCopyFailed": "复制失败，请打开 Markdown 预览后手动复制",
   "status.accessibilityPermissionRequired": "请先开启 macOS 辅助功能权限",
   "status.addAttachmentFailed": "添加附件失败"
 } as const;
@@ -310,6 +312,8 @@ const en = {
   "status.sendingAssistant": "Sending to runner...",
   "status.sentAssistant": "Sent to runner",
   "status.sendAssistantFailed": "Failed to send to runner",
+  "status.manualRunnerCopied": "Copied. Paste it into Codex or Claude manually.",
+  "status.manualRunnerCopyFailed": "Copy failed. Open Markdown preview and copy it manually.",
   "status.accessibilityPermissionRequired": "Enable macOS Accessibility permission first",
   "status.addAttachmentFailed": "Failed to add attachment"
 } satisfies Record<keyof typeof zh, string>;
