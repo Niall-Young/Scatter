@@ -60,7 +60,7 @@ async function pathExists(targetPath: string): Promise<boolean> {
 }
 
 function currentMacAppBundlePath(): string {
-  return path.resolve(path.dirname(process.execPath), "../../..");
+  return path.resolve(path.dirname(process.execPath), "../..");
 }
 
 function macUpdaterCacheDir(): string {
