@@ -55,6 +55,7 @@ import { ScatterEdge as ScatterFlowEdge } from "./components/ScatterEdge";
 import { SearchDialog } from "./components/SearchDialog";
 import { SettingsDialog, type SettingsValues } from "./components/SettingsDialog";
 import { Topbar } from "./components/Topbar";
+import { UpdateDialog } from "./components/UpdateDialog";
 import { UpdateToast } from "./components/UpdateToast";
 import { RightDrawer } from "./components/RightDrawer";
 import { TaskNode, setTaskNodeActions } from "./components/TaskNode";
@@ -556,6 +557,7 @@ function App(): ReactElement {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [themePreference, setThemePreference] = useState<ThemePreference>(defaultAppSettings.themePreference);
   const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() => systemColorTheme());
@@ -626,7 +628,7 @@ function App(): ReactElement {
   const effectiveTranslucentBackground = !isWindows && translucentBackground;
   const updateToastVersion = updateState.downloadedVersion || updateState.availableVersion || null;
   const showUpdateToast =
-    updateState.canInstall && Boolean(updateToastVersion) && dismissedUpdateVersion !== updateToastVersion;
+    !updateDialogOpen && updateState.canInstall && Boolean(updateToastVersion) && dismissedUpdateVersion !== updateToastVersion;
 
   const updateConnectionHoverTarget = useCallback((target: ConnectionHoverTarget | null) => {
     const current = connectionHoverTargetRef.current;
@@ -1136,6 +1138,7 @@ function App(): ReactElement {
         assistantProviderPreferenceOpen ||
         accessibilityPermissionOpen ||
         settingsOpen ||
+        updateDialogOpen ||
         searchOpen ||
         isEditableTarget(event.target)
       );
@@ -1198,14 +1201,14 @@ function App(): ReactElement {
       window.removeEventListener("blur", resetTransientCanvasKeys);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [accessibilityPermissionOpen, assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen]);
+  }, [accessibilityPermissionOpen, assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen, updateDialogOpen]);
 
   useEffect(() => {
-    if (isCanvasView && !assistantProviderPreferenceOpen && !accessibilityPermissionOpen && !settingsOpen && !searchOpen) return;
+    if (isCanvasView && !assistantProviderPreferenceOpen && !accessibilityPermissionOpen && !settingsOpen && !updateDialogOpen && !searchOpen) return;
     setSpacePanActive(false);
     setShiftSelectionActive(false);
     setShiftSelectionDragging(false);
-  }, [accessibilityPermissionOpen, assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen]);
+  }, [accessibilityPermissionOpen, assistantProviderPreferenceOpen, isCanvasView, searchOpen, settingsOpen, updateDialogOpen]);
 
   const hydrateProject = useCallback(
     async (result: OpenProjectResult | null) => {
@@ -1849,7 +1852,7 @@ function App(): ReactElement {
 
   const handlePaste = useCallback(
     async (event: React.ClipboardEvent) => {
-      if (!project || !isCanvasView || assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || searchOpen) return;
+      if (!project || !isCanvasView || assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || updateDialogOpen || searchOpen) return;
 
       const files = event.clipboardData.files;
       if (files.length > 0) {
@@ -1927,6 +1930,7 @@ function App(): ReactElement {
       project,
       searchOpen,
       settingsOpen,
+      updateDialogOpen,
       setStatus,
       t,
       updateNodeData
@@ -1935,7 +1939,18 @@ function App(): ReactElement {
 
   const handleDrop = useCallback(
     async (event: React.DragEvent) => {
-      if (!project || !isCanvasView || assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || searchOpen || event.dataTransfer.files.length === 0) return;
+      if (
+        !project ||
+        !isCanvasView ||
+        assistantProviderPreferenceOpen ||
+        accessibilityPermissionOpen ||
+        settingsOpen ||
+        updateDialogOpen ||
+        searchOpen ||
+        event.dataTransfer.files.length === 0
+      ) {
+        return;
+      }
       event.preventDefault();
       beginHistoryTransaction();
       const target = ensureTargetNode();
@@ -1952,7 +1967,7 @@ function App(): ReactElement {
         setStatus(error instanceof Error ? error.message : t("status.addAttachmentFailed"));
       }
     },
-    [accessibilityPermissionOpen, addFilesToNode, assistantProviderPreferenceOpen, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, isCanvasView, project, searchOpen, settingsOpen, setStatus, t]
+    [accessibilityPermissionOpen, addFilesToNode, assistantProviderPreferenceOpen, beginHistoryTransaction, cancelHistoryTransaction, commitHistoryTransaction, ensureTargetNode, isCanvasView, project, searchOpen, settingsOpen, setStatus, t, updateDialogOpen]
   );
 
   const runActiveNode = useCallback(() => {
@@ -1992,7 +2007,7 @@ function App(): ReactElement {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
-      if (assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || searchOpen || isEditableTarget(event.target)) {
+      if (assistantProviderPreferenceOpen || accessibilityPermissionOpen || settingsOpen || updateDialogOpen || searchOpen || isEditableTarget(event.target)) {
         return;
       }
 
@@ -2118,6 +2133,7 @@ function App(): ReactElement {
     settingsOpen,
     toggleMarkdownDrawer,
     toggleTasksDrawer,
+    updateDialogOpen,
     undo
   ]);
 
@@ -2218,6 +2234,7 @@ function App(): ReactElement {
         onOpenRecent={(projectPath) => void openRecentProject(projectPath)}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={openSettingsDialog}
+        onOpenUpdates={() => setUpdateDialogOpen(true)}
         onRemoveRecent={(projectPath) => void removeRecentProject(projectPath)}
         onReorderRecent={(projectPaths) => void reorderRecentProjects(projectPaths)}
       />
@@ -2408,12 +2425,16 @@ function App(): ReactElement {
         assistantProvider={assistantProvider}
         assistantProviderOnboardingCompleted={assistantProviderOnboardingCompleted}
         showTranslucentBackground={!isWindows}
-        updateState={updateState}
-        onCheckForUpdates={checkForUpdates}
-        onInstallUpdate={installUpdate}
         onOpenChange={handleSettingsOpenChange}
         onPreview={applySettingsValues}
         onSave={handleSaveSettings}
+      />
+      <UpdateDialog
+        open={updateDialogOpen}
+        updateState={updateState}
+        onCheckForUpdates={checkForUpdates}
+        onInstallUpdate={installUpdate}
+        onOpenChange={setUpdateDialogOpen}
       />
       <AssistantProviderPreferenceDialog
         assistantProvider={assistantProvider}

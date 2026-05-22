@@ -459,7 +459,7 @@ button {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  padding: 0 0 16px;
+  padding: 0 0 12px;
 }
 
 .sidebar-action-item {
@@ -495,21 +495,6 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.sidebar-action-shortcut {
-  flex: 0 0 auto;
-  opacity: 0;
-  transform: translateX(2px);
-  transition:
-    opacity 100ms ease,
-    transform 100ms ease;
-}
-
-.sidebar-action-item:hover .sidebar-action-shortcut,
-.sidebar-action-item:focus-visible .sidebar-action-shortcut {
-  opacity: 1;
-  transform: translateX(0);
 }
 
 .settings-dialog-overlay {
@@ -616,47 +601,101 @@ button {
   flex: 0 0 auto;
 }
 
-.settings-dialog-update {
+.update-dialog-overlay {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  background: transparent;
+}
+
+.update-dialog-content {
+  position: fixed;
+  z-index: 60;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  width: 520px;
+  max-width: calc(100vw - 40px);
+  flex-direction: column;
+  overflow: clip;
+  color: var(--color-text);
+  border: var(--border-weight-sm) solid var(--color-border-divider);
+  border-radius: var(--radius-xl);
+  background: var(--color-background-raised);
+  box-shadow: var(--shadow-popover);
+  transform: translate(-50%, -50%);
+}
+
+.update-dialog-content:focus-visible {
+  outline: none;
+}
+
+.update-dialog-header {
   display: flex;
   width: 100%;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 16px;
-  padding: 14px 0 6px;
-  border-top: var(--border-weight-sm) solid var(--color-border-divider);
+  gap: 12px;
+  padding: 20px;
 }
 
-.settings-dialog-update-copy {
-  display: flex;
+.update-dialog-title {
   min-width: 0;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.settings-dialog-update-title,
-.settings-dialog-update-status,
-.settings-dialog-update-version {
+  flex: 1 1 0;
   overflow: hidden;
   margin: 0;
+  color: var(--color-text);
+  font-size: var(--text-16);
+  line-height: var(--line-16);
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.settings-dialog-update-title {
+.update-dialog-close {
+  flex: 0 0 auto;
+}
+
+.update-dialog-body {
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--color-background-raised);
+}
+
+.update-dialog-line {
+  width: 100%;
+  min-height: var(--line-14);
+  overflow: hidden;
+  margin: 0;
   color: var(--color-text);
   font-size: var(--text-14);
   line-height: var(--line-14);
-  font-weight: 500;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.settings-dialog-update-status,
-.settings-dialog-update-version {
+.update-dialog-line.is-muted {
   color: var(--color-text-subtlest);
-  font-size: var(--text-13);
-  line-height: var(--line-13);
 }
 
-.settings-dialog-update-action {
+.update-dialog-line.is-hidden {
+  color: transparent;
+}
+
+.update-dialog-footer {
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  padding: 20px;
+}
+
+.update-dialog-action {
   flex: 0 0 auto;
 }
 
@@ -1101,6 +1140,12 @@ button {
 
 .sidebar .kit-project-item {
   width: 100%;
+}
+
+.sidebar-update {
+  width: 100%;
+  flex: 0 0 auto;
+  padding-top: 12px;
 }
 
 .sidebar-footer {

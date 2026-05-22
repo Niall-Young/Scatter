@@ -1,7 +1,6 @@
 import { useRef, useState, type DragEvent, type ReactElement } from "react";
 import type { ScatterProjectInfo } from "../../../shared/types";
 import { useI18n } from "../lib/i18n";
-import { shortcuts } from "../lib/shortcuts";
 import { shortPath } from "../lib/utils";
 import { Icon } from "./ui/icon";
 import { ProjectItem } from "./ui/project-item";
@@ -16,6 +15,7 @@ interface SidebarProps {
   onOpenRecent: (projectPath: string) => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
+  onOpenUpdates: () => void;
   onRemoveRecent: (projectPath: string) => void;
   onReorderRecent: (projectPaths: string[]) => void | Promise<void>;
 }
@@ -48,6 +48,7 @@ export function Sidebar({
   onOpenRecent,
   onOpenSearch,
   onOpenSettings,
+  onOpenUpdates,
   onRemoveRecent,
   onReorderRecent
 }: SidebarProps): ReactElement {
@@ -131,12 +132,10 @@ export function Sidebar({
         <button className="sidebar-action-item" type="button" onClick={onCreateProject}>
           <Icon name="folder-plus" size={16} />
           <span className="sidebar-action-label">{t("sidebar.addProject")}</span>
-          <span className="kit-shortcut sidebar-action-shortcut">{shortcuts.addProject}</span>
         </button>
         <button className="sidebar-action-item" type="button" onClick={onOpenSearch}>
           <Icon name="search" size={16} />
           <span className="sidebar-action-label">{t("sidebar.search")}</span>
-          <span className="kit-shortcut sidebar-action-shortcut">{shortcuts.openSearch}</span>
         </button>
         <button
           className={`sidebar-action-item ${achievementsActive ? "is-selected" : ""}`}
@@ -150,7 +149,6 @@ export function Sidebar({
         <button className="sidebar-action-item" type="button" onClick={onOpenSettings}>
           <Icon name="settings-cog" size={16} />
           <span className="sidebar-action-label">{t("sidebar.settings")}</span>
-          <span className="kit-shortcut sidebar-action-shortcut">{shortcuts.openSettings}</span>
         </button>
       </div>
 
@@ -190,6 +188,12 @@ export function Sidebar({
             }}
           />
         ))}
+      </div>
+      <div className="sidebar-update">
+        <button className="sidebar-action-item" type="button" onClick={onOpenUpdates}>
+          <Icon name="upgrade" size={16} />
+          <span className="sidebar-action-label">{t("sidebar.checkUpdates")}</span>
+        </button>
       </div>
     </aside>
   );
