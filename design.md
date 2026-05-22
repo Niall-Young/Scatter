@@ -1,6 +1,6 @@
 # Scatter 设计文档
 
-更新时间：2026-05-10
+更新时间：2026-05-22
 
 这份文档记录当前项目的产品形态、技术结构和已知边界，先作为后续迭代的基线。以后功能变化时直接在这里继续改。
 
@@ -38,7 +38,9 @@ macOS 启动窗口和主窗口使用透明 Electron 窗口配合背景模糊。W
 - 画布：基于 React Flow 的任务节点画布，支持拖拽节点、连线、缩放、定位画布以及撤销/重做。
 - 右侧侧边栏：任务清单或 Markdown 预览。
 
-点击左侧栏“设置”或按 `⌘,` 会打开居中的设置弹窗。弹窗包含主题、语言、默认运行器和半透明背景设置，底部提供恢复默认和保存设置；Windows 隐藏半透明背景设置并始终使用纯色背景。设置项切换后会实时预览；如果关闭弹窗而没有点击保存设置，会回退到打开弹窗前的设置。设置保存到 Electron `userData/settings.json`，不写入项目文件；主题支持跟随系统、浅色和深色，语言支持中文和英文，默认运行器支持 Codex 和 Claude CLI，半透明背景默认开启但只在支持的非 Windows 平台生效。语言切换覆盖应用 UI、状态提示、无障碍标签和 Scatter 生成的 Markdown 模板；用户输入的项目名、节点标题、节点正文、附件名和路径不会被自动翻译。
+点击左侧栏“设置”或按 `⌘,` 会打开居中的设置弹窗。弹窗包含主题、语言、默认运行器、半透明背景和版本更新区域，底部提供恢复默认和保存设置；Windows 隐藏半透明背景设置并始终使用纯色背景。设置项切换后会实时预览；如果关闭弹窗而没有点击保存设置，会回退到打开弹窗前的设置。设置保存到 Electron `userData/settings.json`，不写入项目文件；主题支持跟随系统、浅色和深色，语言支持中文和英文，默认运行器支持 Codex 和 Claude CLI，半透明背景默认开启但只在支持的非 Windows 平台生效。版本更新区域展示当前版本、更新状态、下载进度和“检查更新”/“立即重启”按钮，状态来自 main process 的 updater，不写入设置文件。语言切换覆盖应用 UI、状态提示、无障碍标签和 Scatter 生成的 Markdown 模板；用户输入的项目名、节点标题、节点正文、附件名和路径不会被自动翻译。
+
+打包后的应用启动主窗口后会通过 GitHub Releases 自动检查更新。发现新版本后自动下载；下载完成时，主窗口顶部会显示更新 toast，用户可以点击“立即重启”安装。开发模式下不会自动检查，设置弹窗会显示开发模式不可检查更新。macOS 更新继续依赖 `dmg + zip` 产物；由于当前使用 ad-hoc signing，更新后辅助功能权限可能失效，此时运行 Codex 或 Claude CLI 前会复用现有权限管理流程，先重置旧 TCC 授权再打开拖拽授权引导。Windows 使用 x64 NSIS 安装包自动更新，不涉及 macOS 辅助功能权限；当前 unsigned 发布可能触发 SmartScreen 或未知发布者提示。
 
 顶部栏左侧的侧栏按钮或 `⌘B` 可以收起或展开左侧栏。左侧栏收起后，项目列表区域隐藏，工作区铺满窗口宽度并保留左右 12px 边距；顶部栏左侧显示侧栏按钮和添加项目按钮。侧栏展开和收起带短过渡动画，这个折叠状态只保存在 renderer 内存中，不写入项目文件。
 
@@ -85,6 +87,7 @@ Scatter 是一个 Electron 桌面应用，使用 Electron Vite、React、TypeScr
 - `src/main/codexBridge.ts`：Codex Desktop 启动、app-server 运行偏好同步、可见新线程 URL 调用和 AppleScript 提交。
 - `src/main/claudeBridge.ts`：Claude CLI 定位、Terminal 启动和初始 prompt 脚本提交。
 - `src/main/settingsStore.ts`：应用级设置的 `userData/settings.json` 读写和默认值 hydrate。
+- `src/main/updateService.ts`：基于 `electron-updater` 的更新检查、下载进度、安装重启和 IPC 状态广播。
 - `src/main/i18n.ts`：main process 用户可见文案的中英文模板。
 - `src/preload/index.ts`：Renderer 可调用的安全 API。
 - `src/shared/types.ts`：跨进程数据契约。
@@ -272,11 +275,14 @@ npm run build
 npm run preview
 npm run pack
 npm run dist:mac
+npm run dist:mac:publish
+npm run dist:win
+npm run dist:win:publish
 ```
 
-`npm run build` 会先编译 `ScatterAccessibilityGuide` Swift helper，再运行 TypeScript 检查和 Electron Vite build。
+`npm run build` 会先编译 `ScatterAccessibilityGuide` Swift helper，再运行 TypeScript 检查和 Electron Vite build。`npm run build:accessibility-guide` 在非 macOS 环境会跳过，方便 Windows CI 复用应用构建步骤。
 
-`npm run dist:mac` 会先构建应用，再通过 Electron Builder 生成 macOS universal `.dmg` 和 `.zip` 安装产物，输出目录为 `release/`。当前本地打包配置使用 ad-hoc code signing，不做 notarization，适合内部试用分发；正式公开分发前需要接入 Apple Developer ID 签名和公证。
+`npm run dist:mac` 会先构建应用，再通过 Electron Builder 生成 macOS universal `.dmg` 和 `.zip` 安装产物，输出目录为 `release/`。`npm run dist:win` 生成 Windows x64 NSIS 安装包。`npm run dist:mac:publish` 和 `npm run dist:win:publish` 会发布到 `Niall-Young/Scatter` 的 GitHub Releases，需要 `GH_TOKEN`；`.github/workflows/release.yml` 会在 `v*.*.*` tag 或手动触发时分别用 macOS 和 Windows runner 发布 draft release。当前 macOS 本地打包配置使用 ad-hoc code signing，不做 notarization，适合内部试用分发；正式公开分发前需要接入 Apple Developer ID 签名和公证。当前 Windows 发布没有代码签名证书，用户可能看到 SmartScreen 或未知发布者提示。
 
 ## 已知后续项
 

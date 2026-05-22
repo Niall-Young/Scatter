@@ -26,6 +26,7 @@ import {
 } from "./accessibilityPermission";
 import { runAssistant } from "./assistantBridge";
 import { getSettings, saveSettings } from "./settingsStore";
+import { registerUpdateIpc, startAutomaticUpdateCheck } from "./updateService";
 import type { AppSettings, AssistantRunInput, AttachmentInput, LanguagePreference, ScatterDocument } from "../shared/types";
 
 const SPLASH_MIN_DURATION_MS = 5000;
@@ -43,6 +44,10 @@ protocol.registerSchemesAsPrivileged([
 
 if (process.env.SCATTER_USER_DATA_DIR) {
   app.setPath("userData", process.env.SCATTER_USER_DATA_DIR);
+}
+
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.scatter.desktop");
 }
 
 function isScatterAssetPath(filePath: string): boolean {
@@ -231,6 +236,7 @@ app.whenReady().then(async () => {
   ipcMain.handle("scatter:get-achievements", () => getAchievements());
   ipcMain.handle("scatter:get-settings", () => getSettings());
   ipcMain.handle("scatter:save-settings", (_event, settings: AppSettings) => saveSettings(settings));
+  registerUpdateIpc();
   ipcMain.handle("scatter:accessibility:get-status", () => getAccessibilityPermissionStatus());
   ipcMain.handle("scatter:accessibility:request", () => requestAccessibilityPermission());
   ipcMain.handle("scatter:accessibility:open-settings", () => openAccessibilitySettings());
@@ -277,6 +283,7 @@ app.whenReady().then(async () => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.show();
       mainWindow.focus();
+      startAutomaticUpdateCheck();
     }
     if (!splashWindow.isDestroyed()) {
       splashWindow.close();

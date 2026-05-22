@@ -3,6 +3,11 @@ import { mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+if (process.platform !== "darwin") {
+  console.log("Skipping ScatterAccessibilityGuide build on non-macOS platform.");
+  process.exit(0);
+}
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourcePath = path.join(repoRoot, "native", "accessibility-guide", "AccessibilityGuide.swift");
 const outputDir = path.join(repoRoot, "build", "accessibility-guide");

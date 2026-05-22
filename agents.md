@@ -1,6 +1,6 @@
 # Scatter Agent 说明
 
-更新时间：2026-05-10
+更新时间：2026-05-22
 
 这份文件给后续参与 Scatter 的 AI agent 使用，记录项目概况、命令、目录、约定和容易踩坑的位置。修改架构、命令或协作规则时要同步更新。
 
@@ -29,9 +29,12 @@ npm run build
 npm run preview
 npm run pack
 npm run dist:mac
+npm run dist:mac:publish
+npm run dist:win
+npm run dist:win:publish
 ```
 
-代码改动至少运行 `npm run typecheck`。涉及原生辅助功能权限引导时运行 `npm run build:accessibility-guide`。涉及 UI 或交互时，运行 `npm run dev` 并手动验证相关流程。需要生成 macOS 可安装包时运行 `npm run dist:mac`，产物输出到 `release/`。macOS 包必须保留 ad-hoc code signing，不要把 Electron Builder 的 `mac.identity` 改回 `null`，否则辅助功能权限可能无法稳定匹配运行中的 Scatter。
+代码改动至少运行 `npm run typecheck`。涉及原生辅助功能权限引导时运行 `npm run build:accessibility-guide`；该脚本在非 macOS 环境会跳过。涉及 UI 或交互时，运行 `npm run dev` 并手动验证相关流程。需要生成 macOS 可安装包时运行 `npm run dist:mac`，产物输出到 `release/`。需要生成 Windows x64 NSIS 安装包时运行 `npm run dist:win`。发布到 GitHub Releases 使用 `npm run dist:mac:publish` 和 `npm run dist:win:publish`，需要 `GH_TOKEN`。macOS 包必须保留 ad-hoc code signing，不要把 Electron Builder 的 `mac.identity` 改回 `null`，否则辅助功能权限可能无法稳定匹配运行中的 Scatter。
 
 ## 目录地图
 
@@ -39,9 +42,10 @@ npm run dist:mac
 - `native/accessibility-guide/AccessibilityGuide.swift`：macOS 原生辅助功能拖拽授权引导 helper。
 - `scripts/build-accessibility-guide.mjs`：编译 `ScatterAccessibilityGuide` helper 到 `build/accessibility-guide/`。
 - `release/`：Electron Builder 输出目录，包含本地打包出的 `.dmg`、`.zip` 和 unpacked app。
+- `.github/workflows/release.yml`：tag 或手动触发的 macOS / Windows GitHub Releases 发布流程。
 - `electron.vite.config.ts`：main、preload、renderer 构建入口。
 - `tsconfig.json`：严格 TypeScript 配置。
-- `resources/app-icon.png`、`resources/app-icon.icns`、`resources/app-icon.iconset`：macOS 应用图标资源。
+- `resources/app-icon.png`、`resources/app-icon.icns`、`resources/app-icon.ico`、`resources/app-icon.iconset`：应用图标资源。
 - `src/shared/types.ts`：main、preload、renderer 共享的数据契约。
 - `src/main/index.ts`：Electron 启动和 IPC 注册。
 - `src/main/projectStore.ts`：项目文档、最近项目、附件持久化。
@@ -50,6 +54,7 @@ npm run dist:mac
 - `src/main/codexBridge.ts`：Codex Desktop 集成。
 - `src/main/claudeBridge.ts`：Claude CLI / Terminal 集成。
 - `src/main/settingsStore.ts`：应用级设置持久化。
+- `src/main/updateService.ts`：electron-updater 自动更新状态、检查、下载和安装重启。
 - `src/main/i18n.ts`：main process 用户可见文案。
 - `src/preload/index.ts`：类型化的 `window.scatter` API。
 - `src/renderer/src/App.tsx`：renderer 顶层逻辑。
@@ -108,6 +113,14 @@ npm run dist:mac
 - 更新 `src/main/index.ts` 和 `src/preload/index.ts` 的设置 IPC。
 - 更新 `src/renderer/src/lib/translations.ts`、`src/renderer/src/lib/i18n.tsx` 和相关组件。
 - 同步更新 `design.md` 和 `agents.md`。
+
+自动更新变化：
+
+- 从 `src/main/updateService.ts`、`src/preload/index.ts` 和 `src/renderer/src/components/SettingsDialog.tsx` 开始。
+- 更新状态契约优先改 `src/shared/types.ts`，Renderer 只能通过 `window.scatter.updates` 调用。
+- macOS 自动更新依赖 `dmg + zip`，不能移除 zip target；Windows 自动更新使用 x64 NSIS，不发布 portable 作为自动更新载体。
+- GitHub Releases 发布配置在 `package.json` 的 `build.publish`，目标仓库是 `Niall-Young/Scatter`，release 默认 draft。
+- Windows 当前 unsigned，用户可能看到 SmartScreen / 未知发布者提示；macOS 当前 ad-hoc，更新后辅助功能权限可能失效，继续复用“权限管理”自动重置和拖拽授权引导。
 
 Markdown 或执行范围变化：
 
@@ -172,7 +185,7 @@ AI 运行器启动行为变化：
 - 左侧栏“添加项目”或 `⌘⇧N` 打开添加项目流程。
 - 左侧栏“搜索”或 `⌘F` 打开居中项目搜索弹窗，输入框默认聚焦，按项目名称或路径过滤仍可打开的最近项目；点击结果关闭弹窗并打开对应项目。
 - 左侧栏“成就”打开成就墙视图，侧边栏中成就入口显示选中态；成就墙展示标题、搜索框和成就卡片，右侧任务清单和 Markdown 预览按钮在该视图中禁用。每个成就资源保留无背景、带背景和 fade 三态；英文名以资源文件名前缀为准。已达成成就可点击打开居中详情弹窗，未达成成就不可点击。成就状态保存在 Electron `userData/achievements.json`，项目数量成就按成功进入画布的唯一项目路径计数，连续使用成就按本机本地日期记录，首次移出项目和首次成功联动 Codex 在对应操作成功后解锁；成就一旦达成不回退。本次操作新解锁的成就会弹出 toast，初始加载已有成就不补弹。
-- 左侧栏“设置”或 `⌘,` 打开居中弹窗，包含主题、语言、默认运行器、半透明背景、恢复默认和保存设置；Windows 隐藏半透明背景项并强制使用纯色背景。设置项切换后实时预览，未保存关闭时回退到打开弹窗前的设置；保存后的设置写入 Electron `userData/settings.json`，不写入项目文件。
+- 左侧栏“设置”或 `⌘,` 打开居中弹窗，包含主题、语言、默认运行器、半透明背景、版本更新、恢复默认和保存设置；Windows 隐藏半透明背景项并强制使用纯色背景。设置项切换后实时预览，未保存关闭时回退到打开弹窗前的设置；保存后的设置写入 Electron `userData/settings.json`，不写入项目文件。版本更新区域展示当前版本、更新状态、下载进度和检查/重启按钮，状态来自 `window.scatter.updates`，不写入设置文件。
 - 第一次打开客户端且没有历史设置文件时，会弹出居中的“偏好选择”弹窗；点击 Codex 或 Claude 后点“选好了”会同步写入设置的默认运行器，并把首启偏好标记为已完成。关闭弹窗不改变默认 Codex，但同样不再重复弹出。
 - 左侧栏可以通过顶部栏按钮收起；收起状态只保存在 renderer 内存中，不写入项目文件。收起后工作区铺满窗口宽度并保留左右 12px 边距，顶部栏左侧保留侧栏按钮和添加项目按钮，展开/收起需要有短过渡动画。
 - 顶部栏右侧的任务清单和 Markdown 预览按钮打开工作区右侧侧边栏，不使用浮层。右侧侧边栏展开和收起需要有短过渡动画。顶部栏运行按钮和 Markdown 预览按钮必须依赖当前选中节点；没有选中节点时禁用。顶部栏运行始终发送选中节点及其下游子节点，Markdown 预览也只展示选中节点及其下游子节点，不在未选中时生成全画布 Markdown。任务清单侧栏固定 288px 并复用 `TaskItem`；清单只展示没有入边且有出边的 `flow` 流程起始节点任务，以及没有任何连线的 `node` 落单节点任务。被连接的子节点不要单独显示；落单节点有正文时显示可发送给运行器，没有正文时显示暂未编辑。Markdown 预览侧栏和画布并排占用剩余空间，只提供源码/渲染预览、下载和复制，不放发送按钮；对应顶部栏按钮要显示选中态。
@@ -188,6 +201,7 @@ AI 运行器启动行为变化：
 - 使用 Codex 运行且起始节点开启计划模式时，必须在可见 Codex 输入框里触发真实 `⇧Tab` 计划模式，不要用 prompt 前缀模拟计划模式，也不要用 app-server `collaborationMode: plan` 后台提交。该路径下附件通过 Markdown 中的 `.scatter/assets` 路径提供给 Codex 访问。
 - 使用 Claude CLI 运行时，必须优先复用 Terminal.app 里已有的 `claude` tab，或 Scatter 标记为 `Scatter Claude CLI`、标题/内容可识别为 Claude Code 且仍由 Claude 相关进程承载的 tab；没有现有 tab 才启动 `claude`，启动中要去重且不要在 `do script` 前激活 Terminal，避免多个 Terminal tab 或额外空 shell 窗口，计划模式使用 `--permission-mode plan`，Markdown 通过现有 tab 粘贴或新会话临时 prompt 文件传入，附件通过 Markdown 路径提供。
 - Windows 点击运行时只复制 Markdown 到剪贴板，不调用 `window.scatter.runAssistant`，也不解锁首次 Codex 联动成就；用户手动粘贴到 Codex 或 Claude。
+- 自动更新只在 packaged app 中自动检查；开发模式下设置弹窗会显示不可检查更新。检测到新版本后自动下载，下载完成时显示更新 toast，用户点击“立即重启”后调用 updater 安装。
 - `flow` 模式包含下游节点；`node` 模式只包含当前节点。
 - Markdown 导出会复制当前生成结果到剪贴板。
 
@@ -197,6 +211,7 @@ AI 运行器启动行为变化：
 - 还没有附件移除和 asset 清理。
 - 暂无针对项目持久化、Markdown 遍历或撤销/重做历史的自动化测试。
 - Codex 可见提交依赖 macOS Accessibility 权限；Claude CLI 路径依赖 macOS 允许 Scatter 打开 Terminal。Windows 运行器交接依赖剪贴板写入，自动运行器集成暂不支持。
+- 当前没有 Apple Developer ID 或 Windows 代码签名证书。macOS 更新后辅助功能权限可能需要通过现有权限引导重新授权；Windows 安装或更新可能出现 SmartScreen / 未知发布者提示。
 - 当前是桌面应用最小尺寸设计，不是响应式移动网页。
 
 ## 文档维护规则

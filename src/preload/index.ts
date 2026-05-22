@@ -3,6 +3,7 @@ import type {
   AccessibilityPermissionStatus,
   AchievementState,
   AppSettings,
+  AppUpdateState,
   AssistantRunInput,
   AssistantRunResult,
   Attachment,
@@ -16,6 +17,17 @@ const api = {
   getAchievements: (): Promise<AchievementState> => ipcRenderer.invoke("scatter:get-achievements"),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke("scatter:get-settings"),
   saveSettings: (settings: AppSettings): Promise<AppSettings> => ipcRenderer.invoke("scatter:save-settings", settings),
+  updates: {
+    getState: (): Promise<AppUpdateState> => ipcRenderer.invoke("scatter:updates:get-state"),
+    check: (): Promise<AppUpdateState> => ipcRenderer.invoke("scatter:updates:check"),
+    install: (): Promise<AppUpdateState> => ipcRenderer.invoke("scatter:updates:install"),
+    onStateChange: (listener: (state: AppUpdateState) => void): (() => void) => {
+      const channel = "scatter:updates:state-changed";
+      const wrappedListener = (_event: Electron.IpcRendererEvent, state: AppUpdateState): void => listener(state);
+      ipcRenderer.on(channel, wrappedListener);
+      return () => ipcRenderer.removeListener(channel, wrappedListener);
+    }
+  },
   accessibility: {
     getStatus: (): Promise<AccessibilityPermissionStatus> => ipcRenderer.invoke("scatter:accessibility:get-status"),
     request: (): Promise<AccessibilityPermissionStatus> => ipcRenderer.invoke("scatter:accessibility:request"),

@@ -616,6 +616,50 @@ button {
   flex: 0 0 auto;
 }
 
+.settings-dialog-update {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0 6px;
+  border-top: var(--border-weight-sm) solid var(--color-border-divider);
+}
+
+.settings-dialog-update-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-dialog-update-title,
+.settings-dialog-update-status,
+.settings-dialog-update-version {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-dialog-update-title {
+  color: var(--color-text);
+  font-size: var(--text-14);
+  line-height: var(--line-14);
+  font-weight: 500;
+}
+
+.settings-dialog-update-status,
+.settings-dialog-update-version {
+  color: var(--color-text-subtlest);
+  font-size: var(--text-13);
+  line-height: var(--line-13);
+}
+
+.settings-dialog-update-action {
+  flex: 0 0 auto;
+}
+
 .settings-dialog-footer {
   display: flex;
   width: 100%;
@@ -2142,6 +2186,12 @@ button.achievement-card.is-unlocked:focus-visible {
   display: none;
 }
 
+.canvas-shell.is-connecting .task-title,
+.canvas-shell.is-connecting .task-body,
+.canvas-shell.is-connecting .task-node .nodrag {
+  pointer-events: none;
+}
+
 .dropdown-content {
   padding: 4px;
   border: var(--border-weight-sm) solid var(--color-border-divider);
@@ -3500,6 +3550,59 @@ button.achievement-card.is-unlocked:focus-visible {
   padding: 8px;
   color: var(--color-icon);
   border-radius: var(--radius-md);
+}
+
+.update-toast {
+  display: flex;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  color: var(--color-text);
+  border: var(--border-weight-sm) solid var(--color-border-divider);
+  border-radius: var(--radius-lg);
+  background: var(--color-background-raised);
+  box-shadow: var(--shadow-node);
+}
+
+.update-toast-icon {
+  flex: 0 0 auto;
+  color: var(--color-primary);
+}
+
+.update-toast-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.update-toast-title,
+.update-toast-description {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.update-toast-title {
+  color: var(--color-text);
+  font-size: var(--text-14);
+  line-height: var(--line-14);
+  font-weight: 500;
+}
+
+.update-toast-description {
+  color: var(--color-text-subtlest);
+  font-size: var(--text-13);
+  line-height: var(--line-13);
+}
+
+.update-toast-install,
+.update-toast-close {
+  flex: 0 0 auto;
 }
 
 .kit-spinner {

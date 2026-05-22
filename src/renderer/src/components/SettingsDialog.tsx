@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 import * as RadixDialog from "@radix-ui/react-dialog";
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
-import { defaultAppSettings, type AppSettings, type AssistantProvider, type LanguagePreference, type ThemePreference } from "../../../shared/types";
+import {
+  defaultAppSettings,
+  type AppSettings,
+  type AppUpdateState,
+  type AssistantProvider,
+  type LanguagePreference,
+  type ThemePreference
+} from "../../../shared/types";
 import { useI18n } from "../lib/i18n";
+import type { Translate } from "../lib/translations";
 import { DropdownMenu, DropdownMenuItem } from "./ui/dropdown-menu";
 import { IconButton } from "./ui/icon-button";
 import { KitButton } from "./ui/kit-button";
@@ -14,9 +22,12 @@ export type SettingsValues = AppSettings;
 interface SettingsDialogProps extends SettingsValues {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCheckForUpdates: () => Promise<void>;
+  onInstallUpdate: () => Promise<void>;
   onPreview: (values: SettingsValues) => void;
   onSave: (values: SettingsValues) => Promise<void>;
   showTranslucentBackground?: boolean;
+  updateState: AppUpdateState;
 }
 
 interface SettingsOption<TValue extends string> {
@@ -63,17 +74,41 @@ function SettingsSelect<TValue extends string>({
   );
 }
 
+function updateStatusText(updateState: AppUpdateState, t: Translate): string {
+  if (!updateState.isPackaged && updateState.status !== "error") return t("settings.update.developmentMode");
+  if (updateState.status === "idle") return t("settings.update.status.idle");
+  if (updateState.status === "checking") return t("settings.update.status.checking");
+  if (updateState.status === "downloading") {
+    const progress = Math.round(updateState.progressPercent ?? 0);
+    return t("settings.update.status.downloading", { progress });
+  }
+  if (updateState.status === "downloaded") return t("settings.update.status.downloaded");
+  if (updateState.status === "not-available") return t("settings.update.status.notAvailable");
+  if (updateState.errorCode === "development-mode") return t("settings.update.developmentMode");
+  return updateState.errorMessage || t("settings.update.status.error");
+}
+
+function updateActionLabel(updateState: AppUpdateState, t: Translate): string {
+  if (updateState.status === "downloaded") return t("settings.update.install");
+  if (updateState.status === "checking") return t("settings.update.checking");
+  if (updateState.status === "downloading") return t("settings.update.downloading");
+  return t("settings.update.check");
+}
+
 export function SettingsDialog({
   assistantProvider,
   assistantProviderOnboardingCompleted,
   language,
+  onCheckForUpdates,
+  onInstallUpdate,
   onOpenChange,
   onPreview,
   onSave,
   open,
   showTranslucentBackground = true,
   themePreference,
-  translucentBackground
+  translucentBackground,
+  updateState
 }: SettingsDialogProps): ReactElement {
   const { t } = useI18n();
   const [draftThemePreference, setDraftThemePreference] = useState(themePreference);
@@ -133,6 +168,10 @@ export function SettingsDialog({
     }
   }
 
+  const updateActionDisabled = updateState.status === "checking" || updateState.status === "downloading";
+  const updateAction = updateState.status === "downloaded" ? onInstallUpdate : onCheckForUpdates;
+  const latestVersion = updateState.availableVersion || updateState.downloadedVersion;
+
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
@@ -169,6 +208,25 @@ export function SettingsDialog({
                 <Switch checked={draftTranslucentBackground} onCheckedChange={setDraftTranslucentBackground} />
               </div>
             ) : null}
+            <section className="settings-dialog-update" aria-label={t("settings.update.title")}>
+              <div className="settings-dialog-update-copy">
+                <p className="settings-dialog-update-title">{t("settings.update.title")}</p>
+                <p className="settings-dialog-update-status">{updateStatusText(updateState, t)}</p>
+                <p className="settings-dialog-update-version">{t("settings.update.currentVersion", { version: updateState.currentVersion })}</p>
+                {latestVersion ? (
+                  <p className="settings-dialog-update-version">{t("settings.update.latestVersion", { version: latestVersion })}</p>
+                ) : null}
+              </div>
+              <KitButton
+                className="settings-dialog-update-action"
+                filled={updateState.status === "downloaded"}
+                size="md"
+                disabled={updateActionDisabled}
+                onClick={() => void updateAction()}
+              >
+                {updateActionLabel(updateState, t)}
+              </KitButton>
+            </section>
           </div>
 
           <footer className="settings-dialog-footer">

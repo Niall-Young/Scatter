@@ -9,15 +9,27 @@
     "predev": "npm run build:accessibility-guide",
     "dev": "electron-vite dev",
     "build:accessibility-guide": "node scripts/build-accessibility-guide.mjs",
+    "build:app": "npm run typecheck && electron-vite build",
     "typecheck": "tsc --noEmit",
-    "build": "npm run build:accessibility-guide && npm run typecheck && electron-vite build",
+    "build": "npm run build:accessibility-guide && npm run build:app",
     "preview": "electron-vite preview",
     "pack": "npm run build && electron-builder --dir",
-    "dist:mac": "npm run build && electron-builder --mac"
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac:publish": "npm run build && electron-builder --mac --publish always",
+    "dist:win": "npm run build:app && electron-builder --win --x64",
+    "dist:win:publish": "npm run build:app && electron-builder --win --x64 --publish always"
   },
   "build": {
     "appId": "com.scatter.desktop",
     "productName": "Scatter",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Niall-Young",
+        "repo": "Scatter",
+        "releaseType": "draft"
+      }
+    ],
     "directories": {
       "output": "release"
     },
@@ -26,10 +38,6 @@
       "package.json"
     ],
     "extraResources": [
-      {
-        "from": "build/accessibility-guide/ScatterAccessibilityGuide",
-        "to": "accessibility-guide/ScatterAccessibilityGuide"
-      },
       {
         "from": "resources/app-icon.png",
         "to": "app-icon.png"
@@ -42,6 +50,12 @@
       },
       "icon": "resources/app-icon.icns",
       "identity": "-",
+      "extraResources": [
+        {
+          "from": "build/accessibility-guide/ScatterAccessibilityGuide",
+          "to": "accessibility-guide/ScatterAccessibilityGuide"
+        }
+      ],
       "target": [
         {
           "target": "dmg",
@@ -56,6 +70,20 @@
           ]
         }
       ]
+    },
+    "win": {
+      "icon": "resources/app-icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "perMachine": false
     }
   },
   "dependencies": {
@@ -64,6 +92,7 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@xyflow/react": "^12.9.3",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.3",
     "nanoid": "^5.1.6",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",

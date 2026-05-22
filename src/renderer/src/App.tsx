@@ -26,6 +26,7 @@ import {
 import { nanoid } from "nanoid";
 import type {
   AchievementState,
+  AppUpdateState,
   AssistantProvider,
   Attachment,
   AttachmentInput,
@@ -54,6 +55,7 @@ import { ScatterEdge as ScatterFlowEdge } from "./components/ScatterEdge";
 import { SearchDialog } from "./components/SearchDialog";
 import { SettingsDialog, type SettingsValues } from "./components/SettingsDialog";
 import { Topbar } from "./components/Topbar";
+import { UpdateToast } from "./components/UpdateToast";
 import { RightDrawer } from "./components/RightDrawer";
 import { TaskNode, setTaskNodeActions } from "./components/TaskNode";
 import { DropdownMenu, DropdownMenuItem } from "./components/ui/dropdown-menu";
@@ -84,6 +86,14 @@ const zoomOptions = [
   { label: "200%", value: 2 }
 ];
 
+const initialUpdateState = {
+  status: "idle",
+  currentVersion: "0.0.0",
+  isPackaged: false,
+  canCheck: false,
+  canInstall: false
+} satisfies AppUpdateState;
+
 type FlowPosition = { x: number; y: number };
 type MeasuredScatterNode = ScatterNode & { measured?: { width?: number; height?: number } };
 type AppView = "canvas" | "achievements";
@@ -93,7 +103,7 @@ interface ConnectionStart {
   nodeId: string;
   handleType: "source" | "target";
 }
-interface ConnectionPreview {
+interface ConnectionHoverTarget {
   sourceId: string;
   targetId: string;
   hoveredNodeId: string;
@@ -186,6 +196,20 @@ function eventClientPosition(event: MouseEvent | TouchEvent): FlowPosition | nul
   }
 
   return { x: event.clientX, y: event.clientY };
+}
+
+function nodeIdFromConnectionEvent(event: MouseEvent | TouchEvent): string | null {
+  const clientPosition = eventClientPosition(event);
+  const pointTarget = clientPosition ? document.elementFromPoint(clientPosition.x, clientPosition.y) : null;
+  const eventTarget = event.target instanceof Element ? event.target : null;
+
+  for (const target of [pointTarget, eventTarget]) {
+    const nodeElement = target?.closest(".react-flow__node[data-id]");
+    const nodeId = nodeElement?.getAttribute("data-id");
+    if (nodeId) return nodeId;
+  }
+
+  return null;
 }
 
 function nodeBounds(node: ScatterNode): { width: number; height: number } {
@@ -544,12 +568,14 @@ function App(): ReactElement {
   const [assistantProviderPreferenceOpen, setAssistantProviderPreferenceOpen] = useState(false);
   const [accessibilityPermissionOpen, setAccessibilityPermissionOpen] = useState(false);
   const [accessibilityTrusted, setAccessibilityTrusted] = useState<boolean | null>(null);
+  const [updateState, setUpdateState] = useState<AppUpdateState>(initialUpdateState);
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
   const [markdownPanelRatio, setMarkdownPanelRatio] = useState(MARKDOWN_PANEL_DEFAULT_RATIO);
   const [isResizingMarkdownPanel, setIsResizingMarkdownPanel] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [connectionPreview, setConnectionPreview] = useState<ConnectionPreview | null>(null);
+  const [connectionPreview, setConnectionPreview] = useState<ConnectionHoverTarget | null>(null);
   const [canvasTool, setCanvasTool] = useState<CanvasTool>("select");
   const [spacePanActive, setSpacePanActive] = useState(false);
   const [shiftSelectionActive, setShiftSelectionActive] = useState(false);
@@ -576,7 +602,7 @@ function App(): ReactElement {
   const optionDuplicateSettledSourceRef = useRef<string | null>(null);
   const connectionStartRef = useRef<ConnectionStart | null>(null);
   const connectionSucceededRef = useRef(false);
-  const connectionPreviewRef = useRef<ConnectionPreview | null>(null);
+  const connectionHoverTargetRef = useRef<ConnectionHoverTarget | null>(null);
   const achievementStateRef = useRef<AchievementState>(achievementState);
   const achievementsLoadedRef = useRef(false);
   const settingsSnapshotRef = useRef<SettingsValues | null>(null);
@@ -598,22 +624,25 @@ function App(): ReactElement {
   const isAchievementsView = activeView === "achievements";
   const panModeActive = canvasTool === "pan" || spacePanActive;
   const effectiveTranslucentBackground = !isWindows && translucentBackground;
+  const updateToastVersion = updateState.downloadedVersion || updateState.availableVersion || null;
+  const showUpdateToast =
+    updateState.status === "downloaded" && Boolean(updateToastVersion) && dismissedUpdateVersion !== updateToastVersion;
 
-  const updateConnectionPreview = useCallback((preview: ConnectionPreview | null) => {
-    const current = connectionPreviewRef.current;
+  const updateConnectionHoverTarget = useCallback((target: ConnectionHoverTarget | null) => {
+    const current = connectionHoverTargetRef.current;
     const unchanged =
-      current?.sourceId === preview?.sourceId &&
-      current?.targetId === preview?.targetId &&
-      current?.hoveredNodeId === preview?.hoveredNodeId;
+      current?.sourceId === target?.sourceId &&
+      current?.targetId === target?.targetId &&
+      current?.hoveredNodeId === target?.hoveredNodeId;
     if (unchanged) return;
 
-    connectionPreviewRef.current = preview;
-    setConnectionPreview(preview);
+    connectionHoverTargetRef.current = target;
+    setConnectionPreview(target);
   }, []);
 
-  const clearConnectionPreview = useCallback(() => {
-    updateConnectionPreview(null);
-  }, [updateConnectionPreview]);
+  const clearConnectionHoverTarget = useCallback(() => {
+    updateConnectionHoverTarget(null);
+  }, [updateConnectionHoverTarget]);
 
   useEffect(() => {
     setSelectedEdgeIds((current) => {
@@ -626,9 +655,9 @@ function App(): ReactElement {
     if (!connectionPreview) return;
     const nodeIds = new Set(nodes.map((node) => node.id));
     if (!nodeIds.has(connectionPreview.sourceId) || !nodeIds.has(connectionPreview.targetId)) {
-      clearConnectionPreview();
+      clearConnectionHoverTarget();
     }
-  }, [clearConnectionPreview, connectionPreview, nodes]);
+  }, [clearConnectionHoverTarget, connectionPreview, nodes]);
 
   const zoomPercent = Math.round(viewportZoom * 100);
   const markdownResult = useMemo(
@@ -646,16 +675,6 @@ function App(): ReactElement {
     [edges, language, nodes, project, selectedNode]
   );
 
-  const flowNodes = useMemo(
-    () =>
-      connectionPreview
-        ? nodes.map((node) => ({
-            ...node,
-            selected: node.id === connectionPreview.hoveredNodeId
-          }))
-        : nodes,
-    [connectionPreview, nodes]
-  );
   const flowNodeIdsKey = useMemo(() => nodes.map((node) => node.id).join("\u0000"), [nodes]);
   const flowNodeIds = useMemo(() => new Set(flowNodeIdsKey ? flowNodeIdsKey.split("\u0000") : []), [flowNodeIdsKey]);
 
@@ -683,8 +702,7 @@ function App(): ReactElement {
         type: "scatter",
         selectable: false,
         data: {
-          active: true,
-          preview: true
+          active: true
         }
       } as Edge);
     }
@@ -1026,6 +1044,41 @@ function App(): ReactElement {
   useEffect(() => {
     if (isSplashWindow) return undefined;
 
+    let cancelled = false;
+    window.scatter.updates
+      .getState()
+      .then((state) => {
+        if (!cancelled) setUpdateState(state);
+      })
+      .catch(() => undefined);
+
+    const unsubscribe = window.scatter.updates.onStateChange((state) => {
+      setUpdateState(state);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [isSplashWindow]);
+
+  const checkForUpdates = useCallback(async (): Promise<void> => {
+    const nextState = await window.scatter.updates.check();
+    setUpdateState(nextState);
+  }, []);
+
+  const installUpdate = useCallback(async (): Promise<void> => {
+    const nextState = await window.scatter.updates.install();
+    setUpdateState(nextState);
+  }, []);
+
+  const closeUpdateToast = useCallback((): void => {
+    setDismissedUpdateVersion(updateToastVersion);
+  }, [updateToastVersion]);
+
+  useEffect(() => {
+    if (isSplashWindow) return undefined;
+
     const refresh = (): void => {
       void refreshRecentProjects();
     };
@@ -1276,7 +1329,7 @@ function App(): ReactElement {
       if (!project || !isCanvasView) return;
       const sourceNode = nodes.find((node) => node.id === nodeId);
       if (!sourceNode) return;
-      clearConnectionPreview();
+      clearConnectionHoverTarget();
 
       const sourceBounds = nodeBounds(sourceNode);
       const position =
@@ -1312,7 +1365,7 @@ function App(): ReactElement {
       });
       setSelectedNodeId(newNode.id);
     },
-    [clearConnectionPreview, commitCanvasChange, edges, isCanvasView, nodes, project, setSelectedNodeId, t]
+    [clearConnectionHoverTarget, commitCanvasChange, edges, isCanvasView, nodes, project, setSelectedNodeId, t]
   );
 
   const chooseFilesForNode = useCallback(
@@ -1431,7 +1484,7 @@ function App(): ReactElement {
     (nodeId: string) => {
       const nextNodes = nodes.filter((node) => node.id !== nodeId);
       const nextEdges = edgesForExistingNodes(edges, nextNodes);
-      clearConnectionPreview();
+      clearConnectionHoverTarget();
       commitCanvasChange({
         nodes: nextNodes,
         edges: nextEdges
@@ -1441,7 +1494,7 @@ function App(): ReactElement {
         setSelectedNodeId(null);
       }
     },
-    [clearConnectionPreview, commitCanvasChange, edges, nodes, selectedNodeId, setSelectedNodeId]
+    [clearConnectionHoverTarget, commitCanvasChange, edges, nodes, selectedNodeId, setSelectedNodeId]
   );
 
   const deleteSelectedEdges = useCallback(() => {
@@ -1479,7 +1532,7 @@ function App(): ReactElement {
       const removedNodeIds = changes.flatMap((change) => (change.type === "remove" ? [change.id] : []));
 
       if (hasStructuralChange) {
-        clearConnectionPreview();
+        clearConnectionHoverTarget();
         commitCanvasChange({
           nodes: nextNodes,
           edges: removedNodeIds.length ? edgesForExistingNodes(edges, nextNodes) : edges
@@ -1532,7 +1585,7 @@ function App(): ReactElement {
         replaceCanvasLive({ nodes: nextNodes });
       }
     },
-    [beginHistoryTransaction, clearConnectionPreview, commitCanvasChange, commitHistoryTransaction, edges, nodes, replaceCanvasLive, setSelectedNodeId]
+    [beginHistoryTransaction, clearConnectionHoverTarget, commitCanvasChange, commitHistoryTransaction, edges, nodes, replaceCanvasLive, setSelectedNodeId]
   );
 
   const onEdgesChange = useCallback(
@@ -1590,16 +1643,16 @@ function App(): ReactElement {
     (connection: Connection) => {
       const didCommit = commitExistingConnection({ source: connection.source, target: connection.target }, connection.target);
       connectionSucceededRef.current = didCommit;
-      if (didCommit) clearConnectionPreview();
+      if (didCommit) clearConnectionHoverTarget();
     },
-    [clearConnectionPreview, commitExistingConnection]
+    [clearConnectionHoverTarget, commitExistingConnection]
   );
 
   const handleConnectStart = useCallback<OnConnectStart>(
     (_event, params) => {
       setIsConnecting(true);
       connectionSucceededRef.current = false;
-      clearConnectionPreview();
+      clearConnectionHoverTarget();
 
       if (!params.nodeId || !params.handleType) {
         connectionStartRef.current = null;
@@ -1619,7 +1672,7 @@ function App(): ReactElement {
       setSelectedNodeId(params.nodeId);
       replaceCanvasLive({ nodes: nodes.map((node) => ({ ...node, selected: node.id === params.nodeId })) });
     },
-    [clearConnectionPreview, edges, nodes, replaceCanvasLive, setSelectedNodeId]
+    [clearConnectionHoverTarget, edges, nodes, replaceCanvasLive, setSelectedNodeId]
   );
 
   const handleConnectEnd = useCallback<OnConnectEnd>(
@@ -1628,14 +1681,20 @@ function App(): ReactElement {
 
       const connectionStart = connectionStartRef.current;
       const connectedSuccessfully = connectionSucceededRef.current || connectionState.isValid === true;
-      const preview = connectionPreviewRef.current;
+      const hoveredNodeId = connectionHoverTargetRef.current?.hoveredNodeId ?? nodeIdFromConnectionEvent(event);
       connectionStartRef.current = null;
       connectionSucceededRef.current = false;
-      clearConnectionPreview();
+      clearConnectionHoverTarget();
 
       if (connectedSuccessfully || !project || !isCanvasView || !connectionStart) return;
 
-      if (preview && commitExistingConnection({ source: preview.sourceId, target: preview.targetId }, preview.hoveredNodeId)) return;
+      if (hoveredNodeId) {
+        const hoveredConnection = connectionFromStart(connectionStart, hoveredNodeId);
+        if (hoveredConnection) {
+          commitExistingConnection(hoveredConnection, hoveredNodeId);
+        }
+        return;
+      }
 
       if (connectionState.toHandle || connectionState.toNode) return;
 
@@ -1671,7 +1730,7 @@ function App(): ReactElement {
       });
       setSelectedNodeId(newNode.id);
     },
-    [clearConnectionPreview, commitCanvasChange, commitExistingConnection, edges, isCanvasView, nodes, project, setSelectedNodeId, t]
+    [clearConnectionHoverTarget, commitCanvasChange, commitExistingConnection, edges, isCanvasView, nodes, project, setSelectedNodeId, t]
   );
 
   const handleNodeDragStart = useCallback<OnNodeDrag<Node>>(
@@ -1739,7 +1798,7 @@ function App(): ReactElement {
 
   const onSelectionChange = useCallback(
     ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
-      if (connectionPreviewRef.current) return;
+      if (connectionStartRef.current) return;
       const selectedNodeIds = selectedNodes.map((node) => node.id);
       const nextSelectedNodeId =
         selectedNodeId && selectedNodeIds.includes(selectedNodeId) ? selectedNodeId : selectedNodeIds[0] || null;
@@ -1763,29 +1822,29 @@ function App(): ReactElement {
       const connectionStart = connectionStartRef.current;
       if (!connectionStart) return;
 
-      const previewConnection = connectionFromStart(connectionStart, node.id);
-      if (!previewConnection || !isConnectionAllowed(previewConnection, edges)) {
-        clearConnectionPreview();
+      const hoverConnection = connectionFromStart(connectionStart, node.id);
+      if (!hoverConnection || !isConnectionAllowed(hoverConnection, edges)) {
+        clearConnectionHoverTarget();
         return;
       }
 
-      updateConnectionPreview({
-        sourceId: previewConnection.source,
-        targetId: previewConnection.target,
+      updateConnectionHoverTarget({
+        sourceId: hoverConnection.source,
+        targetId: hoverConnection.target,
         hoveredNodeId: node.id
       });
     },
-    [clearConnectionPreview, edges, updateConnectionPreview]
+    [clearConnectionHoverTarget, edges, updateConnectionHoverTarget]
   );
 
   const handleNodeMouseLeave = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       setHoveredNodeId(null);
-      if (connectionPreviewRef.current?.hoveredNodeId === node.id) {
-        clearConnectionPreview();
+      if (connectionHoverTargetRef.current?.hoveredNodeId === node.id) {
+        clearConnectionHoverTarget();
       }
     },
-    [clearConnectionPreview]
+    [clearConnectionHoverTarget]
   );
 
   const handlePaste = useCallback(
@@ -2200,7 +2259,7 @@ function App(): ReactElement {
                 }}
               >
                 <ReactFlow
-                  nodes={flowNodes as Node[]}
+                  nodes={nodes as Node[]}
                   edges={flowEdges}
                   nodeTypes={nodeTypes}
                   edgeTypes={edgeTypes}
@@ -2349,6 +2408,9 @@ function App(): ReactElement {
         assistantProvider={assistantProvider}
         assistantProviderOnboardingCompleted={assistantProviderOnboardingCompleted}
         showTranslucentBackground={!isWindows}
+        updateState={updateState}
+        onCheckForUpdates={checkForUpdates}
+        onInstallUpdate={installUpdate}
         onOpenChange={handleSettingsOpenChange}
         onPreview={applySettingsValues}
         onSave={handleSaveSettings}
@@ -2372,6 +2434,8 @@ function App(): ReactElement {
       />
       {achievementToastQueue[0] ? (
         <AchievementToast achievement={achievementToastQueue[0]} onClose={closeAchievementToast} onView={viewAchievementToast} />
+      ) : showUpdateToast ? (
+        <UpdateToast updateState={updateState} onClose={closeUpdateToast} onInstall={() => void installUpdate()} />
       ) : null}
       </main>
     </I18nProvider>
