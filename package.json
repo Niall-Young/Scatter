@@ -1,6 +1,6 @@
 {
   "name": "scatter",
-  "version": "5.1.24",
+  "version": "5.1.25",
   "description": "A local multimodal canvas that sends structured node flows to Codex.",
   "main": "out/main/index.js",
   "type": "module",
@@ -10,6 +10,7 @@
     "dev": "electron-vite dev",
     "build:accessibility-guide": "node scripts/build-accessibility-guide.mjs",
     "build:app": "npm run typecheck && electron-vite build",
+    "test:update-cleanup": "node scripts/test-update-cleanup.mjs",
     "typecheck": "tsc --noEmit",
     "build": "npm run build:accessibility-guide && npm run build:app",
     "preview": "electron-vite preview",

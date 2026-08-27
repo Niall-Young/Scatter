@@ -1,6 +1,6 @@
 # Scatter Agent 说明
 
-更新时间：2026-05-22
+更新时间：2026-08-27
 
 这份文件给后续参与 Scatter 的 AI agent 使用，记录项目概况、命令、目录、约定和容易踩坑的位置。修改架构、命令或协作规则时要同步更新。
 
@@ -122,6 +122,7 @@ npm run dist:win:publish
 - macOS 自动更新依赖 `dmg + zip`，不能移除 zip target；Windows 自动更新使用 x64 NSIS，不发布 portable 作为自动更新载体。
 - 打包应用启动后静默检查更新；没有新版本时不显示更新按钮。检测到可更新版本后，顶部栏左侧显示“更新”按钮；点击后才开始下载；下载或安装准备期间按钮进入 loading 状态；下载完成后按钮文案变为“重启”，点击后进入 `installing` 状态。不要恢复侧边栏底部检查更新入口、更新弹窗或更新 toast。
 - macOS 下载和 sha512 校验仍由 electron-updater 完成，但安装阶段不要调用 Squirrel.Mac `quitAndInstall()`。当前 ad-hoc 签名的 Designated Requirement 会绑定 cdhash，跨版本必然无法满足 Squirrel.Mac 旧签名要求，因此要使用 `updateService.ts` 里的自定义安装器：解压 zip，校验 `com.scatter.desktop` bundle 和 code signature，退出当前 app 后用后台 shell 脚本替换 `.app` 并重新打开。
+- 更新安装成功后必须删除 updater 下载缓存和同目录下全部 `.Scatter.app.previous-*` 历史备份，只保留最新 `Scatter.app`；新版本启动时继续兜底清理已安装版本的缓存和历史备份，但不能删除尚未安装的更高版本下载包。清理回归用例运行 `npm run test:update-cleanup`。
 - GitHub Releases 发布配置在 `package.json` 的 `build.publish`，目标仓库是 `Niall-Young/Scatter`，release 默认 draft。
 - Windows 当前 unsigned，用户可能看到 SmartScreen / 未知发布者提示；macOS 当前 ad-hoc，更新后辅助功能权限可能失效，继续复用“权限管理”自动重置和拖拽授权引导。
 

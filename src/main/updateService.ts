@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import { spawn, execFile } from "node:child_process";
-import { access, chmod, mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import os from "node:os";
 import path from "node:path";
@@ -63,17 +63,80 @@ function currentMacAppBundlePath(): string {
   return path.resolve(path.dirname(process.execPath), "../..");
 }
 
-function macUpdaterCacheDir(): string {
-  return path.join(app.getPath("home"), "Library", "Caches", "scatter-updater");
+function updaterCacheDir(): string {
+  const homePath = os.homedir();
+  const baseCachePath =
+    process.platform === "win32"
+      ? process.env.LOCALAPPDATA || path.join(homePath, "AppData", "Local")
+      : process.platform === "darwin"
+        ? path.join(homePath, "Library", "Caches")
+        : process.env.XDG_CACHE_HOME || path.join(homePath, ".cache");
+  return path.join(baseCachePath, "scatter-updater");
+}
+
+function compareNumericVersions(left: string, right: string): number | undefined {
+  const parse = (version: string): number[] | undefined => {
+    const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+    return match ? match.slice(1).map(Number) : undefined;
+  };
+  const leftParts = parse(left);
+  const rightParts = parse(right);
+  if (!leftParts || !rightParts) return undefined;
+
+  for (let index = 0; index < leftParts.length; index += 1) {
+    if (leftParts[index] !== rightParts[index]) {
+      return leftParts[index] - rightParts[index];
+    }
+  }
+  return 0;
+}
+
+async function cleanupStaleMacAppBackups(): Promise<void> {
+  if (process.platform !== "darwin" || !app.isPackaged) return;
+
+  const appParentPath = path.dirname(currentMacAppBundlePath());
+  const entries = await readdir(appParentPath, { withFileTypes: true });
+  await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory() && entry.name.startsWith(".Scatter.app.previous-"))
+      .map((entry) => rm(path.join(appParentPath, entry.name), { recursive: true, force: true }))
+  );
+}
+
+async function cleanupInstalledUpdateCache(): Promise<void> {
+  if (!app.isPackaged) return;
+
+  const cachePath = updaterCacheDir();
+  if (!(await pathExists(cachePath))) return;
+
+  const updateInfoPath = path.join(cachePath, "pending", "update-info.json");
+  let pendingVersion: string | undefined;
+  try {
+    const updateInfo = JSON.parse(await readFile(updateInfoPath, "utf8")) as { fileName?: unknown };
+    if (typeof updateInfo.fileName === "string") {
+      pendingVersion = updateInfo.fileName.match(/(\d+\.\d+\.\d+)/)?.[1];
+    }
+  } catch {
+    // A cache without valid pending metadata cannot be resumed safely.
+  }
+
+  const comparison = pendingVersion ? compareNumericVersions(pendingVersion, app.getVersion()) : undefined;
+  if (comparison !== undefined && comparison > 0) return;
+
+  await rm(cachePath, { recursive: true, force: true });
+}
+
+async function cleanupObsoleteUpdateArtifacts(): Promise<void> {
+  await Promise.all([cleanupStaleMacAppBackups(), cleanupInstalledUpdateCache()]);
 }
 
 async function downloadedMacUpdateZipPath(): Promise<string> {
   const candidates = [
     downloadedUpdateFilePath,
     updateState.downloadedVersion
-      ? path.join(macUpdaterCacheDir(), "pending", `Scatter-${updateState.downloadedVersion}-universal-mac.zip`)
+      ? path.join(updaterCacheDir(), "pending", `Scatter-${updateState.downloadedVersion}-universal-mac.zip`)
       : undefined,
-    path.join(macUpdaterCacheDir(), "update.zip")
+    path.join(updaterCacheDir(), "update.zip")
   ].filter((candidate): candidate is string => Boolean(candidate));
 
   for (const candidate of candidates) {
@@ -145,6 +208,7 @@ current="$2"
 replacement="$3"
 backup="$4"
 log="$5"
+updater_cache="$6"
 temp_root="$(cd "$(dirname "$0")" && pwd)"
 exec >>"$log" 2>&1
 echo "[$(/bin/date -u +"%Y-%m-%dT%H:%M:%SZ")] Starting Scatter update install"
@@ -178,7 +242,8 @@ fi
 if /usr/bin/ditto "$replacement" "$current"; then
   /usr/bin/xattr -dr com.apple.quarantine "$current" 2>/dev/null || true
   /usr/bin/open "$current"
-  /bin/rm -rf "$backup" "$temp_root" 2>/dev/null || true
+  /usr/bin/find "$(/usr/bin/dirname "$current")" -maxdepth 1 -type d -name '.Scatter.app.previous-*' -exec /bin/rm -rf {} + 2>/dev/null || true
+  /bin/rm -rf "$updater_cache" "$temp_root" 2>/dev/null || true
   echo "Scatter update install finished"
   exit 0
 fi
@@ -196,10 +261,14 @@ exit "$status"
   await writeFile(installScriptPath, installScript, "utf8");
   await chmod(installScriptPath, 0o755);
 
-  const child = spawn("/bin/bash", [installScriptPath, String(process.pid), currentAppPath, replacementAppPath, backupPath, logPath], {
-    detached: true,
-    stdio: "ignore"
-  });
+  const child = spawn(
+    "/bin/bash",
+    [installScriptPath, String(process.pid), currentAppPath, replacementAppPath, backupPath, logPath, updaterCacheDir()],
+    {
+      detached: true,
+      stdio: "ignore"
+    }
+  );
   child.unref();
 
   setImmediate(() => app.quit());
@@ -443,6 +512,8 @@ export function registerUpdateIpc(): void {
 export function startAutomaticUpdateCheck(): void {
   if (!app.isPackaged) return;
   setTimeout(() => {
-    void checkForUpdates();
+    void cleanupObsoleteUpdateArtifacts()
+      .catch(() => undefined)
+      .finally(() => checkForUpdates());
   }, 3000);
 }

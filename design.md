@@ -1,6 +1,6 @@
 # Scatter 设计文档
 
-更新时间：2026-05-22
+更新时间：2026-08-27
 
 这份文档记录当前项目的产品形态、技术结构和已知边界，先作为后续迭代的基线。以后功能变化时直接在这里继续改。
 
@@ -40,7 +40,7 @@ macOS 启动窗口和主窗口使用透明 Electron 窗口配合背景模糊。W
 
 点击左侧栏“设置”或按 `⌘,` 会打开居中的设置弹窗。弹窗包含主题、语言、默认运行器和半透明背景，底部提供恢复默认和保存设置；Windows 隐藏半透明背景设置并始终使用纯色背景。设置项切换后会实时预览；如果关闭弹窗而没有点击保存设置，会回退到打开弹窗前的设置。设置保存到 Electron `userData/settings.json`，不写入项目文件；主题支持跟随系统、浅色和深色，语言支持中文和英文，默认运行器支持 Codex 和 Claude CLI，半透明背景默认开启但只在支持的非 Windows 平台生效。语言切换覆盖应用 UI、状态提示、无障碍标签和 Scatter 生成的 Markdown 模板；用户输入的项目名、节点标题、节点正文、附件名和路径不会被自动翻译。
 
-打包应用启动主窗口后会静默检查 GitHub Releases。没有新版本时不显示任何更新入口；检测到可更新版本后，顶部栏左侧显示“更新”按钮。点击“更新”才开始下载最新安装包，下载或安装准备期间按钮进入 loading 状态并禁用；下载完成后按钮文案变为“重启”，点击后调用 updater 安装并重启。更新状态来自 `window.scatter.updates`，不写入设置文件；不再提供更新弹窗或更新 toast。开发模式下不会自动检查或下载更新。macOS 更新继续依赖 `dmg + zip` 产物；下载和 sha512 校验仍由 electron-updater 完成，但安装阶段使用 Scatter 自己的 ad-hoc 安装器解压 zip、校验 `com.scatter.desktop` bundle 和 code signature，然后退出当前 app、替换 `.app` 并重新打开，避免 Squirrel.Mac 用旧 ad-hoc `cdhash` 校验新版本导致失败。由于当前使用 ad-hoc signing，更新后辅助功能权限可能失效，此时运行 Codex 或 Claude CLI 前会复用现有权限管理流程，先重置旧 TCC 授权再打开拖拽授权引导。Windows 使用 x64 NSIS 安装包自动更新，不涉及 macOS 辅助功能权限；当前 unsigned 发布可能触发 SmartScreen 或未知发布者提示。
+打包应用启动主窗口后会静默检查 GitHub Releases。没有新版本时不显示任何更新入口；检测到可更新版本后，顶部栏左侧显示“更新”按钮。点击“更新”才开始下载最新安装包，下载或安装准备期间按钮进入 loading 状态并禁用；下载完成后按钮文案变为“重启”，点击后调用 updater 安装并重启。更新状态来自 `window.scatter.updates`，不写入设置文件；不再提供更新弹窗或更新 toast。开发模式下不会自动检查或下载更新。macOS 更新继续依赖 `dmg + zip` 产物；下载和 sha512 校验仍由 electron-updater 完成，但安装阶段使用 Scatter 自己的 ad-hoc 安装器解压 zip、校验 `com.scatter.desktop` bundle 和 code signature，然后退出当前 app、替换 `.app` 并重新打开，避免 Squirrel.Mac 用旧 ad-hoc `cdhash` 校验新版本导致失败。安装成功后只保留最新的 `Scatter.app`，自动删除同目录下旧的 `.Scatter.app.previous-*` 备份和 updater 下载缓存；新版本启动时也会兜底清理已安装版本的缓存与历史备份，未安装的更高版本下载包会保留。由于当前使用 ad-hoc signing，更新后辅助功能权限可能失效，此时运行 Codex 或 Claude CLI 前会复用现有权限管理流程，先重置旧 TCC 授权再打开拖拽授权引导。Windows 使用 x64 NSIS 安装包自动更新，不涉及 macOS 辅助功能权限；当前 unsigned 发布可能触发 SmartScreen 或未知发布者提示。
 
 顶部栏左侧的侧栏按钮或 `⌘B` 可以收起或展开左侧栏。左侧栏收起后，项目列表区域隐藏，工作区铺满窗口宽度并保留左右 12px 边距；顶部栏左侧显示侧栏按钮和添加项目按钮，检测到新版本时同组右侧显示更新按钮。侧栏展开和收起带短过渡动画，这个折叠状态只保存在 renderer 内存中，不写入项目文件。
 
